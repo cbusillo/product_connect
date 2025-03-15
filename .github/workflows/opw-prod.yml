@@ -1,9 +1,7 @@
 name: Deploy to Prod
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - opw-prod
+
 jobs:
   deploy:
     runs-on: ubuntu-latest

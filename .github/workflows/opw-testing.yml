@@ -1,9 +1,7 @@
 name: Deploy to Testing
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - opw-testing
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
