@@ -3,7 +3,7 @@
     "baseUrl": ".",
     "paths": {
       "qr-scanner": [
-        "./product_connect/static/src/types/qr-scanner.d.ts"
+        "./static/src/types/qr-scanner.d.ts"
       ]
     },
     "target": "es2020",
@@ -18,7 +18,7 @@
     "forceConsistentCasingInFileNames": true
   },
   "include": [
-    "./product_connect/static/src/**/*.ts"
+    "./static/src/**/*.ts"
   ],
   "exclude": [
     "node_modules",
