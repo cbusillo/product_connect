@@ -46,8 +46,9 @@ jobs:
         shell: bash
       - name: Check if website is up
         run: |
+          sleep 5
           count=0
-          max_attempts=30
+          max_attempts=100
           while true; do
             status_code=$(curl --max-time 10 --write-out "%{http_code}\n" --silent --output /dev/null ${{ vars.TESTING_SERVER }}:8069/web/login || echo "Curl failed")
             if [ "$status_code" = "200" ]; then
