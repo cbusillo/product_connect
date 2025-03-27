@@ -45,6 +45,8 @@ jobs:
           ssh ${{ vars.TESTING_USER }}@${{ vars.TESTING_SERVER }} 'cd /opt/odoo/odoo-addons/product_connect; sudo -u odoo git pull; sudo systemctl restart odoo'
         shell: bash
       - name: Wait for website to be up (Python)
+        env:
+          PYTHONUNBUFFERED: 1
         run: |
           python - <<'EOF'
           import time, sys
@@ -52,6 +54,8 @@ jobs:
           import os
       
           url = f"http://{os.environ.get('TESTING_SERVER')}:8069/web/login"
+          print("TESTING_SERVER:", os.environ.get("TESTING_SERVER"), flush=True)
+          print("URL:", url, flush=True)
           max_attempts = 100
           attempt = 0
       
@@ -62,7 +66,7 @@ jobs:
                       print("Received 200 OK")
                       sys.exit(0)
                   else:
-                      print(f"Attempt {attempt+1}: Received status {response.status_code}")
+                      print(f"Attempt {attempt+1} failed: {e}", flush=True)
               except Exception as e:
                   print(f"Attempt {attempt+1} failed: {e}")
               attempt += 1
