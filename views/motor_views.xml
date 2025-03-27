@@ -292,20 +292,20 @@
                                                 class="btn btn-primary btn-sm ms-2">
                                             <i class="fa fa-upload"/>&#160;Enable All </button>
                                     </div>
-                                    <field name="products_not_enabled" mode="list" context="{'list_view_ref': 'addons.product_connect.view_motor_product_list',
-                                           'form_view_ref': 'addons.product_connect.view_motor_product_form'}"/>
+                                    <field name="products_not_enabled" mode="list" context="{'list_view_ref': 'product_connect.view_motor_product_list',
+                                           'form_view_ref': 'product_connect.view_motor_product_form'}"/>
                                 </page>
                                 <page string="Reference" limit="200">
                                     <field name="products_with_reference_product"
-                                           context="{'list_view_ref': 'addons.product_connect.view_motor_product_kanban'}"/>
+                                           context="{'list_view_ref': 'product_connect.view_motor_product_kanban'}"/>
                                 </page>
                                 <page string="Dismantle" limit="200">
                                     <field name="products_to_dismantle" mode="list"
-                                           context="{'list_view_ref': 'addons.product_connect.view_motor_product_list_dismantle'}"/>
+                                           context="{'list_view_ref': 'product_connect.view_motor_product_list_dismantle'}"/>
                                 </page>
                                 <page string="Clean" limit="200">
                                     <field name="products_to_clean" mode="list"
-                                           context="{'list_view_ref': 'addons.product_connect.view_motor_product_list_clean'}"/>
+                                           context="{'list_view_ref': 'product_connect.view_motor_product_list_clean'}"/>
                                 </page>
                                 <page id="extended_testing" string="Extended Testing">
                                     <field name="extended_tests" widget="motor_test_widget">
@@ -337,11 +337,11 @@
                                 </page>
                                 <page string="Picture" limit="200">
                                     <field name="products_to_picture" mode="list"
-                                           context="{'list_view_ref': 'addons.product_connect.view_motor_product_list_picture'}"/>
+                                           context="{'list_view_ref': 'product_connect.view_motor_product_list_picture'}"/>
                                 </page>
                                 <page string="Stock" limit="200">
                                     <field name="products_to_stock" mode="list"
-                                           context="{'list_view_ref': 'addons.product_connect.view_motor_product_list_stock'}"/>
+                                           context="{'list_view_ref': 'product_connect.view_motor_product_list_stock'}"/>
                                 </page>
                             </notebook>
                         </page>
