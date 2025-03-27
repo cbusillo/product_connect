@@ -51,10 +51,8 @@ jobs:
           python - <<'EOF'
           import time, sys
           import requests
-          import os
       
-          url = f"http://{os.environ.get('TESTING_SERVER')}:8069/web/login"
-          print("TESTING_SERVER:", os.environ.get("TESTING_SERVER"), flush=True)
+          url = f"http://${{ vars.TESTING_SERVER }}:8069/web/login"
           print("URL:", url, flush=True)
           max_attempts = 100
           attempt = 0
