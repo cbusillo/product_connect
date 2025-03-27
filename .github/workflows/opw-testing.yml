@@ -49,6 +49,7 @@ jobs:
           python - <<'EOF'
           import time, sys
           import requests
+          import os
       
           url = f"http://{os.environ.get('TESTING_SERVER')}:8069/web/login"
           max_attempts = 100
