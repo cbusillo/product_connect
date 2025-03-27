@@ -1,6 +1,9 @@
 name: Deploy to Testing
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - testing
 
 jobs:
   deploy:
@@ -39,14 +42,15 @@ jobs:
         shell: bash
       - name: Clone & Install
         run: |
-          ssh ${{ vars.TESTING_USER }}@${{ vars.TESTING_SERVER }} 'cd /opt/odoo/odoo-addons; sudo -u odoo git pull; sudo systemctl restart odoo'
+          ssh ${{ vars.TESTING_USER }}@${{ vars.TESTING_SERVER }} 'cd /opt/odoo/odoo-addons/product_connect; sudo -u odoo git pull; sudo systemctl restart odoo'
         shell: bash
       - name: Check if website is up
         run: |
+          sleep 5
           count=0
-          max_attempts=30
+          max_attempts=100
           while true; do
-            status_code=$(curl --write-out "%{http_code}\n" --silent --output /dev/null ${{ vars.TESTING_SERVER }}:8069/web/login || echo "Curl failed")
+            status_code=$(ssh ${{ vars.TESTING_USER }}@${{ vars.TESTING_SERVER }} "curl --write-out '%{http_code}\n' --output /dev/null localhost:8069/web/login || echo 'Curl failed'")
             if [ "$status_code" = "200" ]; then
               break
             else
