@@ -22,6 +22,7 @@ class ProductTemplate(models.Model):
     )
 
     is_ready_for_sale = fields.Boolean(tracking=True, index=True, default=True)
+    is_ready_for_sale_last_enabled_date = fields.Datetime(index=True, compute="_compute_is_ready_for_sale_last_enabled_date")
     name_with_tags_length = fields.Integer(compute="_compute_name_with_tags_length")
 
     motor = fields.Many2one("motor", ondelete="restrict", readonly=True, index=True)
@@ -220,6 +221,15 @@ class ProductTemplate(models.Model):
         if "repair_state" in changes:
             res["repair_state"] = ("product_connect.mail_template_repair_state_change", {})
         return res
+
+    @api.depends("is_ready_for_sale")
+    def _compute_is_ready_for_sale_last_enabled_date(self) -> None:
+        for product in self:
+            if product.is_ready_for_sale:
+                product.is_ready_for_sale_last_enabled_date = fields.Datetime.now()
+            else:
+                product.is_ready_for_sale_last_enabled_date = False
+
 
     def _compute_name_with_tags_length(self) -> None:
         for product in self:
