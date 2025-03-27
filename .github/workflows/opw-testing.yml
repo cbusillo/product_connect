@@ -44,21 +44,29 @@ jobs:
         run: |
           ssh ${{ vars.TESTING_USER }}@${{ vars.TESTING_SERVER }} 'cd /opt/odoo/odoo-addons/product_connect; sudo -u odoo git pull; sudo systemctl restart odoo'
         shell: bash
-      - name: Check if website is up
+      - name: Wait for website to be up (Python)
         run: |
-          sleep 5
-          count=0
-          max_attempts=100
-          while true; do
-            status_code=$(curl --http1.0 --write-out "%{http_code}\n" -v --output /dev/null ${{ vars.TESTING_SERVER }}:8069/web/login || echo "Curl failed")
-            if [ "$status_code" = "200" ]; then
-              break
-            else
-              count=$((count+1))
-              if [ $count -ge $max_attempts ]; then
-                exit 1
-              fi
-              sleep 5
-            fi
-          done
+          python - <<'EOF'
+          import time, sys
+          import requests
+      
+          url = f"http://{os.environ.get('TESTING_SERVER')}:8069/web/login"
+          max_attempts = 100
+          attempt = 0
+      
+          while attempt < max_attempts:
+              try:
+                  response = requests.get(url, timeout=10)
+                  if response.status_code == 200:
+                      print("Received 200 OK")
+                      sys.exit(0)
+                  else:
+                      print(f"Attempt {attempt+1}: Received status {response.status_code}")
+              except Exception as e:
+                  print(f"Attempt {attempt+1} failed: {e}")
+              attempt += 1
+              time.sleep(5)
+          print(f"Failed to get 200 OK after {max_attempts} attempts")
+          sys.exit(1)
+          EOF
         shell: bash
