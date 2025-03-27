@@ -51,7 +51,7 @@ jobs:
           count=0
           max_attempts=100
           while true; do
-            status_code=$(curl --max-time 10 --write-out "%{http_code}\n" --silent --output /dev/null ${{ vars.PRODUCTION_SERVER }}:8069 || echo "Curl failed")
+            status_code=$(ssh ${{ vars.PRODUCTION_USER }}@${{ vars.PRODUCTION_SERVER }} "curl --write-out '%{http_code}\n' --output /dev/null localhost:8069/web/login || echo 'Curl failed'")
             if [ "$status_code" = "200" ]; then
               break
             else
