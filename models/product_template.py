@@ -22,7 +22,9 @@ class ProductTemplate(models.Model):
     )
 
     is_ready_for_sale = fields.Boolean(tracking=True, index=True, default=True)
-    is_ready_for_sale_last_enabled_date = fields.Datetime(index=True, compute="_compute_is_ready_for_sale_last_enabled_date")
+    is_ready_for_sale_last_enabled_date = fields.Datetime(
+        index=True, compute="_compute_is_ready_for_sale_last_enabled_date", store=True
+    )
     name_with_tags_length = fields.Integer(compute="_compute_name_with_tags_length")
 
     motor = fields.Many2one("motor", ondelete="restrict", readonly=True, index=True)
@@ -34,7 +36,10 @@ class ProductTemplate(models.Model):
         help="Cost that was paid for the product, normally calculated from the motor cost.  Must be at least $0.01 for "
         "enabling motor products.",
     )
+    initial_cost_total = fields.Float(compute="_compute_initial_cost_total", store=True)
     list_price = fields.Float(string="Price", tracking=True, default=0)
+    initial_price_total = fields.Float(compute="_compute_initial_price_total", store=True)
+
     create_date = fields.Datetime(index=True)
 
     images = fields.One2many("product.image", "product_tmpl_id")
@@ -222,14 +227,26 @@ class ProductTemplate(models.Model):
             res["repair_state"] = ("product_connect.mail_template_repair_state_change", {})
         return res
 
+    @api.depends("initial_quantity", "list_price")
+    def _compute_initial_price_total(self) -> None:
+        for product in self:
+            product.initial_price_total = product.initial_quantity * product.list_price
+
+    @api.depends("initial_quantity", "standard_price")
+    def _compute_initial_cost_total(self) -> None:
+        for product in self:
+            product.initial_cost_total = product.initial_quantity * product.standard_price
+
     @api.depends("is_ready_for_sale")
     def _compute_is_ready_for_sale_last_enabled_date(self) -> None:
         for product in self:
+            product.is_ready_for_sale_last_enabled_date = False
             if product.is_ready_for_sale:
-                product.is_ready_for_sale_last_enabled_date = fields.Datetime.now()
-            else:
-                product.is_ready_for_sale_last_enabled_date = False
-
+                tracking_msgs = product.message_ids.filtered(
+                    lambda m: any(trk.field_id.name == "is_ready_for_sale" for trk in m.tracking_value_ids)
+                ).sorted(lambda m: m.create_date, reverse=True)
+                if tracking_msgs:
+                    product.is_ready_for_sale_last_enabled_date = tracking_msgs[0].create_date
 
     def _compute_name_with_tags_length(self) -> None:
         for product in self:
