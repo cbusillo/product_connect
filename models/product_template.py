@@ -70,9 +70,7 @@ class ProductTemplate(models.Model):
     motor_product_computed_name = fields.Char(compute="_compute_motor_product_computed_name", store=True)
     is_qty_listing = fields.Boolean(related="motor_product_template.is_quantity_listing")
 
-    reference_product = fields.Many2one(
-        "product.template", compute="_compute_reference_product", store=True, index=True
-    )
+    reference_product = fields.Many2one("product.template", compute="_compute_reference_product", store=True, index=True)
 
     dismantle_notes = fields.Text()
     template_name_with_dismantle_notes = fields.Char(compute="_compute_template_name_with_dismantle_notes", store=False)
@@ -111,9 +109,7 @@ class ProductTemplate(models.Model):
         store=True,
     )
     shopify_product_url = fields.Char(compute="_compute_shopify_urls", store=True, string="Shopify Product Link")
-    shopify_product_admin_url = fields.Char(
-        compute="_compute_shopify_urls", store=True, string="Shopify Product Admin Link"
-    )
+    shopify_product_admin_url = fields.Char(compute="_compute_shopify_urls", store=True, string="Shopify Product Admin Link")
 
     # noinspection PyShadowingNames
     @api.model
@@ -137,8 +133,7 @@ class ProductTemplate(models.Model):
                     product["list_price"] * product["initial_quantity"] for product in self.search(group["__domain"])
                 )
                 group["standard_price"] = sum(
-                    product["standard_price"] * product["initial_quantity"]
-                    for product in self.search(group["__domain"])
+                    product["standard_price"] * product["initial_quantity"] for product in self.search(group["__domain"])
                 )
 
         return groups
@@ -325,12 +320,11 @@ class ProductTemplate(models.Model):
     def _compute_shopify_urls(self) -> None:
         for product in self:
             if product.shopify_product_id:
+                shop_url_key = self.env["ir.config_parameter"].get_param("shopify.shop_url_key")
                 product.shopify_product_admin_url = (
-                    f"https://admin.shopify.com/store/yps-your-part-supplier/products/{product.shopify_product_id}"
+                    f"https://admin.shopify.com/store/{shop_url_key}/products/{product.shopify_product_id}"
                 )
-                product.shopify_product_url = (
-                    f"https://yps-your-part-supplier.myshopify.com/products/{product.shopify_product_id}"
-                )
+                product.shopify_product_url = f"https://{shop_url_key}.myshopify.com/products/{product.shopify_product_id}"
             else:
                 product.shopify_product_admin_url = False
                 product.shopify_product_url = False
@@ -481,8 +475,7 @@ class ProductTemplate(models.Model):
         for image in images_with_data:
             if image.image_1920_file_size_kb < min_image_size:
                 missing_fields.append(
-                    f"Image ({image.index}) too small "
-                    f"({image.image_1920_file_size_kb}kB < {min_image_size}kB minimum size)"
+                    f"Image ({image.index}) too small " f"({image.image_1920_file_size_kb}kB < {min_image_size}kB minimum size)"
                 )
             if image.image_1920_width < min_image_resolution - 1 and image.image_1920_height < min_image_resolution - 1:
                 missing_fields.append(
@@ -574,9 +567,7 @@ class ProductTemplate(models.Model):
                 {"title": "Import Warning", "message": message, "sticky": False},
             )
 
-        ready_to_enable_products.filtered(
-            lambda p: p.condition and p.condition.name == "new"
-        ).check_for_conflicting_products()
+        ready_to_enable_products.filtered(lambda p: p.condition and p.condition.name == "new").check_for_conflicting_products()
 
         for product in ready_to_enable_products:
             website_description = product.replace_template_tags(product.website_description or "")
@@ -644,11 +635,7 @@ class ProductTemplate(models.Model):
             name_parts = [
                 product.motor.year if product.motor_product_template.include_year_in_name else None,
                 product.motor.manufacturer.name if product.motor.manufacturer else None,
-                (
-                    product.motor.get_horsepower_formatted()
-                    if product.motor_product_template.include_hp_in_name
-                    else None
-                ),
+                (product.motor.get_horsepower_formatted() if product.motor_product_template.include_hp_in_name else None),
                 product.motor.stroke.name,
                 "Outboard",
                 product.motor_product_template.name,

@@ -131,7 +131,7 @@ class ShopifySync(models.AbstractModel):
 
     @api.model
     def initialize_shopify_session(self) -> None:
-        shop_url = self.env["ir.config_parameter"].sudo().get_param("shopify.shop_url")
+        shop_url = self.env["ir.config_parameter"].sudo().get_param("shopify.shop_url_key")
         token = self.env["ir.config_parameter"].sudo().get_param("shopify.api_token")
         shopify_session = shopify.Session(f"{shop_url}.myshopify.com", token=token, version="2024-01")
         shopify.ShopifyResource.activate_session(shopify_session)
@@ -177,11 +177,7 @@ class ShopifySync(models.AbstractModel):
     ) -> str:
         if not time_filter:
             time_filter = self.DEFAULT_DATETIME.isoformat(timespec="seconds")
-        limit = (
-            self.MAX_SHOPIFY_PRODUCTS_PER_FETCH
-            if "Ids" not in operation_name
-            else self.MAX_SHOPIFY_PRODUCTS_PER_FETCH * 10
-        )
+        limit = self.MAX_SHOPIFY_PRODUCTS_PER_FETCH if "Ids" not in operation_name else self.MAX_SHOPIFY_PRODUCTS_PER_FETCH * 10
 
         base_query = f"updated_at:>{time_filter}"
         if custom_query:
@@ -241,9 +237,7 @@ class ShopifySync(models.AbstractModel):
         status = "unchanged"
         try:
             if odoo_product_product:
-                latest_write_date = self.determine_latest_product_modification_time(
-                    odoo_product_product, last_import_time
-                )
+                latest_write_date = self.determine_latest_product_modification_time(odoo_product_product, last_import_time)
                 if shopify_updated_at > latest_write_date:
                     status = self.create_or_update_odoo_product(shopify_product, existing_product=odoo_product_product)
             elif not odoo_product_product:
@@ -274,9 +268,7 @@ class ShopifySync(models.AbstractModel):
             odoo_product_template.write_date.replace(tzinfo=UTC) if odoo_product_template.write_date else None
         )
         odoo_product_product_shopify_last_exported = (
-            odoo_product_product.shopify_last_exported.replace(tzinfo=UTC)
-            if odoo_product_product.shopify_last_exported
-            else None
+            odoo_product_product.shopify_last_exported.replace(tzinfo=UTC) if odoo_product_product.shopify_last_exported else None
         )
 
         dates = [
@@ -302,9 +294,7 @@ class ShopifySync(models.AbstractModel):
 
         updated_count, total_count, cursor, has_more_data = 0, 0, None, True
         while has_more_data:
-            shopify_products = self.fetch_shopify_product_edges(
-                cursor, last_import_time_str, graphql_client, graphql_document
-            )
+            shopify_products = self.fetch_shopify_product_edges(cursor, last_import_time_str, graphql_client, graphql_document)
 
             for shopify_product_node in shopify_products:
                 shopify_product = shopify_product_node.get("node", {})
@@ -332,8 +322,7 @@ class ShopifySync(models.AbstractModel):
 
         self.finalize_import_and_commit_changes(current_import_start_time)
         message = (
-            f"Shopify imported {updated_count} out of {total_count} items successfully at "
-            f"{self.now_in_localtime_formatted()}"
+            f"Shopify imported {updated_count} out of {total_count} items successfully at " f"{self.now_in_localtime_formatted()}"
         )
         self.notify_channel("Shopify sync", message, "shopify_sync")
 
@@ -389,9 +378,7 @@ class ShopifySync(models.AbstractModel):
             "type": "consu",
             "is_storable": True,
             "manufacturer": (
-                self.find_or_add_manufacturer(shopify_product_data["vendor"]).id
-                if shopify_product_data["vendor"]
-                else None
+                self.find_or_add_manufacturer(shopify_product_data["vendor"]).id if shopify_product_data["vendor"] else None
             ),
             "is_published": shopify_product_data["status"].lower() == "active",
             "is_ready_for_sale": True,
@@ -421,9 +408,7 @@ class ShopifySync(models.AbstractModel):
         return odoo_product_data
 
     def import_product_images_from_shopify(self, shopify_product, odoo_product) -> None:
-        odoo_product_template = self.env["product.template"].search(
-            [("id", "=", odoo_product.product_tmpl_id.id)], limit=1
-        )
+        odoo_product_template = self.env["product.template"].search([("id", "=", odoo_product.product_tmpl_id.id)], limit=1)
 
         if not odoo_product_template.image_1920:
             shopify_image_edges = shopify_product.get("images", {}).get("edges", [])
@@ -659,9 +644,7 @@ class ShopifySync(models.AbstractModel):
 
             ebay_category_id_metafield = {"value": str(odoo_product.part_type.ebay_category_id) or ""}
             if odoo_product.shopify_ebay_category_id:
-                ebay_category_id_metafield["id"] = self.convert_to_shopify_gid(
-                    "Metafield", odoo_product.shopify_ebay_category_id
-                )
+                ebay_category_id_metafield["id"] = self.convert_to_shopify_gid("Metafield", odoo_product.shopify_ebay_category_id)
             else:
                 ebay_category_id_metafield.update(
                     {
@@ -696,9 +679,7 @@ class ShopifySync(models.AbstractModel):
                         operation_name="CreateProduct",
                     )
                     result_dict = self.parse_and_validate_shopify_response(result)
-                    shopify_product_id = (
-                        result_dict.get("data", {}).get("productCreate", {}).get("product", {}).get("id")
-                    )
+                    shopify_product_id = result_dict.get("data", {}).get("productCreate", {}).get("product", {}).get("id")
                     images = self.prepare_odoo_product_image_data_for_export(base_url, odoo_product)
                     try:
                         graphql_client.execute(
@@ -768,8 +749,7 @@ class ShopifySync(models.AbstractModel):
             )
             total_count += 1
             _logger.debug(
-                "Exported %s of %s products from Shopify so far. "
-                "Last product ID: %s has status: %s and was updated at %s",
+                "Exported %s of %s products from Shopify so far. " "Last product ID: %s has status: %s and was updated at %s",
                 total_count,
                 len(odoo_products),
                 shopify_product_data.get("id") or odoo_product.id,
