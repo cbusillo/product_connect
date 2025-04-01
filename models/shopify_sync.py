@@ -133,7 +133,8 @@ class ShopifySync(models.AbstractModel):
     def initialize_shopify_session(self) -> None:
         shop_url = self.env["ir.config_parameter"].sudo().get_param("shopify.shop_url_key")
         token = self.env["ir.config_parameter"].sudo().get_param("shopify.api_token")
-        shopify_session = shopify.Session(f"{shop_url}.myshopify.com", token=token, version="2024-01")
+        api_version = self.env["ir.config_parameter"].sudo().get_param("shopify.api_version")
+        shopify_session = shopify.Session(f"{shop_url}.myshopify.com", token=token, version=api_version)
         shopify.ShopifyResource.activate_session(shopify_session)
 
     def fetch_import_timestamps(self) -> tuple[str, datetime, datetime]:
