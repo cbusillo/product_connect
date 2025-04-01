@@ -332,6 +332,9 @@ class ShopifySync(models.AbstractModel):
     def parse_shopify_product_data(self, product: dict) -> dict[str, Any]:
         product_variant = product.get("variants", {}).get("edges", [])[0].get("node", {})
         product_metafields = product.get("metafields", {}).get("edges", [])
+        product_inventory_item = product_variant.get("inventoryItem", {})
+        weight = float(product_inventory_item.get("measurement", {}).get("weight", {}).get("value", 0))
+        cost = float(product_inventory_item.get("unitCost", {}).get("amount", 0))
         sku, bin_location = self.extract_sku_bin_from_shopify_product(product)
         quantity = int(product.get("totalInventory", 0))
 
@@ -346,13 +349,9 @@ class ShopifySync(models.AbstractModel):
             "description_html": product.get("descriptionHtml") or "",
             "created_at": product.get("createdAt") or "",
             "price": float(product_variant.get("price") or 0.0),
-            "cost": (
-                float(product_variant.get("inventoryItem", {}).get("unitCost", {}).get("amount") or 0.0)
-                if product_variant.get("inventoryItem", {}).get("unitCost")
-                else 0.0
-            ),
+            "cost": cost,
             "barcode": product_variant.get("barcode") or "",
-            "weight": float(product_variant.get("weight") or 0.0),
+            "weight": weight,
             "status": product.get("status") or "",
             "vendor": product.get("vendor") or "",
             "part_type": product.get("productType") or "",
