@@ -11,7 +11,7 @@ from dateutil.parser import parse
 from odoo import api, fields, models
 from pathlib import Path
 from requests.exceptions import RequestException
-from typing import Any, Self
+from typing import Any, Self, Optional
 from urllib.error import HTTPError
 from zoneinfo import ZoneInfo
 
@@ -60,7 +60,7 @@ def apply_rate_limit_patch_to_shopify_execute() -> None:
         _logger.debug("Exceeded Shopify API limit. Retrying in %s seconds", retry_after)
         time.sleep(retry_after)
 
-    def rate_limited_execute(self, *args, **kwargs) -> str:
+    def rate_limited_execute(self: Any, *args: Any, **kwargs: Any) -> str:
         for attempt in range(MAX_RETRIES):
             try:
                 response = shopify_original_execute_function(self, *args, **kwargs)
@@ -102,10 +102,10 @@ class ShopifySync(models.AbstractModel):
     MAX_SHOPIFY_PRODUCTS_PER_FETCH = 250
     COMMIT_AFTER = 1000
     DEFAULT_DATETIME = datetime(2000, 1, 1, tzinfo=UTC)
-    ONLINE_STORE_ID = 19453116480
-    POINT_OF_SALE_ID = 42683596853
-    GOOGLE_ID = 88268636213
-    SHOP_ID = 99113467957
+    ONLINE_STORE_ID = "19453116480"
+    POINT_OF_SALE_ID = "42683596853"
+    GOOGLE_ID = "88268636213"
+    SHOP_ID = "99113467957"
 
     session = requests.Session()
 
@@ -172,8 +172,8 @@ class ShopifySync(models.AbstractModel):
         time_filter: str,
         graphql_client: shopify.GraphQL,
         graphql_document: str,
-        operation_name,
-        custom_query=None,
+        operation_name: str,
+        custom_query: str | None = None,
     ) -> str:
         if not time_filter:
             time_filter = self.DEFAULT_DATETIME.isoformat(timespec="seconds")
@@ -257,7 +257,9 @@ class ShopifySync(models.AbstractModel):
             )
         return status
 
-    def determine_latest_product_modification_time(self, odoo_product_product, last_import_time) -> datetime:
+    def determine_latest_product_modification_time(
+        self, odoo_product_product: "odoo.model.product_product", last_import_time: datetime
+    ) -> datetime:
         if last_import_time.year < 2001:  # set the import time to 2001 in Odoo to import all products
             return self.DEFAULT_DATETIME
         odoo_product_template = odoo_product_product.product_tmpl_id
@@ -326,7 +328,7 @@ class ShopifySync(models.AbstractModel):
         )
         self.notify_channel("Shopify sync", message, "shopify_sync")
 
-    def parse_shopify_product_data(self, product) -> dict[str, Any]:
+    def parse_shopify_product_data(self, product: dict) -> dict[str, Any]:
         product_variant = product.get("variants", {}).get("edges", [])[0].get("node", {})
         product_metafields = product.get("metafields", {}).get("edges", [])
         sku, bin_location = self.extract_sku_bin_from_shopify_product(product)
@@ -356,7 +358,7 @@ class ShopifySync(models.AbstractModel):
         }
 
     def map_shopify_to_odoo_product_data(
-        self, shopify_product_data, odoo_product: "odoo.model.product_product"
+        self, shopify_product_data: dict, odoo_product: "odoo.model.product_product"
     ) -> dict[str, Any]:
         metafields_data = shopify_product_data["metafields"]
 
@@ -407,7 +409,7 @@ class ShopifySync(models.AbstractModel):
             odoo_product_data["condition"] = odoo_product.condition.code
         return odoo_product_data
 
-    def import_product_images_from_shopify(self, shopify_product, odoo_product) -> None:
+    def import_product_images_from_shopify(self, shopify_product: dict, odoo_product: "odoo.model.product_product") -> None:
         odoo_product_template = self.env["product.template"].search([("id", "=", odoo_product.product_tmpl_id.id)], limit=1)
 
         if not odoo_product_template.image_1920:
@@ -417,12 +419,14 @@ class ShopifySync(models.AbstractModel):
                 self.fetch_and_store_product_image(index, shopify_image.get("url", ""), odoo_product_template)
 
     @staticmethod
-    def update_product_stock_in_odoo(shopify_quantity: int, odoo_product) -> None:
+    def update_product_stock_in_odoo(shopify_quantity: int, odoo_product: "odoo.model.product_product") -> None:
         if shopify_quantity is not None:
             odoo_product.update_quantity(shopify_quantity)
 
     @api.model
-    def create_or_update_odoo_product(self, shopify_product, existing_product=None) -> str:
+    def create_or_update_odoo_product(
+        self, shopify_product: dict, existing_product: Optional["odoo.model.product_product"] = None
+    ) -> str:
 
         shopify_product_data = self.parse_shopify_product_data(shopify_product)
 
@@ -449,7 +453,7 @@ class ShopifySync(models.AbstractModel):
         return status
 
     @api.model
-    def find_or_add_manufacturer(self, manufacturer_name: str):
+    def find_or_add_manufacturer(self, manufacturer_name: str) -> "odoo.model.product_manufacturer":
         manufacturer = self.env["product.manufacturer"].search([("name", "=", manufacturer_name)], limit=1)
 
         if not manufacturer:
@@ -478,12 +482,14 @@ class ShopifySync(models.AbstractModel):
         return part_type
 
     @api.model
-    def update_product_quantity_in_odoo(self, shopify_quantity, odoo_product) -> None:
+    def update_product_quantity_in_odoo(self, shopify_quantity: int, odoo_product: "odoo.model.product_product") -> None:
         if shopify_quantity:
             odoo_product.update_quantity(shopify_quantity)
 
     @api.model
-    def fetch_and_store_product_image(self, index, shopify_image_url, odoo_product_template) -> None:
+    def fetch_and_store_product_image(
+        self, index: int, shopify_image_url: str, odoo_product_template: "odoo.model.product_template"
+    ) -> None:
         retries = 0
         while retries < MAX_RETRIES:
             try:
@@ -512,19 +518,18 @@ class ShopifySync(models.AbstractModel):
         _logger.error("Failed to fetch image from Shopify after %s attempts.", MAX_RETRIES)
 
     @staticmethod
-    def convert_to_shopify_gid(resource_type, numeric_id) -> str:
-        """Convert a numeric ID to Shopify GraphQL format."""
-        return f"gid://shopify/{resource_type}/{numeric_id}"
+    def convert_to_shopify_gid(resource_type: str, resource_id: str) -> str:
+        return f"gid://shopify/{resource_type}/{resource_id}"
 
-    def fetch_first_store_location_id(self, graphql_client, graphql_document) -> str:
-        """Retrieve Shopify location."""
+    def fetch_first_store_location_id(self, graphql_client: shopify.GraphQL, graphql_document: str) -> str:
         result = graphql_client.execute(query=graphql_document, operation_name="GetLocations")
         shopify_locations_dict = self.parse_and_validate_shopify_response(result)
         return shopify_locations_dict["data"]["locations"]["edges"][0]["node"]["id"]
 
     @staticmethod
-    def prepare_odoo_product_image_data_for_export(base_url, odoo_product) -> list[dict[str, str]]:
-        """Construct image data for each Odoo product."""
+    def prepare_odoo_product_image_data_for_export(
+        base_url: str, odoo_product: "odoo.model.product_product"
+    ) -> list[dict[str, str]]:
         media_list = []
         for odoo_image in sorted(
             odoo_product.product_tmpl_id.product_template_image_ids,
@@ -539,8 +544,7 @@ class ShopifySync(models.AbstractModel):
         return media_list
 
     @staticmethod
-    def check_for_shopify_errors(result_dict) -> None:
-        """Handle errors from the Shopify response."""
+    def check_for_shopify_errors(result_dict: dict) -> None:
         top_level_errors = result_dict.get("errors", [])
         product_update_errors = result_dict.get("data", {}).get("productUpdate", {}).get("userErrors", [])
         product_create_errors = result_dict.get("data", {}).get("productCreate", {}).get("userErrors", [])
@@ -561,13 +565,11 @@ class ShopifySync(models.AbstractModel):
             raise ValueError(f"Shopify GraphQL Errors: {' | '.join(error_messages)}")
 
     def parse_and_validate_shopify_response(self, result: str) -> dict[str, Any]:
-        """Process the result, log any errors, and return the parsed dictionary."""
         result_dict = json.loads(result)
         self.check_for_shopify_errors(result_dict)
         return result_dict
 
     def setup_sync_environment(self) -> tuple[shopify.GraphQL, str, str, str]:
-        """Set up and return context objects necessary for Shopify synchronization."""
         graphql_client = shopify.GraphQL()
         graphql_query_path = Path(__file__).parent.parent / "graphql" / "shopify_product.graphql"
         graphql_document = graphql_query_path.read_text()
