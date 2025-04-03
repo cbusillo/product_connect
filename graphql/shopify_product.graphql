@@ -29,10 +29,14 @@ query GetProducts($cursor: String, $limit: Int!, $query: String) {
                 totalInventory
                 createdAt
                 updatedAt
-                images(first: 20) {
+                media(first: 20) {
                     edges {
                         node {
-                            url
+                            preview {
+                                image {
+                                    url
+                                }
+                            }
                         }
                     }
                 }
@@ -43,13 +47,18 @@ query GetProducts($cursor: String, $limit: Int!, $query: String) {
                             price
                             sku
                             barcode
-                            weight
                             inventoryItem {
                                 unitCost {
                                     amount
                                     currencyCode
                                 }
+                                measurement {
+                                    weight {
+                                        value
+                                    }
+                                }
                             }
+
                         }
                     }
                 }
@@ -65,6 +74,27 @@ query GetProducts($cursor: String, $limit: Int!, $query: String) {
             }
         }
     }
+}
+
+mutation ProductVariantsBulkCreate($productId: ID!, $strategy: ProductVariantsBulkCreateStrategy, $variants: [ProductVariantsBulkInput!]!) {
+  productVariantsBulkCreate(productId: $productId, strategy: $strategy, variants: $variants) {
+    productVariants {
+      id
+      inventoryItem {
+        id
+        measurement {
+          weight {
+            value
+            unit
+          }
+        }
+      }
+    }
+    userErrors {
+      field
+      message
+    }
+  }
 }
 
 mutation DeleteProduct($input: ProductDeleteInput!) {
@@ -101,8 +131,8 @@ query GetOrdersLineItems($limit: Int!, $query: String!, $cursor: String) {
     }
 }
 
-mutation CreateProduct($input: ProductInput!) {
-    productCreate(input: $input) {
+mutation CreateProduct($input: ProductCreateInput!) {
+    productCreate(product: $input) {
         product {
             id
             metafields(first: 15, namespace: "custom") {
@@ -121,8 +151,8 @@ mutation CreateProduct($input: ProductInput!) {
     }
 }
 
-mutation UpdateProduct($input: ProductInput!) {
-    productUpdate(input: $input) {
+mutation UpdateProduct($input: ProductUpdateInput!) {
+    productUpdate(product: $input) {
         product {
             id
             metafields(first: 15, namespace: "custom") {
@@ -140,6 +170,8 @@ mutation UpdateProduct($input: ProductInput!) {
         }
     }
 }
+
+
 
 mutation createProductMedia($media: [CreateMediaInput!]!, $productId: ID!) {
     productCreateMedia(media: $media, productId: $productId) {
