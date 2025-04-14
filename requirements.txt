@@ -9,3 +9,5 @@ qrcode
 requests
 python-dateutil
 pydantic-settings
+
+httpx
