@@ -2,6 +2,7 @@ import logging
 import traceback
 
 from odoo import api, models, fields
+from pydantic import BaseModel
 
 _logger = logging.getLogger(__name__)
 
@@ -26,9 +27,7 @@ class NotificationHistory(models.Model):
     @api.model
     def recent_notifications(self, subject: str, channel_name: str, hours: int) -> "NotificationHistory":
         time_frame = fields.Datetime.subtract(fields.Datetime.now(), hours=hours)
-        return self.search(
-            [("timestamp", ">=", time_frame), ("subject", "=", subject), ("channel_name", "=", channel_name)]
-        )
+        return self.search([("timestamp", ">=", time_frame), ("subject", "=", subject), ("channel_name", "=", channel_name)])
 
 
 class NotificationManagerMixin(models.AbstractModel):
@@ -43,6 +42,7 @@ class NotificationManagerMixin(models.AbstractModel):
         body: str,
         channel_name: str,
         record: models.Model | None = None,
+        shopify_record: BaseModel | None = None,
         env: api.Environment | None = None,
         error_traceback: str | None = None,
     ) -> None:
@@ -60,13 +60,9 @@ class NotificationManagerMixin(models.AbstractModel):
             body += "\n\nError traceback:\n"
             body += error_traceback
 
-        _logger.debug(
-            "Sending message to channel %s with message %s for record %s",
-            channel,
-            body,
-            record,
-        )
-
+        _logger.debug("Sending message to channel %s with message %s for record %s", channel, body, record, shopify_record)
+        if shopify_record:
+            body += f"\nShopify record: {shopify_record}"
         if record:
             record.message_post(body=body, subject=subject, message_type="auto_comment")
         else:
@@ -80,6 +76,7 @@ class NotificationManagerMixin(models.AbstractModel):
         subject: str,
         body: str,
         record: models.Model | None = None,
+        shopify_record: BaseModel | None = None,
         error: Exception | None = None,
     ) -> None:
         error_traceback = ""
@@ -89,8 +86,13 @@ class NotificationManagerMixin(models.AbstractModel):
         new_cr = self.env.registry.cursor()
         try:
             new_env = api.Environment(new_cr, self.env.uid, self.env.context)
-            self.notify_channel(subject, body, "errors", record, new_env, error_traceback)
-            self.send_email_notification_to_admin(subject, body + "\n\n" + error_traceback)
+            self.notify_channel(subject, body, "errors", record, shopify_record, new_env, error_traceback)
+            message = f"{body}"
+            if record:
+                message += f"\nRecord: {record}"
+            if shopify_record:
+                message += f"\nShopify record: {shopify_record}"
+            self.send_email_notification_to_admin(subject, message)
             new_cr.commit()
         finally:
             new_cr.close()
