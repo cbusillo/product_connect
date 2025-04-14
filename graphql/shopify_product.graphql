@@ -2,6 +2,7 @@ query GetProductIds($cursor: String, $limit: Int!, $query: String) {
     products(first: $limit, after: $cursor, query: $query) {
         pageInfo {
             hasNextPage
+            endCursor
         }
         edges {
             cursor
@@ -16,6 +17,7 @@ query GetProducts($cursor: String, $limit: Int!, $query: String) {
     products(first: $limit, after: $cursor, query: $query) {
         pageInfo {
             hasNextPage
+            endCursor
         }
         edges {
             cursor
@@ -32,6 +34,7 @@ query GetProducts($cursor: String, $limit: Int!, $query: String) {
                 media(first: 20) {
                     edges {
                         node {
+                            alt
                             preview {
                                 image {
                                     url
@@ -76,119 +79,6 @@ query GetProducts($cursor: String, $limit: Int!, $query: String) {
     }
 }
 
-mutation ProductVariantsBulkCreate($productId: ID!, $strategy: ProductVariantsBulkCreateStrategy, $variants: [ProductVariantsBulkInput!]!) {
-  productVariantsBulkCreate(productId: $productId, strategy: $strategy, variants: $variants) {
-    productVariants {
-      id
-      inventoryItem {
-        id
-        measurement {
-          weight {
-            value
-            unit
-          }
-        }
-      }
-    }
-    userErrors {
-      field
-      message
-    }
-  }
-}
-
-mutation DeleteProduct($input: ProductDeleteInput!) {
-    productDelete(input: $input) {
-        deletedProductId
-        userErrors {
-            field
-            message
-        }
-    }
-}
-
-query GetOrdersLineItems($limit: Int!, $query: String!, $cursor: String) {
-    orders(first: $limit, query: $query, after: $cursor) {
-        edges {
-            cursor
-            node {
-                id
-                lineItems(first: 10) {
-                    edges {
-                        node {
-                            id
-                            product {
-                                id
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        pageInfo {
-            hasNextPage
-        }
-    }
-}
-
-mutation CreateProduct($input: ProductCreateInput!) {
-    productCreate(product: $input) {
-        product {
-            id
-            metafields(first: 15, namespace: "custom") {
-                edges {
-                    node {
-                        id
-                        key
-                    }
-                }
-            }
-        }
-        userErrors {
-            field
-            message
-        }
-    }
-}
-
-mutation UpdateProduct($input: ProductUpdateInput!) {
-    productUpdate(product: $input) {
-        product {
-            id
-            metafields(first: 15, namespace: "custom") {
-                edges {
-                    node {
-                        id
-                        key
-                    }
-                }
-            }
-        }
-        userErrors {
-            field
-            message
-        }
-    }
-}
-
-
-
-mutation createProductMedia($media: [CreateMediaInput!]!, $productId: ID!) {
-    productCreateMedia(media: $media, productId: $productId) {
-        media {
-            alt
-            mediaContentType
-            status
-        }
-        mediaUserErrors {
-            field
-            message
-        }
-    }
-}
-
-
-
 query GetLocations {
     locations(first: 5) {
         edges {
@@ -198,9 +88,54 @@ query GetLocations {
         }
     }
 }
+mutation ProductSet($identifier: ProductSetIdentifiers, $input: ProductSetInput!) {
+    productSet(identifier: $identifier, input: $input) {
+        product {
+            id
+            variants (first: 1) {
+                edges {
+                    node {
+                        id
+                    }
+                }
+            }
+            metafields (first: 15, namespace: "custom") {
+                edges {
+                    node {
+                        id
+                        key
+                    }
+                }
+            }
+            resourcePublicationsV2(onlyPublished: true) {
+                edges {
+                    node {
+                        publication {
+                            id
+                        }
+                    }
+                }
+            }
+        }
+        userErrors {
+            field
+            message
+        }
+    }
+}
 
 mutation UpdatePublications($id: ID!, $input: [PublicationInput!]!) {
     publishablePublish(id: $id, input: $input) {
+        userErrors {
+            field
+            message
+        }
+    }
+}
+
+mutation DeleteProduct($input: ProductDeleteInput!) {
+    productDelete(input: $input) {
+        deletedProductId
         userErrors {
             field
             message
