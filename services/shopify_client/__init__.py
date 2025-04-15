@@ -1096,9 +1096,9 @@ from .product_set import (
 )
 from .run_bulk_operation import (
     RunBulkOperation,
-    RunBulkOperationBulkOperationRunQuery,
-    RunBulkOperationBulkOperationRunQueryBulkOperation,
-    RunBulkOperationBulkOperationRunQueryUserErrors,
+    RunBulkOperationBulkOperationRunMutation,
+    RunBulkOperationBulkOperationRunMutationBulkOperation,
+    RunBulkOperationBulkOperationRunMutationUserErrors,
 )
 from .update_publications import (
     UpdatePublications,
@@ -1991,9 +1991,9 @@ __all__ = [
     "RiskAssessmentResult",
     "RiskFactSentiment",
     "RunBulkOperation",
-    "RunBulkOperationBulkOperationRunQuery",
-    "RunBulkOperationBulkOperationRunQueryBulkOperation",
-    "RunBulkOperationBulkOperationRunQueryUserErrors",
+    "RunBulkOperationBulkOperationRunMutation",
+    "RunBulkOperationBulkOperationRunMutationBulkOperation",
+    "RunBulkOperationBulkOperationRunMutationUserErrors",
     "SEOInput",
     "SaleActionType",
     "SaleLineType",

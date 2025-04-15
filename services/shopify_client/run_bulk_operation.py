@@ -19,29 +19,29 @@ from .enums import BulkOperationStatus
 
 
 class RunBulkOperation(BaseModel):
-    bulk_operation_run_query: Optional["RunBulkOperationBulkOperationRunQuery"] = Field(
-        alias="bulkOperationRunQuery"
-    )
+    bulk_operation_run_mutation: Optional[
+        "RunBulkOperationBulkOperationRunMutation"
+    ] = Field(alias="bulkOperationRunMutation")
 
 
-class RunBulkOperationBulkOperationRunQuery(BaseModel):
-    bulk_operation: Optional["RunBulkOperationBulkOperationRunQueryBulkOperation"] = (
-        Field(alias="bulkOperation")
-    )
-    user_errors: List["RunBulkOperationBulkOperationRunQueryUserErrors"] = Field(
+class RunBulkOperationBulkOperationRunMutation(BaseModel):
+    bulk_operation: Optional[
+        "RunBulkOperationBulkOperationRunMutationBulkOperation"
+    ] = Field(alias="bulkOperation")
+    user_errors: List["RunBulkOperationBulkOperationRunMutationUserErrors"] = Field(
         alias="userErrors"
     )
 
 
-class RunBulkOperationBulkOperationRunQueryBulkOperation(BaseModel):
+class RunBulkOperationBulkOperationRunMutationBulkOperation(BaseModel):
     id: str
     status: BulkOperationStatus
 
 
-class RunBulkOperationBulkOperationRunQueryUserErrors(BaseModel):
+class RunBulkOperationBulkOperationRunMutationUserErrors(BaseModel):
     field: Optional[List[str]]
     message: str
 
 
 RunBulkOperation.model_rebuild()
-RunBulkOperationBulkOperationRunQuery.model_rebuild()
+RunBulkOperationBulkOperationRunMutation.model_rebuild()

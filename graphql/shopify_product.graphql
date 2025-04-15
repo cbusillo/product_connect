@@ -107,7 +107,7 @@ mutation ProductSet($identifier: ProductSetIdentifiers, $input: ProductSetInput!
                     }
                 }
             }
-            resourcePublicationsV2(onlyPublished: true) {
+            resourcePublicationsV2(onlyPublished: true, first: 10) {
                 edges {
                     node {
                         publication {

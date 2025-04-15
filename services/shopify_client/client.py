@@ -35,11 +35,16 @@ def gql(q: str) -> str:
 
 
 class Client(BaseClient):
-    def run_bulk_operation(self, query: str, **kwargs: Any) -> RunBulkOperation:
-        _query = gql(
+    def run_bulk_operation(
+        self, mutation: str, staged_upload_path: str, **kwargs: Any
+    ) -> RunBulkOperation:
+        query = gql(
             """
-            mutation RunBulkOperation($query: String!) {
-              bulkOperationRunQuery(query: $query) {
+            mutation RunBulkOperation($mutation: String!, $stagedUploadPath: String!) {
+              bulkOperationRunMutation(
+                mutation: $mutation
+                stagedUploadPath: $stagedUploadPath
+              ) {
                 bulkOperation {
                   id
                   status
@@ -52,9 +57,12 @@ class Client(BaseClient):
             }
             """
         )
-        variables: Dict[str, object] = {"query": query}
+        variables: Dict[str, object] = {
+            "mutation": mutation,
+            "stagedUploadPath": staged_upload_path,
+        }
         response = self.execute(
-            query=_query,
+            query=query,
             operation_name="RunBulkOperation",
             variables=variables,
             **kwargs
@@ -260,7 +268,7 @@ class Client(BaseClient):
                       }
                     }
                   }
-                  resourcePublicationsV2(onlyPublished: true) {
+                  resourcePublicationsV2(onlyPublished: true, first: 10) {
                     edges {
                       node {
                         publication {
