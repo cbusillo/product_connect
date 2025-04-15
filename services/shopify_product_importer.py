@@ -75,7 +75,7 @@ class ProductImporter:
             try:
                 with self.env.cr.savepoint():
                     page_imported_products = self.import_products(product_edges)
-            except (ShopifyDataError, OdooDataError) as error:
+            except (ShopifyDataError, OdooDataError, AttributeError) as error:
                 _logger.error(f"Error importing products: {error}")
                 self.env.cr.commit()
                 raise error
@@ -210,44 +210,52 @@ class ProductImporter:
         sku, bin_location = parse_shopify_sku_field_to_sku_and_bin(variant.sku)
         metafields_by_key = {edge.node.key: edge.node for edge in shopify_product.metafields.edges}
 
-        odoo_product_input: "odoo.values.product_product" = {
-            "shopify_product_id": shopify_product.id,
-            "shopify_variant_id": variant.id,
-            "shopify_created_at": parse_shopify_datetime_to_utc(shopify_product.created_at),
-            "name": shopify_product.title,
-            "default_code": sku,
-            "website_description": shopify_product.description_html,
-            "list_price": float(variant.price),
-            "standard_price": float(variant.inventory_item.unit_cost.amount),
-            "mpn": variant.barcode,
-            "bin": bin_location,
-            "weight": float(variant.inventory_item.measurement.weight.value),
-            "type": "consu",
-            "is_storable": True,
-            "manufacturer": self.get_or_create_manufacturer(shopify_product.vendor).id,
-            "is_published": shopify_product.status.lower() == "active",
-            "is_ready_for_sale": True,
-        }
-        if odoo_product:
-            odoo_product_input["id"] = odoo_product.id
+        try:
+            odoo_product_input: "odoo.values.product_product" = {
+                "shopify_product_id": parse_shopify_id_from_gid(shopify_product.id),
+                "shopify_variant_id": parse_shopify_id_from_gid(variant.id),
+                "shopify_created_at": parse_shopify_datetime_to_utc(shopify_product.created_at),
+                "name": shopify_product.title,
+                "default_code": sku,
+                "website_description": shopify_product.description_html,
+                "list_price": float(variant.price),
+                "standard_price": float(variant.inventory_item.unit_cost.amount),
+                "mpn": variant.barcode,
+                "bin": bin_location,
+                "weight": float(variant.inventory_item.measurement.weight.value),
+                "type": "consu",
+                "is_storable": True,
+                "manufacturer": self.get_or_create_manufacturer(shopify_product.vendor).id,
+                "is_published": shopify_product.status.lower() == "active",
+                "is_ready_for_sale": True,
+            }
 
-        condition = metafields_by_key.get("condition")
-        if condition:
-            if self.env["product.condition"].search([("code", "=", condition.value)], limit=1):
-                odoo_product_input["condition"] = self.env["product.condition"].search([("code", "=", condition.value)], limit=1)
+            if odoo_product:
+                odoo_product_input["id"] = odoo_product.id
 
-        ebay_category_id = metafields_by_key.get("ebay_category_id").id
-        if ebay_category_id:
-            odoo_product_input["shopify_ebay_category_id"] = ebay_category_id
-            odoo_product_input["part_type"] = self.get_or_create_part_type(shopify_product.product_type, ebay_category_id).id
+            condition = metafields_by_key.get("condition")
+            if condition:
+                if self.env["product.condition"].search([("code", "=", condition.value)], limit=1):
+                    odoo_product_input["condition"] = self.env["product.condition"].search(
+                        [("code", "=", condition.value)], limit=1
+                    )
 
-        if shopify_product.total_inventory:
-            odoo_product.update_quantity(shopify_product.total_inventory)
+            ebay_category_from_shopify = metafields_by_key.get("ebay_category_id")
+            if ebay_category_from_shopify:
+                odoo_product_input["shopify_ebay_category_id"] = parse_shopify_id_from_gid(ebay_category_from_shopify.id)
+                odoo_product_input["part_type"] = self.get_or_create_part_type(
+                    shopify_product.product_type, ebay_category_from_shopify.value
+                ).id
 
-        if odoo_product.id:
-            odoo_product.write(odoo_product_input)
-            return odoo_product
-        else:
-            odoo_product = self.env["product.product"].create(odoo_product_input)
-            self.import_images_from_shopify(odoo_product, shopify_product)
-            return odoo_product
+            if shopify_product.total_inventory:
+                odoo_product.update_quantity(shopify_product.total_inventory)
+
+            if odoo_product.id:
+                odoo_product.write(odoo_product_input)
+                return odoo_product
+            else:
+                odoo_product = self.env["product.product"].create(odoo_product_input)
+                self.import_images_from_shopify(odoo_product, shopify_product)
+                return odoo_product
+        except (ValueError, TypeError, AttributeError) as error:
+            raise OdooDataError(f"Failed to create odoo product from shopify with id {shopify_product.id}\n{error}", odoo_product)

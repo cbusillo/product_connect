@@ -1,23 +1,23 @@
-from datetime import datetime
 import logging
+from datetime import datetime
 
 from odoo import fields
 from odoo.api import Environment
 
+from odoo.addons.product_connect.services.shopify_client import (
+    OptionSetInput,
+    VariantOptionValueInput,
+    LocalizableContentType,
+    ProductSetIdentifiers,
+)
 from .shopify_client import (
     InventoryItemMeasurementInput,
     ProductSetProductSetProductResourcePublicationsV2,
     ProductSetProductSetProductResourcePublicationsV2EdgesNodePublication,
-    ProductSetProductSetProduct, GraphQLClientGraphQLMultiError,
+    ProductSetProductSetProduct,
+    GraphQLClientGraphQLMultiError,
 )
-from ..utils.shopify_helpers import (
-    ShopifyApiError,
-    OdooDataError,
-    format_shopify_gid_from_id,
-    format_sku_bin_for_shopify,
-    parse_shopify_id_from_gid,
-)
-
+from .shopify_client.enums import ProductStatus, MetafieldValueType, WeightUnit
 from .shopify_client.input_types import (
     ProductSetInput,
     ProductVariantSetInput,
@@ -27,11 +27,16 @@ from .shopify_client.input_types import (
     WeightInput,
     InventoryItemInput,
     MetafieldInput,
+    OptionValueSetInput,
 )
-
-from .shopify_client.enums import ProductStatus, MetafieldValueType, WeightUnit
-
 from .shopify_service import ShopifyService
+from ..utils.shopify_helpers import (
+    ShopifyApiError,
+    OdooDataError,
+    format_shopify_gid_from_id,
+    format_sku_bin_for_shopify,
+    parse_shopify_id_from_gid,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -102,9 +107,20 @@ class ProductExporter:
         shopify_product_set_input = self._map_odoo_product_to_shopify_product_set_input(odoo_product)
 
         shopify_product_gid = (
-            format_shopify_gid_from_id(odoo_product.shopify_product_id, "product") if odoo_product.shopify_product_id else None
+            format_shopify_gid_from_id("Product", odoo_product.shopify_product_id) if odoo_product.shopify_product_id else None
         )
-        shopify_response = client.product_set(shopify_product_set_input, shopify_product_gid)
+        if shopify_product_gid:
+            identifier = ProductSetIdentifiers(id=shopify_product_gid)
+        else:
+            identifier = None
+
+        try:
+            shopify_response = client.product_set(shopify_product_set_input, identifier)
+        except (ValueError, GraphQLClientGraphQLMultiError) as error:
+            _logger.debug(
+                f"Error exporting product {shopify_product_set_input} with GID {shopify_product_gid} to Shopify: {error}"
+            )
+            raise OdooDataError(f"Error exporting product {odoo_product.id} to Shopify: {error}")
 
         shopify_product = shopify_response.product_set.product
         if not shopify_product:
@@ -131,7 +147,9 @@ class ProductExporter:
                 "shopify_product_id": parse_shopify_id_from_gid(shopify_product.id),
                 "shopify_variant_id": parse_shopify_id_from_gid(shopify_product.variants.edges[0].node.id),
                 "shopify_condition_id": parse_shopify_id_from_gid(condition_metafield.id) if condition_metafield else None,
-                "shopify_ebay_category_id": parse_shopify_id_from_gid(ebay_category_id_metafield.id) if ebay_category_id_metafield else None,
+                "shopify_ebay_category_id": (
+                    parse_shopify_id_from_gid(ebay_category_id_metafield.id) if ebay_category_id_metafield else None
+                ),
                 "shopify_last_exported": fields.Datetime.now(),
                 "shopify_next_export": False,
             }
@@ -153,7 +171,7 @@ class ProductExporter:
         client = self.shopify_service.client
         publication_input = [
             PublicationInput(
-                publicationId=publication_id,
+                publicationId=format_shopify_gid_from_id("Publication", publication_id),
                 publishDate=True,
             )
             for publication_id in PUBLICATION_CHANNELS.values()
@@ -194,13 +212,17 @@ class ProductExporter:
         )
 
         shopify_variant_set_input = ProductVariantSetInput(
-            id=odoo_product.shopify_variant_id,
+            id=(
+                format_shopify_gid_from_id("ProductVariant", odoo_product.shopify_variant_id)
+                if odoo_product.shopify_variant_id
+                else None
+            ),
             price=odoo_product.list_price,
             sku=format_sku_bin_for_shopify(odoo_product.default_code, odoo_product.bin),
             barcode=odoo_product.mpn,
             inventoryItem=shopify_inventory_item_input,
             inventoryQuantities=shopify_inventory_set_input,
-            optionValues=[],
+            optionValues=[VariantOptionValueInput(optionName="Title", name="Default Title")],
         )
 
         shopify_product_set_input = ProductSetInput(
@@ -212,24 +234,37 @@ class ProductExporter:
             variants=[shopify_variant_set_input],
             files=shopify_file_set_input,
             metafields=[],
+            productOptions=[OptionSetInput(name="Title", values=[OptionValueSetInput(name="Default Title")])],
         )
 
         if odoo_product.condition.code:
-            shopify_product_set_input.metafields += [MetafieldInput(
-                id=format_shopify_gid_from_id("product",odoo_product.shopify_condition_id),
-                namespace="custom",
-                key="condition",
-                value=odoo_product.condition.code,
-                type=MetafieldValueType.STRING,
-            )]
+            shopify_product_set_input.metafields += [
+                MetafieldInput(
+                    id=(
+                        format_shopify_gid_from_id("Metafield", odoo_product.shopify_condition_id)
+                        if odoo_product.shopify_condition_id
+                        else None
+                    ),
+                    namespace="custom",
+                    key="condition",
+                    value=odoo_product.condition.code,
+                    type=LocalizableContentType.SINGLE_LINE_TEXT_FIELD.lower(),
+                )
+            ]
 
         if odoo_product.shopify_ebay_category_id:
-            shopify_product_set_input.metafields += [MetafieldInput(
-                id=format_shopify_gid_from_id("metafield",odoo_product.shopify_ebay_category_id),
-                namespace="custom",
-                key="ebay_category_id",
-                value=str(odoo_product.part_type.ebay_category_id),
-                type=MetafieldValueType.INTEGER,
-            )]
+            shopify_product_set_input.metafields += [
+                MetafieldInput(
+                    id=(
+                        format_shopify_gid_from_id("Metafield", odoo_product.shopify_ebay_category_id)
+                        if odoo_product.shopify_ebay_category_id
+                        else None
+                    ),
+                    namespace="custom",
+                    key="ebay_category_id",
+                    value=str(odoo_product.part_type.ebay_category_id),
+                    type=MetafieldValueType.INTEGER,
+                )
+            ]
 
         return shopify_product_set_input
