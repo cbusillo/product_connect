@@ -48,8 +48,6 @@ PUBLICATION_CHANNELS = {
     "shop": "99113467957",
 }
 
-COMMIT_AFTER = 100
-
 
 class ProductExporter:
     def __init__(self, env: Environment):
@@ -85,23 +83,27 @@ class ProductExporter:
         return odoo_products
 
     def export_products(self, odoo_products: "odoo.model.product_product") -> tuple[int, int]:
-        exported_products = 0
+        exported_count = 0
         total_count = len(odoo_products)
         for odoo_product in odoo_products:
-            _logger.debug(f"Exporting product {exported_products} of {total_count}: {odoo_product.id} {odoo_product.name}")
+            _logger.debug(f"Exporting product {exported_count} of {total_count}: {odoo_product.id} {odoo_product.name}")
             try:
                 with self.env.cr.savepoint():
                     self.export_product(odoo_product)
             except (ShopifyApiError, OdooDataError, ValueError, GraphQLClientGraphQLMultiError) as error:
                 _logger.error(f"Error exporting product {odoo_product.id}: {error}")
+                self.env["notification.manager.mixin"](
+                    subject=f"Exported {exported_count} product(s) with error",
+                    body=str(error),
+                    channel_name="shopify_sync",
+                    record=odoo_product,
+                    error_traceback=error,
+                )
                 self.env.cr.commit()
                 raise error
-            exported_products += 1
-            if exported_products and exported_products % COMMIT_AFTER == 0:
-                _logger.debug(f"Committing after {exported_products} products")
-                self.env.cr.commit()
+            exported_count += 1
 
-        return exported_products, total_count
+        return exported_count, total_count
 
     def export_product(self, odoo_product: "odoo.model.product_product") -> None:
         client = self.shopify_service.client

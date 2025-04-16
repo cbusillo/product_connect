@@ -17,6 +17,8 @@ class ShopifyService:
     MAX_RETRY_ATTEMPTS = 10
     MIN_SLEEP_TIME = 0.5
     MAX_SLEEP_TIME = 60
+    API_VERSION = "2025-04"
+    # TODO: remove this key from Odoo system parameters
 
     def __init__(self, env: Environment):
         self.env = env
@@ -46,7 +48,7 @@ class ShopifyService:
     def _create_client(self) -> ShopifyClient:
         shop_url_key = self.env["ir.config_parameter"].sudo().get_param("shopify.shop_url_key")
         api_token = self.env["ir.config_parameter"].sudo().get_param("shopify.api_token")
-        api_version = self.env["ir.config_parameter"].sudo().get_param("shopify.api_version")
+        api_version = self.API_VERSION
 
         if not all([shop_url_key, api_token, api_version]):
             raise ShopifyApiError(

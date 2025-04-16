@@ -52,7 +52,9 @@ class ProductImporter:
         last_import_time = last_import_time or format_datetime_for_shopify(DEFAULT_DATETIME)
         _logger.info(f"Importing products since last import time: {last_import_time}")
 
-        updated_count, total_count = self.import_products_from_query(query=f"updated_at:>{last_import_time}")
+        filter_query = f"updated_at:>{last_import_time}"
+        _logger.debug(f"Filter query for products: {filter_query}")
+        updated_count, total_count = self.import_products_from_query(query=filter_query)
 
         self.set_last_import_time(current_import_start_time)
 
@@ -77,6 +79,9 @@ class ProductImporter:
                     page_updated_count = self.import_products(product_edges)
             except (ShopifyDataError, OdooDataError, AttributeError) as error:
                 _logger.error(f"Error importing products: {error}")
+                self.env["notification.manager.mixin"].notify_channel(
+                    f"Imported {updated_count} product(s) with error", str(error), "shopify_sync"
+                )
                 self.env.cr.commit()
                 raise error
             updated_count += page_updated_count
@@ -93,7 +98,8 @@ class ProductImporter:
 
         product_gid = format_shopify_gid_from_id("product", shopify_product_id)
 
-        imported_products, _total_products = self.import_products_from_query(query=f"id:{product_gid}")
+        filter_query = f"id:{product_gid}"
+        updated_count, _total_count = self.import_products_from_query(query=filter_query)
 
         if not updated_count:
             _logger.warning(f"Failed to import product with ID: {shopify_product_id}")
@@ -247,7 +253,7 @@ class ProductImporter:
                     shopify_product.product_type, ebay_category_from_shopify.value
                 ).id
 
-            if shopify_product.total_inventory:
+            if shopify_product.total_inventory or shopify_product.total_inventory == 0:
                 odoo_product.update_quantity(shopify_product.total_inventory)
 
             if odoo_product.id:
