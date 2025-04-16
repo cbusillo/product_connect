@@ -45,8 +45,13 @@ class NotificationManagerMixin(models.AbstractModel):
         record: models.Model | None = None,
         shopify_record: BaseModel | None = None,
         env: api.Environment | None = None,
-        error_traceback: str | None = None,
+        error: Exception | str | None = None,
     ) -> None:
+        error_traceback = (
+            "".join(traceback.format_exception(type(error), error, error.__traceback__))
+            if isinstance(error, Exception)
+            else error
+        )
         env = env or self.env
         notification_history = env["notification.history"]
         if notification_history.count_of_recent_notifications(subject, channel_name, 1) > 5:
@@ -99,7 +104,7 @@ class NotificationManagerMixin(models.AbstractModel):
         new_cr = self.env.registry.cursor()
         try:
             new_env = api.Environment(new_cr, self.env.uid, self.env.context)
-            self.notify_channel(subject, body, "errors", record, shopify_record, new_env, error_traceback)
+            self.notify_channel(subject, body, "errors", record, shopify_record, new_env, error)
             message = f"{body}"
             if record:
                 message += f"\nRecord: {record}"
