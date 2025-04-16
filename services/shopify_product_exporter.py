@@ -9,15 +9,16 @@ from odoo.addons.product_connect.services.shopify_client import (
     VariantOptionValueInput,
     LocalizableContentType,
     ProductSetIdentifiers,
+    ProductSetProductSetProductResourcePublicationsV2Edges,
 )
+from odoo.addons.product_connect.utils.shopify_helpers import current_datetime_for_shopify
 from .shopify_client import (
     InventoryItemMeasurementInput,
-    ProductSetProductSetProductResourcePublicationsV2,
     ProductSetProductSetProductResourcePublicationsV2EdgesNodePublication,
     ProductSetProductSetProduct,
     GraphQLClientGraphQLMultiError,
 )
-from .shopify_client.enums import ProductStatus, MetafieldValueType, WeightUnit
+from .shopify_client.enums import ProductStatus, WeightUnit
 from .shopify_client.input_types import (
     ProductSetInput,
     ProductVariantSetInput,
@@ -124,17 +125,14 @@ class ProductExporter:
 
         shopify_product = shopify_response.product_set.product
         if not shopify_product:
-            raise ShopifyApiError("Shopify product not found in the response")
-
-        if not self.is_published_on_all_channels(shopify_product.resource_publications_v_2):
+            raise ShopifyApiError(f"Shopify product not found in the response\n{shopify_response.product_set.user_errors}")
+        publication_edges = shopify_product.resource_publications_v_2.edges
+        if not publication_edges or not self.is_published_on_all_channels(publication_edges):
             self._publish_product(shopify_product_gid)
         self._update_odoo_product(odoo_product, shopify_product)
 
     @staticmethod
     def _update_odoo_product(odoo_product: "odoo.model.product_product", shopify_product: ProductSetProductSetProduct) -> None:
-        if not shopify_product:
-            raise ShopifyApiError("Shopify product not found in the response")
-
         metafields_by_key = {edge.node.key: edge.node for edge in shopify_product.metafields.edges}
         ebay_category_id_metafield = metafields_by_key.get("ebay_category_id")
         condition_metafield = metafields_by_key.get("condition")
@@ -155,8 +153,10 @@ class ProductExporter:
             }
         )
 
-    def is_published_on_all_channels(self, publication_channels: ProductSetProductSetProductResourcePublicationsV2) -> bool:
-        for publication_channel in publication_channels.edges:
+    def is_published_on_all_channels(
+        self, publication_channels: list[ProductSetProductSetProductResourcePublicationsV2Edges]
+    ) -> bool:
+        for publication_channel in publication_channels:
             if not self.is_published_on_channel(publication_channel.node.publication):
                 return False
         return True
@@ -172,12 +172,23 @@ class ProductExporter:
         publication_input = [
             PublicationInput(
                 publicationId=format_shopify_gid_from_id("Publication", publication_id),
-                publishDate=True,
+                publishDate=current_datetime_for_shopify(),
             )
             for publication_id in PUBLICATION_CHANNELS.values()
         ]
         publication_input[0].publication_id = PUBLICATION_CHANNELS["online_store"]
-        client.update_publications(shopify_product_gid, publication_input)
+        if not any(term in client.url for term in ("local", "testing")):
+            client.update_publications(shopify_product_gid, publication_input)
+
+    @staticmethod
+    def metafield_from_id_value_key(shopify_id: str, key: str, value: str | int, field_type: str) -> MetafieldInput:
+        return MetafieldInput(
+            id=(format_shopify_gid_from_id("Metafield", shopify_id) if shopify_id else None),
+            namespace="custom",
+            key=key,
+            value=value,
+            type=field_type,
+        )
 
     def _map_odoo_product_to_shopify_product_set_input(self, odoo_product: "odoo.model.product_product") -> ProductSetInput:
         shopify_inventory_set_input = []
@@ -209,6 +220,7 @@ class ProductExporter:
         shopify_inventory_item_input = InventoryItemInput(
             cost=odoo_product.standard_price,
             measurement=shopify_inventory_item_measurement_input,
+            tracked=True,
         )
 
         shopify_variant_set_input = ProductVariantSetInput(
@@ -218,8 +230,8 @@ class ProductExporter:
                 else None
             ),
             price=odoo_product.list_price,
-            sku=format_sku_bin_for_shopify(odoo_product.default_code, odoo_product.bin),
-            barcode=odoo_product.mpn,
+            sku=format_sku_bin_for_shopify(odoo_product.default_code, odoo_product.bin or ""),
+            barcode=odoo_product.mpn or "",
             inventoryItem=shopify_inventory_item_input,
             inventoryQuantities=shopify_inventory_set_input,
             optionValues=[VariantOptionValueInput(optionName="Title", name="Default Title")],
@@ -239,31 +251,21 @@ class ProductExporter:
 
         if odoo_product.condition.code:
             shopify_product_set_input.metafields += [
-                MetafieldInput(
-                    id=(
-                        format_shopify_gid_from_id("Metafield", odoo_product.shopify_condition_id)
-                        if odoo_product.shopify_condition_id
-                        else None
-                    ),
-                    namespace="custom",
-                    key="condition",
-                    value=odoo_product.condition.code,
-                    type=LocalizableContentType.SINGLE_LINE_TEXT_FIELD.lower(),
+                self.metafield_from_id_value_key(
+                    odoo_product.shopify_condition_id,
+                    "condition",
+                    odoo_product.condition.code,
+                    LocalizableContentType.SINGLE_LINE_TEXT_FIELD.lower(),
                 )
             ]
 
-        if odoo_product.shopify_ebay_category_id:
+        if odoo_product.part_type and odoo_product.part_type.ebay_category_id:
             shopify_product_set_input.metafields += [
-                MetafieldInput(
-                    id=(
-                        format_shopify_gid_from_id("Metafield", odoo_product.shopify_ebay_category_id)
-                        if odoo_product.shopify_ebay_category_id
-                        else None
-                    ),
-                    namespace="custom",
-                    key="ebay_category_id",
-                    value=str(odoo_product.part_type.ebay_category_id),
-                    type=MetafieldValueType.INTEGER,
+                self.metafield_from_id_value_key(
+                    odoo_product.shopify_ebay_category_id,
+                    "ebay_category_id",
+                    str(odoo_product.part_type.ebay_category_id),
+                    "number_integer",
                 )
             ]
 
