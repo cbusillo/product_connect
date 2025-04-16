@@ -192,25 +192,6 @@ class ProductExporter:
         )
 
     def _map_odoo_product_to_shopify_product_set_input(self, odoo_product: "odoo.model.product_product") -> ProductSetInput:
-        shopify_inventory_set_input = []
-        shopify_file_set_input = []
-        if not odoo_product.shopify_product_id:
-            shopify_file_set_input = [
-                FileSetInput(
-                    alt=odoo_product.name,
-                    originalSource=self.odoo_base_url + "/web/image/product.image/" + str(odoo_image.id) + "/image_1920",
-                )
-                for odoo_image in odoo_product.images.sorted("name")
-            ]
-
-            shopify_inventory_set_input = [
-                ProductSetInventoryInput(
-                    locationId=self.shopify_service.first_location_gid,
-                    quantity=int(odoo_product.qty_available),
-                    name="available",
-                )
-            ]
-
         shopify_inventory_item_measurement_input = InventoryItemMeasurementInput(
             weight=WeightInput(
                 value=odoo_product.weight,
@@ -234,7 +215,6 @@ class ProductExporter:
             sku=format_sku_bin_for_shopify(odoo_product.default_code, odoo_product.bin or ""),
             barcode=odoo_product.mpn or "",
             inventoryItem=shopify_inventory_item_input,
-            inventoryQuantities=shopify_inventory_set_input,
             optionValues=[VariantOptionValueInput(optionName="Title", name="Default Title")],
         )
 
@@ -245,10 +225,26 @@ class ProductExporter:
             productType=odoo_product.part_type.name if odoo_product.part_type else None,
             status=ProductStatus.ACTIVE if odoo_product.qty_available > 0 else ProductStatus.DRAFT,
             variants=[shopify_variant_set_input],
-            files=shopify_file_set_input,
             metafields=[],
             productOptions=[OptionSetInput(name="Title", values=[OptionValueSetInput(name="Default Title")])],
         )
+
+        if not odoo_product.shopify_product_id:
+            shopify_product_set_input.files = [
+                FileSetInput(
+                    alt=odoo_product.name,
+                    originalSource=self.odoo_base_url + "/web/image/product.image/" + str(odoo_image.id) + "/image_1920",
+                )
+                for odoo_image in odoo_product.images.sorted("name")
+            ]
+
+            shopify_product_set_input.variants[0].inventory_item = [
+                ProductSetInventoryInput(
+                    locationId=self.shopify_service.first_location_gid,
+                    quantity=int(odoo_product.qty_available),
+                    name="available",
+                )
+            ]
 
         if odoo_product.condition.code:
             shopify_product_set_input.metafields += [
