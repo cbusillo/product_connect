@@ -2,13 +2,13 @@ import logging
 from base64 import b64encode
 from datetime import datetime
 from typing import Optional
-from zoneinfo import ZoneInfo
 
 from odoo.api import Environment
 
 from .shopify_client import GetProductsProductsEdges, GetProductsProductsEdgesNode
 from .shopify_service import ShopifyService
 from ..utils.shopify_helpers import (
+    DEFAULT_DATETIME,
     OdooDataError,
     ShopifyDataError,
     ShopifyMissingSkuFieldError,
@@ -23,36 +23,35 @@ from ..utils.shopify_helpers import (
 
 _logger = logging.getLogger(__name__)
 
-UTC = ZoneInfo("UTC")
-
-SHOPIFY_PAGE_SIZE = 250
-DEFAULT_DATETIME = datetime(2000, 1, 1)
-
 
 class ProductImporter:
+    SHOPIFY_PAGE_SIZE = 250
+
     def __init__(self, env: Environment) -> None:
         self.env = env
         self.shopify_service = ShopifyService(env)
-        self.page_size = SHOPIFY_PAGE_SIZE
+        self.page_size = self.SHOPIFY_PAGE_SIZE
 
     def set_last_import_time(self, current_datetime: datetime) -> None:
-        self.env["ir.config_parameter"].sudo().set_param(
-            "shopify.last_import_time", format_datetime_for_shopify(current_datetime)
-        )
-        _logger.info("Updated last sync time to %s", current_datetime)
+        formatted_datetime = format_datetime_for_shopify(current_datetime)
+        self.env["ir.config_parameter"].sudo().set_param("shopify.last_import_time", formatted_datetime)
+        _logger.info("Updated last sync time to %s", formatted_datetime)
 
     def get_last_import_time(self) -> str:
-        return self.env["ir.config_parameter"].sudo().get_param("shopify.last_import_time")
+        last_sync_time = self.env["ir.config_parameter"].sudo().get_param("shopify.last_import_time")
+        if not last_sync_time:
+            _logger.warning("No last import time found. Returning default datetime.")
+            return format_datetime_for_shopify(DEFAULT_DATETIME)
+        return last_sync_time
 
     def import_products_since_last_import(self) -> tuple[int, int]:
         last_import_time = self.get_last_import_time()
         current_import_start_time = current_utc_time()
         if not last_import_time:
             _logger.warning("No last import time found. Importing all products.")
-        last_import_time = last_import_time or format_datetime_for_shopify(DEFAULT_DATETIME)
         _logger.info(f"Importing products since last import time: {last_import_time}")
 
-        filter_query = f"updated_at:>{last_import_time}"
+        filter_query = f'updated_at:>"{last_import_time}"'
         _logger.debug(f"Filter query for products: {filter_query}")
         updated_count, total_count = self.import_products_from_query(query=filter_query)
 
@@ -96,9 +95,9 @@ class ProductImporter:
     def import_product_by_id(self, shopify_product_id: str) -> bool:
         _logger.info(f"Importing product by ID: {shopify_product_id}")
 
-        product_gid = format_shopify_gid_from_id("product", shopify_product_id)
+        product_gid = format_shopify_gid_from_id("Product", shopify_product_id)
 
-        filter_query = f"id:{product_gid}"
+        filter_query = f'id:"{product_gid}"'
         updated_count, _total_count = self.import_products_from_query(query=filter_query)
 
         if not updated_count:
@@ -165,7 +164,8 @@ class ProductImporter:
 
     def fetch_image_data(self, image_url: str) -> bytes:
         client = self.shopify_service.client.http_client
-        response = client.send(image_url)
+        response = client.get(image_url)
+        response.raise_for_status()
         image_base64 = b64encode(response.content)
         return image_base64
 
@@ -197,7 +197,7 @@ class ProductImporter:
         if not image_edges:
             raise ShopifyDataError(f"No images found for product {shopify_product.id} {shopify_product.title}")
 
-        if odoo_product.images.image_1920:
+        if odoo_product.images:
             return None
 
         for image_edge in image_edges:
@@ -213,7 +213,7 @@ class ProductImporter:
         self, odoo_product: Optional["odoo.model.product_product"], shopify_product: GetProductsProductsEdgesNode
     ) -> "odoo.model.product_product":
         variant = shopify_product.variants.edges[0].node
-        sku, bin_location = parse_shopify_sku_field_to_sku_and_bin(variant.sku)
+        sku, bin_location = parse_shopify_sku_field_to_sku_and_bin(variant.sku or "")
         metafields_by_key = {edge.node.key: edge.node for edge in shopify_product.metafields.edges}
 
         try:
@@ -253,15 +253,16 @@ class ProductImporter:
                     shopify_product.product_type, ebay_category_from_shopify.value
                 ).id
 
-            if shopify_product.total_inventory or shopify_product.total_inventory == 0:
-                odoo_product.update_quantity(shopify_product.total_inventory)
-
-            if odoo_product.id:
+            if odoo_product:
                 odoo_product.write(odoo_product_input)
-                return odoo_product
             else:
                 odoo_product = self.env["product.product"].create(odoo_product_input)
                 self.import_images_from_shopify(odoo_product, shopify_product)
-                return odoo_product
+
+            if shopify_product.total_inventory is not None:
+                odoo_product.update_quantity(shopify_product.total_inventory)
+
+            return odoo_product
+
         except (ValueError, TypeError, AttributeError) as error:
             raise OdooDataError(f"Failed to create odoo product from shopify with id {shopify_product.id}\n{error}", odoo_product)
