@@ -41,11 +41,11 @@ from ..utils.shopify_helpers import (
 
 _logger = logging.getLogger(__name__)
 
-PUBLICATION_CHANNELS = {
-    "online_store": "19453116480",
-    "pos": "42683596853",
-    "google": "88268636213",
-    "shop": "99113467957",
+PUBLICATION_CHANNELS: dict[str, int] = {
+    "online_store": 19453116480,
+    "pos": 42683596853,
+    "google": 88268636213,
+    "shop": 99113467957,
 }
 
 
@@ -178,7 +178,6 @@ class ProductExporter:
             )
             for publication_id in PUBLICATION_CHANNELS.values()
         ]
-        publication_input[0].publication_id = PUBLICATION_CHANNELS["online_store"]
         if not any(term in client.url for term in ("local", "testing")):
             client.update_publications(shopify_product_gid, publication_input)
 
