@@ -59,8 +59,8 @@ class ProductImporter:
         return updated_count, total_count
 
     def import_products_from_query(self, query: str | None = None) -> tuple[int, int]:
-        imported_products = 0
-        total_products = 0
+        updated_count = 0
+        total_count = 0
 
         client = self.shopify_service.client
         cursor = None
@@ -74,19 +74,19 @@ class ProductImporter:
                 break
             try:
                 with self.env.cr.savepoint():
-                    page_imported_products = self.import_products(product_edges)
+                    page_updated_count = self.import_products(product_edges)
             except (ShopifyDataError, OdooDataError, AttributeError) as error:
                 _logger.error(f"Error importing products: {error}")
                 self.env.cr.commit()
                 raise error
-            imported_products += page_imported_products
-            total_products += len(product_edges)
+            updated_count += page_updated_count
+            total_count += len(product_edges)
 
             cursor = products_page.products.page_info.end_cursor
             has_next_page = products_page.products.page_info.has_next_page
 
-        _logger.debug(f"Finished importing product query: {imported_products} imported, {total_products} total")
-        return imported_products, total_products
+        _logger.debug(f"Finished importing product query: {updated_count} imported, {total_count} total")
+        return updated_count, total_count
 
     def import_product_by_id(self, shopify_product_id: str) -> bool:
         _logger.info(f"Importing product by ID: {shopify_product_id}")
@@ -95,7 +95,7 @@ class ProductImporter:
 
         imported_products, _total_products = self.import_products_from_query(query=f"id:{product_gid}")
 
-        if not imported_products:
+        if not updated_count:
             _logger.warning(f"Failed to import product with ID: {shopify_product_id}")
             return False
 
@@ -103,19 +103,19 @@ class ProductImporter:
         return True
 
     def import_products(self, shopify_product_edges: list[GetProductsProductsEdges]) -> int:
-        current_product_index = 0
-        imported_products = 0
+        product_index = 0
+        updated_count = 0
         for edge in shopify_product_edges:
             shopify_product = edge.node
             _logger.debug(
-                f"Importing product index {current_product_index}.  Imported {imported_products} of {len(shopify_product_edges)} on this page: {shopify_product.id} {shopify_product.title}"
+                f"Importing product index {product_index}.  Imported {updated_count} of {len(shopify_product_edges)} on this page: {shopify_product.id} {shopify_product.title}"
             )
 
             if self.import_product(shopify_product):
-                imported_products += 1
-            current_product_index += 1
+                updated_count += 1
+            product_index += 1
 
-        return imported_products
+        return updated_count
 
     def import_product(self, shopify_product: GetProductsProductsEdgesNode) -> bool:
         if not shopify_product.variants or not shopify_product.variants.edges:
