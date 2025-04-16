@@ -13,7 +13,7 @@ UTC = ZoneInfo("UTC")
 
 _logger = logging.getLogger(__name__)
 
-DEFAULT_DATETIME = datetime(2000, 1, 1)
+DEFAULT_DATETIME = datetime(2000, 1, 1, tzinfo=UTC)
 
 
 class ShopifyApiError(UserError):
@@ -42,10 +42,13 @@ class OdooDataError(UserError):
 
 class OdooMissingSkuError(OdooDataError):
     pass
+
+
 def normalize_datetime(dt: datetime | None) -> datetime | None:
     if not dt:
         return None
     return dt.astimezone(UTC).replace(tzinfo=None)
+
 
 def parse_shopify_datetime_to_utc(date_str: str) -> datetime:
     return parse(date_str).astimezone(UTC).replace(tzinfo=None)
@@ -67,7 +70,7 @@ def parse_shopify_id_from_gid(gid: str) -> int:
     return int(gid.split("/")[-1])
 
 
-def format_shopify_gid_from_id(resource_type: str, resource_id: str) -> str:
+def format_shopify_gid_from_id(resource_type: str, resource_id: int | str) -> str:
     return f"gid://shopify/{resource_type}/{resource_id}"
 
 
@@ -95,11 +98,12 @@ def format_sku_bin_for_shopify(sku: str, bin_location: str) -> str:
     bin_location = bin_location.strip()
     return f"{sku} - {bin_location}"
 
+
 def determine_latest_product_modification_time(
     odoo_product: "odoo.model.product_product", last_import_time: datetime
 ) -> datetime:
     if last_import_time.year < 2001:
-        return DEFAULT_DATETIME
+        return normalize_datetime(DEFAULT_DATETIME)
     odoo_product_template = odoo_product.product_tmpl_id
     odoo_product_write_date = normalize_datetime(odoo_product.write_date)
     odoo_product_template_write_date = normalize_datetime(odoo_product_template.write_date)
@@ -109,6 +113,6 @@ def determine_latest_product_modification_time(
         odoo_product_write_date,
         odoo_product_template_write_date,
         odoo_product_shopify_last_exported,
-        DEFAULT_DATETIME,
+        normalize_datetime(DEFAULT_DATETIME),
     ]
     return max(filter(None, dates))
