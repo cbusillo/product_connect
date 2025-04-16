@@ -72,14 +72,14 @@ class ShopifySync(models.AbstractModel):
 
     def _notify_sync_results(self, import_results: tuple[int, int], export_results: tuple[int, int]) -> None:
         _logger.info("Notifying sync results")
-        if not import_results and export_results:
+        if import_results == (0, 0) and export_results == (0, 0):
             return
 
         message = "Shopify Sync completed successfully"
-        if import_results:
+        if import_results != (0, 0):
             updated_count, total_count = import_results
             message += f"\nImported {updated_count} out of {total_count} products from Shopify."
-        if export_results:
+        if export_results != (0, 0):
             exported_count, total_count = export_results
             message += f"\nExported {exported_count} out of {total_count} products to Shopify."
 
