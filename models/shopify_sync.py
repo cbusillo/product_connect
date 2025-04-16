@@ -62,7 +62,6 @@ class ShopifySync(models.AbstractModel):
         _logger.info("Exporting product to Shopify with ID: %s", product_id)
         self.export_product_to_shopify(self.env["product.product"].browse(product_id))
 
-
     @api.model
     def export_product_to_shopify(self, product: "odoo.model.product_product") -> None:
         _logger.info("Exporting product to Shopify: %s", product.name)
@@ -76,12 +75,12 @@ class ShopifySync(models.AbstractModel):
         if not import_results and export_results:
             return
 
-        message = "Sync completed successfully"
+        message = "Shopify Sync completed successfully"
         if import_results:
-            updated_items, total_items = import_results
-            message += f"\nImported {updated_items} out of {total_items} products from Shopify."
+            updated_count, total_count = import_results
+            message += f"\nImported {updated_count} out of {total_count} products from Shopify."
         if export_results:
-            updated_items, total_items = export_results
-            message += f"\nExported {updated_items} out of {total_items} products to Shopify."
+            exported_count, total_count = export_results
+            message += f"\nExported {exported_count} out of {total_count} products to Shopify."
 
         self.notify_channel("Shopify Sync Results", message, "shopify_sync")
