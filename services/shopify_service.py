@@ -52,7 +52,7 @@ class ShopifyService:
 
         if not all([shop_url_key, api_token, api_version]):
             raise ShopifyApiError(
-                "Shopify API credentials (shopify.shop_url_key, shopify.api_token, and shopify.api_version) are not set. Please configure them in the Odoo settings."
+                "Shopify API credentials (shopify.shop_url_key, and shopify.api_token) are not set. Please configure them in the Odoo settings."
             )
 
         endpoint = f"https://{shop_url_key}.myshopify.com/admin/api/{api_version}/graphql.json"
@@ -71,9 +71,6 @@ class ShopifyService:
         limits = Limits(max_connections=10, max_keepalive_connections=5)
 
         def rate_limit_hook(response: Response) -> None:
-            if response.status_code != 200:
-                raise ShopifyApiError(f"Shopify API request failed with status code {response.status_code}")
-
             response.read()
             data = response.json()
 
