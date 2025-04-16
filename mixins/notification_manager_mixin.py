@@ -2,6 +2,7 @@ import logging
 import traceback
 
 from odoo import api, models, fields
+from odoo.addons.mail.models.mail_thread import MailThread
 from pydantic import BaseModel
 
 _logger = logging.getLogger(__name__)
@@ -60,13 +61,27 @@ class NotificationManagerMixin(models.AbstractModel):
             body += "\n\nError traceback:\n"
             body += error_traceback
 
-        _logger.debug("Sending message to channel %s with message %s for record %s", channel, body, record, shopify_record)
+        _logger.debug(
+            "Sending message to channel %s with message %s for record %s and shopify record %s",
+            channel,
+            body,
+            record,
+            shopify_record,
+        )
         if shopify_record:
             body += f"\nShopify record: {shopify_record}"
-        if record:
-            record.message_post(body=body, subject=subject, message_type="auto_comment")
-        else:
-            channel.message_post(body=body, subject=subject, message_type="auto_comment")
+
+        body = body.replace("\n", "<br/>")
+        post_values: "odoo.values.mail_message" = {
+            "body": body,
+            "subject": subject,
+            "message_type": "comment",
+            "subtype_id": self.env.ref("mail.mt_comment").id,
+        }
+
+        if record and isinstance(record, MailThread):
+            record.message_post(body_is_html=True, **post_values)
+        channel.message_post(body_is_html=True, **post_values)
 
         notification_history.create({"subject": subject, "channel_name": channel_name})
         notification_history.cleanup()
@@ -79,9 +94,7 @@ class NotificationManagerMixin(models.AbstractModel):
         shopify_record: BaseModel | None = None,
         error: Exception | None = None,
     ) -> None:
-        error_traceback = ""
-        if error:
-            error_traceback = "".join(traceback.format_exception(type(error), error, error.__traceback__))
+        error_traceback = "".join(traceback.format_exception(type(error), error, error.__traceback__)) if error else ""
 
         new_cr = self.env.registry.cursor()
         try:
@@ -92,6 +105,8 @@ class NotificationManagerMixin(models.AbstractModel):
                 message += f"\nRecord: {record}"
             if shopify_record:
                 message += f"\nShopify record: {shopify_record}"
+            if error_traceback:
+                message += f"\nError traceback:\n{error_traceback}"
             self.send_email_notification_to_admin(subject, message)
             new_cr.commit()
         finally:
