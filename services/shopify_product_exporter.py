@@ -92,12 +92,12 @@ class ProductExporter:
                     self.export_product(odoo_product)
             except (ShopifyApiError, OdooDataError, ValueError, GraphQLClientGraphQLMultiError) as error:
                 _logger.error(f"Error exporting product {odoo_product.id}: {error}")
-                self.env["notification.manager.mixin"](
+                self.env["notification.manager.mixin"].notify_channel(
                     subject=f"Exported {exported_count} product(s) with error",
                     body=str(error),
                     channel_name="shopify_sync",
                     record=odoo_product,
-                    error_traceback=error,
+                    error=error,
                 )
                 self.env.cr.commit()
                 raise error
