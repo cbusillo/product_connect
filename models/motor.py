@@ -101,9 +101,7 @@ class Motor(models.Model):
 
     def _compute_completed_test_count(self) -> None:
         for motor in self:
-            motor.completed_test_count = len(
-                motor.tests.filtered(lambda test: test.computed_result and test.is_applicable)
-            )
+            motor.completed_test_count = len(motor.tests.filtered(lambda test: test.computed_result and test.is_applicable))
 
     def _compute_applicable_test_count(self) -> None:
         for motor in self:
@@ -312,9 +310,7 @@ class Motor(models.Model):
 
     def _compute_hours(self) -> None:
         for motor in self:
-            hours = motor.tests.filtered(
-                lambda t: "engine" in t.template.name.lower() and "hours" in t.template.name.lower()
-            )
+            hours = motor.tests.filtered(lambda t: "engine" in t.template.name.lower() and "hours" in t.template.name.lower())
             motor.hours = hours.numeric_result if hours else 0
 
     @api.depends("notes")
@@ -364,6 +360,7 @@ class Motor(models.Model):
                 cylinder.is_untestable = True
 
     def generate_qr_code(self) -> str:
+        # noinspection PyTypeChecker
         qr_code = qrcode.QRCode(
             version=1,
             error_correction=qrcode.constants.ERROR_CORRECT_H,
@@ -454,15 +451,11 @@ class Motor(models.Model):
         return False
 
     @staticmethod
-    def _should_exclude_product(
-        motor: "odoo.model.motor", product_template: "odoo.model.motor_product_template"
-    ) -> bool:
+    def _should_exclude_product(motor: "odoo.model.motor", product_template: "odoo.model.motor_product_template") -> bool:
         return motor._check_product_conditions(motor, product_template.excluded_by_tests)
 
     @staticmethod
-    def _should_repair_product(
-        motor: "odoo.model.motor", product_template: "odoo.model.motor_product_template"
-    ) -> bool:
+    def _should_repair_product(motor: "odoo.model.motor", product_template: "odoo.model.motor_product_template") -> bool:
         return motor._check_product_conditions(motor, product_template.repair_by_tests)
 
     def create_motor_products(self) -> None:
@@ -492,10 +485,7 @@ class Motor(models.Model):
                 if product_template.manufacturers and motor.manufacturer not in product_template.manufacturers:
                     continue
 
-                if any(
-                    part.template.id in product_template.excluded_by_parts.ids and part.is_missing
-                    for part in motor.parts
-                ):
+                if any(part.template.id in product_template.excluded_by_parts.ids and part.is_missing for part in motor.parts):
                     continue
 
                 if self._should_exclude_product(motor, product_template):

@@ -15,7 +15,7 @@ from typing import Any, List, Literal, Optional
 from pydantic import Field
 
 from .base_model import BaseModel
-from .enums import CurrencyCode, ProductStatus
+from .enums import CurrencyCode, MediaStatus, ProductStatus
 
 
 class GetProducts(BaseModel):
@@ -64,6 +64,7 @@ class GetProductsProductsEdgesNodeMediaEdgesNode(BaseModel):
     typename__: Literal["ExternalVideo", "Media", "MediaImage", "Model3d", "Video"] = (
         Field(alias="__typename")
     )
+    status: MediaStatus
     alt: Optional[str]
     preview: Optional["GetProductsProductsEdgesNodeMediaEdgesNodePreview"]
 

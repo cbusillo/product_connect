@@ -5,6 +5,7 @@ from typing import Optional
 
 from odoo.api import Environment
 
+from odoo.addons.product_connect.services.shopify_client import MediaStatus
 from .shopify_client import GetProductsProductsEdges, GetProductsProductsEdgesNode
 from .shopify_service import ShopifyService
 from ..utils.shopify_helpers import (
@@ -142,11 +143,17 @@ class ProductImporter:
             ],
             limit=1,
         )
-
         try:
             if odoo_product:
                 last_import_time = parse_shopify_datetime_to_utc(self.get_last_import_time())
                 latest_write_date = determine_latest_product_modification_time(odoo_product, last_import_time)
+                image_edges = shopify_product.media.edges
+                has_failed_media = any(image_edge.node.status == MediaStatus.FAILED for image_edge in image_edges)
+                if has_failed_media:
+                    _logger.debug(f"Product {odoo_product.id} has failed media.  Flagging for re-import.")
+                    odoo_product.shopify_next_export = True
+                    odoo_product.shopify_next_export_images = True
+
                 if parse_shopify_datetime_to_utc(shopify_product.updated_at) > latest_write_date:
                     _logger.debug(f"Updating existing product {odoo_product.id} from Shopify")
                     odoo_product = self.save_odoo_product(odoo_product, shopify_product)
@@ -210,6 +217,8 @@ class ProductImporter:
             image_name = image.alt
             image_base64 = self.fetch_image_data(image_url)
             odoo_product.images += self.env["product.image"].create({"name": image_name, "image_1920": image_base64})
+
+        return None
 
     def save_odoo_product(
         self, odoo_product: Optional["odoo.model.product_product"], shopify_product: GetProductsProductsEdgesNode

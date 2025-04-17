@@ -43,9 +43,7 @@ class ProductInventoryWizard(models.TransientModel):
     last_scanned_product_name = fields.Char(related="last_scanned_product.name", readonly=True)
     last_scanned_product_default_code = fields.Char(related="last_scanned_product.default_code", readonly=True)
     last_scanned_product_image = fields.Binary(related="last_scanned_product.product.image_512", readonly=True)
-    last_scanned_product_scanned_quantity = fields.Integer(
-        related="last_scanned_product.quantity_scanned", readonly=True
-    )
+    last_scanned_product_scanned_quantity = fields.Integer(related="last_scanned_product.quantity_scanned", readonly=True)
 
     @api.depends("products", "products.is_selected")
     def _compute_products_not_selected(self) -> None:
@@ -147,6 +145,7 @@ class ProductInventoryWizard(models.TransientModel):
                 }
 
         self.scan_box = ""
+        return None
 
     def action_apply_bin_changes(self) -> None:
         if not self.current_bin:
@@ -180,9 +179,7 @@ class ProductInventoryWizard(models.TransientModel):
                 },
             }
         for product in products_to_print:
-            quantity_to_print = (
-                product.qty_available if self.use_available_quantity_for_labels else self.product_labels_to_print
-            )
+            quantity_to_print = product.qty_available if self.use_available_quantity_for_labels else self.product_labels_to_print
             if quantity_to_print:
                 product.print_product_labels(quantity_to_print=quantity_to_print)
         return {

@@ -125,7 +125,7 @@ export class FileDropWidget extends BinaryField {
             batchPromises.push(uploadPromise);
             activePromises.add(uploadPromise);
 
-            // Wait for an active promise to resolve if limit is reached
+            // Wait for an active promise to resolve if the limit is reached
             if (activePromises.size >= maxConcurrent) {
                 await Promise.race(activePromises);
             }

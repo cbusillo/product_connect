@@ -4,21 +4,15 @@ from datetime import datetime
 from odoo import fields
 from odoo.api import Environment
 
-from odoo.addons.product_connect.services.shopify_client import (
-    OptionSetInput,
-    VariantOptionValueInput,
-    LocalizableContentType,
-    ProductSetIdentifiers,
-    ProductSetProductSetProductResourcePublicationsV2Edges,
-)
-from odoo.addons.product_connect.utils.shopify_helpers import current_datetime_for_shopify
+from .shopify_client import ProductSetProductSetProductResourcePublicationsV2Edges
+from ..utils.shopify_helpers import current_datetime_for_shopify
 from .shopify_client import (
     InventoryItemMeasurementInput,
     ProductSetProductSetProductResourcePublicationsV2EdgesNodePublication,
     ProductSetProductSetProduct,
     GraphQLClientGraphQLMultiError,
 )
-from .shopify_client.enums import ProductStatus, WeightUnit
+from .shopify_client.enums import ProductStatus, WeightUnit, LocalizableContentType
 from .shopify_client.input_types import (
     ProductSetInput,
     ProductVariantSetInput,
@@ -29,6 +23,9 @@ from .shopify_client.input_types import (
     InventoryItemInput,
     MetafieldInput,
     OptionValueSetInput,
+    OptionSetInput,
+    VariantOptionValueInput,
+    ProductSetIdentifiers,
 )
 from .shopify_service import ShopifyService
 from ..utils.shopify_helpers import (
@@ -152,6 +149,7 @@ class ProductExporter:
                 ),
                 "shopify_last_exported": fields.Datetime.now(),
                 "shopify_next_export": False,
+                "shopify_next_export_images": False,
             }
         )
 
@@ -229,7 +227,7 @@ class ProductExporter:
             productOptions=[OptionSetInput(name="Title", values=[OptionValueSetInput(name="Default Title")])],
         )
 
-        if not odoo_product.shopify_product_id:
+        if not odoo_product.shopify_product_id or odoo_product.shopify_next_export_images:
             shopify_product_set_input.files = [
                 FileSetInput(
                     alt=odoo_product.name,
@@ -238,6 +236,7 @@ class ProductExporter:
                 for odoo_image in odoo_product.images.sorted("name")
             ]
 
+        if not odoo_product.shopify_product_id:
             shopify_product_set_input.variants[0].inventory_quantities = [
                 ProductSetInventoryInput(
                     locationId=self.service.first_location_gid,

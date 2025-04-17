@@ -34,6 +34,7 @@ query GetProducts($cursor: String, $limit: Int!, $query: String) {
                 media(first: 20) {
                     edges {
                         node {
+                            status
                             alt
                             preview {
                                 image {

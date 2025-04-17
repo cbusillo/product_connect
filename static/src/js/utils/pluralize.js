@@ -154,7 +154,7 @@ function pluralizeWrapper() {
      *
      * @param  {string}  word      The word to pluralize
      * @param  {number}  count     How many of the word exist
-     * @param  {boolean} inclusive Whether to prefix with the number (e.g. 3 ducks)
+     * @param  {boolean} inclusive Whether to prefix with the number (e.g., 3 ducks)
      * @return {string}
      */
     function pluralize(word, count, inclusive) {

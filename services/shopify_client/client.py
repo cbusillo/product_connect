@@ -196,6 +196,7 @@ class Client(BaseClient):
                       edges {
                         node {
                           __typename
+                          status
                           alt
                           preview {
                             image {
