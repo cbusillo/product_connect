@@ -236,7 +236,7 @@ class ProductExporter:
                 for odoo_image in odoo_product.images.sorted("name")
             ]
 
-        if not odoo_product.shopify_product_id:
+        if not odoo_product.shopify_product_id or odoo_product.shopify_next_export_quantity:
             shopify_product_set_input.variants[0].inventory_quantities = [
                 ProductSetInventoryInput(
                     locationId=self.service.first_location_gid,

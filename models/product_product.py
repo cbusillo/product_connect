@@ -14,6 +14,7 @@ class ProductProduct(models.Model):
     shopify_last_exported = fields.Datetime(string="Last Exported Time")
     shopify_next_export = fields.Boolean(string="Export Next Sync?")
     shopify_next_export_images = fields.Boolean(string="Export Images Next Sync?")
+    shopify_next_export_quantity = fields.Boolean(string="Export Quantity Next Sync?")
     shopify_created_at = fields.Datetime()
 
     def update_quantity(self, quantity: float) -> None:
