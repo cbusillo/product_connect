@@ -1,8 +1,12 @@
-mutation RunBulkOperation($mutation: String!, $stagedUploadPath: String!) {
-    bulkOperationRunMutation(mutation: $mutation, stagedUploadPath: $stagedUploadPath) {
-        bulkOperation {
-            id
-            status
+mutation StagedUploadsCreate($input: [StagedUploadInput!]!) {
+    stagedUploadsCreate(input: $input) {
+        stagedTargets {
+            url
+            parameters {
+                name
+                value
+            }
+            resourceUrl
         }
         userErrors {
             field
@@ -11,15 +15,19 @@ mutation RunBulkOperation($mutation: String!, $stagedUploadPath: String!) {
     }
 }
 
-query GetBulkOperationStatus {
+mutation ProductSetBulkRun($mutation: String!, $stagedUploadPath: String!) {
+    bulkOperationRunMutation(mutation: $mutation, stagedUploadPath: $stagedUploadPath) {
+        bulkOperation {
+            id status
+        }
+        userErrors {
+            field message
+        }
+    }
+}
+
+query CurrentBulkOperation {
     currentBulkOperation {
-        id
-        status
-        errorCode
-        createdAt
-        completedAt
-        objectCount
-        fileSize
-        url
+        id status objectCount url partialDataUrl
     }
 }

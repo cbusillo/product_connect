@@ -75,7 +75,7 @@ def format_shopify_gid_from_id(resource_type: str, resource_id: int | str) -> st
 
 
 def parse_shopify_sku_field_to_sku_and_bin(sku_field: str) -> tuple[str, str]:
-    if not sku_field.strip():
+    if not sku_field or not sku_field.strip():
         raise ShopifyMissingSkuFieldError("No SKU field from Shopify")
 
     sku_field_separator = " - " if " - " in sku_field else " "

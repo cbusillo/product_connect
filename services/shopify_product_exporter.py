@@ -52,7 +52,7 @@ PUBLICATION_CHANNELS: dict[str, int] = {
 class ProductExporter:
     def __init__(self, env: Environment):
         self.env = env
-        self.shopify_service = ShopifyService(env)
+        self.service = ShopifyService(env)
         self.odoo_base_url = env["ir.config_parameter"].sudo().get_param("web.base.url")
 
     def export_products_since_last_export(self) -> tuple[int, int]:
@@ -106,7 +106,7 @@ class ProductExporter:
         return exported_count, total_count
 
     def export_product(self, odoo_product: "odoo.model.product_product") -> None:
-        client = self.shopify_service.client
+        client = self.service.client
         shopify_product_set_input = self._map_odoo_product_to_shopify_product_set_input(odoo_product)
 
         shopify_product_gid = (
@@ -170,7 +170,7 @@ class ProductExporter:
         return parse_shopify_id_from_gid(publication_channel.id) in PUBLICATION_CHANNELS.values()
 
     def _publish_product(self, shopify_product_gid: str) -> None:
-        client = self.shopify_service.client
+        client = self.service.client
         publication_input = [
             PublicationInput(
                 publicationId=format_shopify_gid_from_id("Publication", publication_id),
@@ -238,9 +238,9 @@ class ProductExporter:
                 for odoo_image in odoo_product.images.sorted("name")
             ]
 
-            shopify_product_set_input.variants[0].inventory_item = [
+            shopify_product_set_input.variants[0].inventory_quantities = [
                 ProductSetInventoryInput(
-                    locationId=self.shopify_service.first_location_gid,
+                    locationId=self.service.first_location_gid,
                     quantity=int(odoo_product.qty_available),
                     name="available",
                 )
@@ -252,7 +252,7 @@ class ProductExporter:
                     odoo_product.shopify_condition_id,
                     "condition",
                     odoo_product.condition.code,
-                    LocalizableContentType.SINGLE_LINE_TEXT_FIELD.lower(),
+                    LocalizableContentType.SINGLE_LINE_TEXT_FIELD.value.lower(),
                 )
             ]
 

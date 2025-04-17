@@ -14,8 +14,8 @@ from typing import Any, Dict, List, Optional, Union
 
 from .base_client import BaseClient
 from .base_model import UNSET, UnsetType
+from .current_bulk_operation import CurrentBulkOperation
 from .delete_product import DeleteProduct
-from .get_bulk_operation_status import GetBulkOperationStatus
 from .get_locations import GetLocations
 from .get_product_ids import GetProductIds
 from .get_products import GetProducts
@@ -24,9 +24,11 @@ from .input_types import (
     ProductSetIdentifiers,
     ProductSetInput,
     PublicationInput,
+    StagedUploadInput,
 )
 from .product_set import ProductSet
-from .run_bulk_operation import RunBulkOperation
+from .product_set_bulk_run import ProductSetBulkRun
+from .staged_uploads_create import StagedUploadsCreate
 from .update_publications import UpdatePublications
 
 
@@ -35,12 +37,45 @@ def gql(q: str) -> str:
 
 
 class Client(BaseClient):
-    def run_bulk_operation(
-        self, mutation: str, staged_upload_path: str, **kwargs: Any
-    ) -> RunBulkOperation:
+    def staged_uploads_create(
+        self, input: List[StagedUploadInput], **kwargs: Any
+    ) -> StagedUploadsCreate:
         query = gql(
             """
-            mutation RunBulkOperation($mutation: String!, $stagedUploadPath: String!) {
+            mutation StagedUploadsCreate($input: [StagedUploadInput!]!) {
+              stagedUploadsCreate(input: $input) {
+                stagedTargets {
+                  url
+                  parameters {
+                    name
+                    value
+                  }
+                  resourceUrl
+                }
+                userErrors {
+                  field
+                  message
+                }
+              }
+            }
+            """
+        )
+        variables: Dict[str, object] = {"input": input}
+        response = self.execute(
+            query=query,
+            operation_name="StagedUploadsCreate",
+            variables=variables,
+            **kwargs
+        )
+        data = self.get_data(response)
+        return StagedUploadsCreate.model_validate(data)
+
+    def product_set_bulk_run(
+        self, mutation: str, staged_upload_path: str, **kwargs: Any
+    ) -> ProductSetBulkRun:
+        query = gql(
+            """
+            mutation ProductSetBulkRun($mutation: String!, $stagedUploadPath: String!) {
               bulkOperationRunMutation(
                 mutation: $mutation
                 stagedUploadPath: $stagedUploadPath
@@ -63,26 +98,23 @@ class Client(BaseClient):
         }
         response = self.execute(
             query=query,
-            operation_name="RunBulkOperation",
+            operation_name="ProductSetBulkRun",
             variables=variables,
             **kwargs
         )
         data = self.get_data(response)
-        return RunBulkOperation.model_validate(data)
+        return ProductSetBulkRun.model_validate(data)
 
-    def get_bulk_operation_status(self, **kwargs: Any) -> GetBulkOperationStatus:
+    def current_bulk_operation(self, **kwargs: Any) -> CurrentBulkOperation:
         query = gql(
             """
-            query GetBulkOperationStatus {
+            query CurrentBulkOperation {
               currentBulkOperation {
                 id
                 status
-                errorCode
-                createdAt
-                completedAt
                 objectCount
-                fileSize
                 url
+                partialDataUrl
               }
             }
             """
@@ -90,12 +122,12 @@ class Client(BaseClient):
         variables: Dict[str, object] = {}
         response = self.execute(
             query=query,
-            operation_name="GetBulkOperationStatus",
+            operation_name="CurrentBulkOperation",
             variables=variables,
             **kwargs
         )
         data = self.get_data(response)
-        return GetBulkOperationStatus.model_validate(data)
+        return CurrentBulkOperation.model_validate(data)
 
     def get_product_ids(
         self,

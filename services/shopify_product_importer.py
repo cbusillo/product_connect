@@ -35,7 +35,7 @@ class ProductImporter:
     def set_last_import_time(self, current_datetime: datetime) -> None:
         formatted_datetime = format_datetime_for_shopify(current_datetime)
         self.env["ir.config_parameter"].sudo().set_param("shopify.last_import_time", formatted_datetime)
-        _logger.info("Updated last sync time to %s", formatted_datetime)
+        _logger.info("Updating last sync time to %s on successful transaction", formatted_datetime)
 
     def get_last_import_time(self) -> str:
         last_sync_time = self.env["ir.config_parameter"].sudo().get_param("shopify.last_import_time")
@@ -108,9 +108,8 @@ class ProductImporter:
         return True
 
     def import_products(self, shopify_product_edges: list[GetProductsProductsEdges]) -> int:
-        product_index = 0
         updated_count = 0
-        for edge in shopify_product_edges:
+        for product_index, edge in enumerate(shopify_product_edges):
             shopify_product = edge.node
             _logger.debug(
                 f"Importing product index {product_index}.  Imported {updated_count} of {len(shopify_product_edges)} on this page: {shopify_product.id} {shopify_product.title}"
@@ -176,8 +175,11 @@ class ProductImporter:
         return manufacturer
 
     def get_or_create_part_type(self, part_type_name: str, ebay_category_id: str) -> "odoo.model.product_type":
-        if int(ebay_category_id) < 1 or not part_type_name:
-            raise ShopifyDataError(f"Invalid ebay_category_id {ebay_category_id} or part_type_name {part_type_name}")
+        if not ebay_category_id or not ebay_category_id.isdigit() or ebay_category_id == "0":
+            raise ShopifyDataError(f"Invalid ebay_category_id {ebay_category_id}")
+
+        if not part_type_name:
+            raise ShopifyDataError(f"Invalid part_type_name {part_type_name}")
         part_type = self.env["product.type"].search(
             [
                 ("name", "=", part_type_name),

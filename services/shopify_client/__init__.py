@@ -12,6 +12,10 @@
 from .base_client import BaseClient
 from .base_model import BaseModel, Upload
 from .client import Client
+from .current_bulk_operation import (
+    CurrentBulkOperation,
+    CurrentBulkOperationCurrentBulkOperation,
+)
 from .delete_product import (
     DeleteProduct,
     DeleteProductProductDelete,
@@ -545,10 +549,6 @@ from .exceptions import (
     GraphQLClientGraphQLMultiError,
     GraphQLClientHttpError,
     GraphQLClientInvalidResponseError,
-)
-from .get_bulk_operation_status import (
-    GetBulkOperationStatus,
-    GetBulkOperationStatusCurrentBulkOperation,
 )
 from .get_locations import (
     GetLocations,
@@ -1094,11 +1094,18 @@ from .product_set import (
     ProductSetProductSetProductVariantsEdgesNode,
     ProductSetProductSetUserErrors,
 )
-from .run_bulk_operation import (
-    RunBulkOperation,
-    RunBulkOperationBulkOperationRunMutation,
-    RunBulkOperationBulkOperationRunMutationBulkOperation,
-    RunBulkOperationBulkOperationRunMutationUserErrors,
+from .product_set_bulk_run import (
+    ProductSetBulkRun,
+    ProductSetBulkRunBulkOperationRunMutation,
+    ProductSetBulkRunBulkOperationRunMutationBulkOperation,
+    ProductSetBulkRunBulkOperationRunMutationUserErrors,
+)
+from .staged_uploads_create import (
+    StagedUploadsCreate,
+    StagedUploadsCreateStagedUploadsCreate,
+    StagedUploadsCreateStagedUploadsCreateStagedTargets,
+    StagedUploadsCreateStagedUploadsCreateStagedTargetsParameters,
+    StagedUploadsCreateStagedUploadsCreateUserErrors,
 )
 from .update_publications import (
     UpdatePublications,
@@ -1317,6 +1324,8 @@ __all__ = [
     "CreateMediaInput",
     "CropRegion",
     "CurrencyCode",
+    "CurrentBulkOperation",
+    "CurrentBulkOperationCurrentBulkOperation",
     "CustomShippingPackageInput",
     "CustomerAccountNativePagePageType",
     "CustomerAccountsVersion",
@@ -1504,8 +1513,6 @@ __all__ = [
     "FulfillmentStatus",
     "FulfillmentTrackingInput",
     "FulfillmentV2Input",
-    "GetBulkOperationStatus",
-    "GetBulkOperationStatusCurrentBulkOperation",
     "GetLocations",
     "GetLocationsLocations",
     "GetLocationsLocationsEdges",
@@ -1896,6 +1903,10 @@ __all__ = [
     "ProductPublishInput",
     "ProductResourceFeedbackInput",
     "ProductSet",
+    "ProductSetBulkRun",
+    "ProductSetBulkRunBulkOperationRunMutation",
+    "ProductSetBulkRunBulkOperationRunMutationBulkOperation",
+    "ProductSetBulkRunBulkOperationRunMutationUserErrors",
     "ProductSetIdentifiers",
     "ProductSetInput",
     "ProductSetInventoryInput",
@@ -1990,10 +2001,6 @@ __all__ = [
     "ReverseFulfillmentOrderThirdPartyConfirmationStatus",
     "RiskAssessmentResult",
     "RiskFactSentiment",
-    "RunBulkOperation",
-    "RunBulkOperationBulkOperationRunMutation",
-    "RunBulkOperationBulkOperationRunMutationBulkOperation",
-    "RunBulkOperationBulkOperationRunMutationUserErrors",
     "SEOInput",
     "SaleActionType",
     "SaleLineType",
@@ -2075,6 +2082,11 @@ __all__ = [
     "StagedUploadInput",
     "StagedUploadTargetGenerateInput",
     "StagedUploadTargetGenerateUploadResource",
+    "StagedUploadsCreate",
+    "StagedUploadsCreateStagedUploadsCreate",
+    "StagedUploadsCreateStagedUploadsCreateStagedTargets",
+    "StagedUploadsCreateStagedUploadsCreateStagedTargetsParameters",
+    "StagedUploadsCreateStagedUploadsCreateUserErrors",
     "StandardMetafieldDefinitionAccessInput",
     "StandardMetafieldDefinitionEnableUserErrorCode",
     "StoreCreditAccountCreditInput",
