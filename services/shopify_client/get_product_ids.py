@@ -23,7 +23,7 @@ class GetProductIds(BaseModel):
 
 class GetProductIdsProducts(BaseModel):
     page_info: "GetProductIdsProductsPageInfo" = Field(alias="pageInfo")
-    edges: List["GetProductIdsProductsEdges"]
+    nodes: List["GetProductIdsProductsNodes"]
 
 
 class GetProductIdsProductsPageInfo(BaseModel):
@@ -31,15 +31,9 @@ class GetProductIdsProductsPageInfo(BaseModel):
     end_cursor: Optional[str] = Field(alias="endCursor")
 
 
-class GetProductIdsProductsEdges(BaseModel):
-    cursor: str
-    node: "GetProductIdsProductsEdgesNode"
-
-
-class GetProductIdsProductsEdgesNode(BaseModel):
+class GetProductIdsProductsNodes(BaseModel):
     id: str
 
 
 GetProductIds.model_rebuild()
 GetProductIdsProducts.model_rebuild()
-GetProductIdsProductsEdges.model_rebuild()

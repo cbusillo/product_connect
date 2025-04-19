@@ -15,6 +15,7 @@ from typing import List, Optional
 from pydantic import Field
 
 from .base_model import BaseModel
+from .fragments import UserErrorFields
 
 
 class DeleteProduct(BaseModel):
@@ -30,9 +31,8 @@ class DeleteProductProductDelete(BaseModel):
     )
 
 
-class DeleteProductProductDeleteUserErrors(BaseModel):
-    field: Optional[List[str]]
-    message: str
+class DeleteProductProductDeleteUserErrors(UserErrorFields):
+    pass
 
 
 DeleteProduct.model_rebuild()

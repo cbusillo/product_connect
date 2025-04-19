@@ -14,11 +14,14 @@ from typing import Any, Dict, List, Optional, Union
 
 from .base_client import BaseClient
 from .base_model import UNSET, UnsetType
-from .current_bulk_operation import CurrentBulkOperation
-from .delete_product import DeleteProduct
-from .get_locations import GetLocations
-from .get_product_ids import GetProductIds
-from .get_products import GetProducts
+from .current_bulk_operation import (
+    CurrentBulkOperation,
+    CurrentBulkOperationCurrentBulkOperation,
+)
+from .delete_product import DeleteProduct, DeleteProductProductDelete
+from .get_locations import GetLocations, GetLocationsLocations
+from .get_product_ids import GetProductIds, GetProductIdsProducts
+from .get_products import GetProducts, GetProductsProducts
 from .input_types import (
     ProductDeleteInput,
     ProductSetIdentifiers,
@@ -26,10 +29,30 @@ from .input_types import (
     PublicationInput,
     StagedUploadInput,
 )
-from .product_set import ProductSet
-from .product_set_bulk_run import ProductSetBulkRun
-from .staged_uploads_create import StagedUploadsCreate
-from .update_publications import UpdatePublications
+from .operations import (
+    CURRENT_BULK_OPERATION_GQL,
+    DELETE_PRODUCT_GQL,
+    GET_LOCATIONS_GQL,
+    GET_PRODUCT_IDS_GQL,
+    GET_PRODUCTS_GQL,
+    PRODUCT_SET_BULK_RUN_GQL,
+    PRODUCT_SET_GQL,
+    STAGED_UPLOADS_CREATE_GQL,
+    UPDATE_PUBLICATIONS_GQL,
+)
+from .product_set import ProductSet, ProductSetProductSet
+from .product_set_bulk_run import (
+    ProductSetBulkRun,
+    ProductSetBulkRunBulkOperationRunMutation,
+)
+from .staged_uploads_create import (
+    StagedUploadsCreate,
+    StagedUploadsCreateStagedUploadsCreate,
+)
+from .update_publications import (
+    UpdatePublications,
+    UpdatePublicationsPublishablePublish,
+)
 
 
 def gql(q: str) -> str:
@@ -39,95 +62,45 @@ def gql(q: str) -> str:
 class Client(BaseClient):
     def staged_uploads_create(
         self, input: List[StagedUploadInput], **kwargs: Any
-    ) -> StagedUploadsCreate:
-        query = gql(
-            """
-            mutation StagedUploadsCreate($input: [StagedUploadInput!]!) {
-              stagedUploadsCreate(input: $input) {
-                stagedTargets {
-                  url
-                  parameters {
-                    name
-                    value
-                  }
-                  resourceUrl
-                }
-                userErrors {
-                  field
-                  message
-                }
-              }
-            }
-            """
-        )
+    ) -> Optional[StagedUploadsCreateStagedUploadsCreate]:
         variables: Dict[str, object] = {"input": input}
         response = self.execute(
-            query=query,
+            query=STAGED_UPLOADS_CREATE_GQL,
             operation_name="StagedUploadsCreate",
             variables=variables,
             **kwargs
         )
         data = self.get_data(response)
-        return StagedUploadsCreate.model_validate(data)
+        return StagedUploadsCreate.model_validate(data).staged_uploads_create
 
     def product_set_bulk_run(
         self, mutation: str, staged_upload_path: str, **kwargs: Any
-    ) -> ProductSetBulkRun:
-        query = gql(
-            """
-            mutation ProductSetBulkRun($mutation: String!, $stagedUploadPath: String!) {
-              bulkOperationRunMutation(
-                mutation: $mutation
-                stagedUploadPath: $stagedUploadPath
-              ) {
-                bulkOperation {
-                  id
-                  status
-                }
-                userErrors {
-                  field
-                  message
-                }
-              }
-            }
-            """
-        )
+    ) -> Optional[ProductSetBulkRunBulkOperationRunMutation]:
         variables: Dict[str, object] = {
             "mutation": mutation,
             "stagedUploadPath": staged_upload_path,
         }
         response = self.execute(
-            query=query,
+            query=PRODUCT_SET_BULK_RUN_GQL,
             operation_name="ProductSetBulkRun",
             variables=variables,
             **kwargs
         )
         data = self.get_data(response)
-        return ProductSetBulkRun.model_validate(data)
+        return ProductSetBulkRun.model_validate(data).bulk_operation_run_mutation
 
-    def current_bulk_operation(self, **kwargs: Any) -> CurrentBulkOperation:
-        query = gql(
-            """
-            query CurrentBulkOperation {
-              currentBulkOperation {
-                id
-                status
-                objectCount
-                url
-                partialDataUrl
-              }
-            }
-            """
-        )
+    def current_bulk_operation(
+        self, **kwargs: Any
+    ) -> Optional[CurrentBulkOperationCurrentBulkOperation]:
         variables: Dict[str, object] = {}
         response = self.execute(
-            query=query,
+            query=CURRENT_BULK_OPERATION_GQL,
             operation_name="CurrentBulkOperation",
             variables=variables,
             **kwargs
         )
         data = self.get_data(response)
-        return CurrentBulkOperation.model_validate(data)
+        return CurrentBulkOperation.model_validate(data).current_bulk_operation
 
     def get_product_ids(
         self,
@@ -135,35 +108,20 @@ class Client(BaseClient):
         cursor: Union[Optional[str], UnsetType] = UNSET,
         query: Union[Optional[str], UnsetType] = UNSET,
         **kwargs: Any
-    ) -> GetProductIds:
-        _query = gql(
-            """
-            query GetProductIds($cursor: String, $limit: Int!, $query: String) {
-              products(first: $limit, after: $cursor, query: $query) {
-                pageInfo {
-                  hasNextPage
-                  endCursor
-                }
-                edges {
-                  cursor
-                  node {
-                    id
-                  }
-                }
-              }
-            }
-            """
-        )
+    ) -> GetProductIdsProducts:
         variables: Dict[str, object] = {
             "cursor": cursor,
             "limit": limit,
             "query": query,
         }
         response = self.execute(
-            query=_query, operation_name="GetProductIds", variables=variables, **kwargs
+            query=GET_PRODUCT_IDS_GQL,
+            operation_name="GetProductIds",
+            variables=variables,
+            **kwargs
         )
         data = self.get_data(response)
-        return GetProductIds.model_validate(data)
+        return GetProductIds.model_validate(data).products
 
     def get_products(
         self,
@@ -171,203 +129,70 @@ class Client(BaseClient):
         cursor: Union[Optional[str], UnsetType] = UNSET,
         query: Union[Optional[str], UnsetType] = UNSET,
         **kwargs: Any
-    ) -> GetProducts:
-        _query = gql(
-            """
-            query GetProducts($cursor: String, $limit: Int!, $query: String) {
-              products(first: $limit, after: $cursor, query: $query) {
-                pageInfo {
-                  hasNextPage
-                  endCursor
-                }
-                edges {
-                  cursor
-                  node {
-                    id
-                    title
-                    descriptionHtml
-                    vendor
-                    productType
-                    status
-                    totalInventory
-                    createdAt
-                    updatedAt
-                    media(first: 20) {
-                      edges {
-                        node {
-                          __typename
-                          status
-                          alt
-                          preview {
-                            image {
-                              url
-                            }
-                          }
-                        }
-                      }
-                    }
-                    variants(first: 1) {
-                      edges {
-                        node {
-                          id
-                          price
-                          sku
-                          barcode
-                          inventoryItem {
-                            unitCost {
-                              amount
-                              currencyCode
-                            }
-                            measurement {
-                              weight {
-                                value
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                    metafields(first: 15, namespace: "custom") {
-                      edges {
-                        node {
-                          id
-                          key
-                          value
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-            """
-        )
+    ) -> GetProductsProducts:
         variables: Dict[str, object] = {
             "cursor": cursor,
             "limit": limit,
             "query": query,
         }
         response = self.execute(
-            query=_query, operation_name="GetProducts", variables=variables, **kwargs
+            query=GET_PRODUCTS_GQL,
+            operation_name="GetProducts",
+            variables=variables,
+            **kwargs
         )
         data = self.get_data(response)
-        return GetProducts.model_validate(data)
+        return GetProducts.model_validate(data).products
 
-    def get_locations(self, **kwargs: Any) -> GetLocations:
-        query = gql(
-            """
-            query GetLocations {
-              locations(first: 5) {
-                edges {
-                  node {
-                    id
-                  }
-                }
-              }
-            }
-            """
-        )
+    def get_locations(self, **kwargs: Any) -> GetLocationsLocations:
         variables: Dict[str, object] = {}
         response = self.execute(
-            query=query, operation_name="GetLocations", variables=variables, **kwargs
+            query=GET_LOCATIONS_GQL,
+            operation_name="GetLocations",
+            variables=variables,
+            **kwargs
         )
         data = self.get_data(response)
-        return GetLocations.model_validate(data)
+        return GetLocations.model_validate(data).locations
 
     def product_set(
         self,
         input: ProductSetInput,
         identifier: Union[Optional[ProductSetIdentifiers], UnsetType] = UNSET,
         **kwargs: Any
-    ) -> ProductSet:
-        query = gql(
-            """
-            mutation ProductSet($identifier: ProductSetIdentifiers, $input: ProductSetInput!) {
-              productSet(identifier: $identifier, input: $input) {
-                product {
-                  id
-                  variants(first: 1) {
-                    edges {
-                      node {
-                        id
-                      }
-                    }
-                  }
-                  metafields(first: 15, namespace: "custom") {
-                    edges {
-                      node {
-                        id
-                        key
-                      }
-                    }
-                  }
-                  resourcePublicationsV2(onlyPublished: true, first: 10) {
-                    edges {
-                      node {
-                        publication {
-                          id
-                        }
-                      }
-                    }
-                  }
-                }
-                userErrors {
-                  field
-                  message
-                }
-              }
-            }
-            """
-        )
+    ) -> Optional[ProductSetProductSet]:
         variables: Dict[str, object] = {"identifier": identifier, "input": input}
         response = self.execute(
-            query=query, operation_name="ProductSet", variables=variables, **kwargs
+            query=PRODUCT_SET_GQL,
+            operation_name="ProductSet",
+            variables=variables,
+            **kwargs
         )
         data = self.get_data(response)
-        return ProductSet.model_validate(data)
+        return ProductSet.model_validate(data).product_set
 
     def update_publications(
         self, id: str, input: List[PublicationInput], **kwargs: Any
-    ) -> UpdatePublications:
-        query = gql(
-            """
-            mutation UpdatePublications($id: ID!, $input: [PublicationInput!]!) {
-              publishablePublish(id: $id, input: $input) {
-                userErrors {
-                  field
-                  message
-                }
-              }
-            }
-            """
-        )
+    ) -> Optional[UpdatePublicationsPublishablePublish]:
         variables: Dict[str, object] = {"id": id, "input": input}
         response = self.execute(
-            query=query,
+            query=UPDATE_PUBLICATIONS_GQL,
             operation_name="UpdatePublications",
             variables=variables,
             **kwargs
         )
         data = self.get_data(response)
-        return UpdatePublications.model_validate(data)
+        return UpdatePublications.model_validate(data).publishable_publish
 
-    def delete_product(self, input: ProductDeleteInput, **kwargs: Any) -> DeleteProduct:
-        query = gql(
-            """
-            mutation DeleteProduct($input: ProductDeleteInput!) {
-              productDelete(input: $input) {
-                deletedProductId
-                userErrors {
-                  field
-                  message
-                }
-              }
-            }
-            """
-        )
+    def delete_product(
+        self, input: ProductDeleteInput, **kwargs: Any
+    ) -> Optional[DeleteProductProductDelete]:
         variables: Dict[str, object] = {"input": input}
         response = self.execute(
-            query=query, operation_name="DeleteProduct", variables=variables, **kwargs
+            query=DELETE_PRODUCT_GQL,
+            operation_name="DeleteProduct",
+            variables=variables,
+            **kwargs
         )
         data = self.get_data(response)
-        return DeleteProduct.model_validate(data)
+        return DeleteProduct.model_validate(data).product_delete

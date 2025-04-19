@@ -20,17 +20,12 @@ class GetLocations(BaseModel):
 
 
 class GetLocationsLocations(BaseModel):
-    edges: List["GetLocationsLocationsEdges"]
+    nodes: List["GetLocationsLocationsNodes"]
 
 
-class GetLocationsLocationsEdges(BaseModel):
-    node: "GetLocationsLocationsEdgesNode"
-
-
-class GetLocationsLocationsEdgesNode(BaseModel):
+class GetLocationsLocationsNodes(BaseModel):
     id: str
 
 
 GetLocations.model_rebuild()
 GetLocationsLocations.model_rebuild()
-GetLocationsLocationsEdges.model_rebuild()

@@ -15,6 +15,7 @@ from typing import List, Optional
 from pydantic import Field
 
 from .base_model import BaseModel
+from .fragments import UserErrorFields
 
 
 class UpdatePublications(BaseModel):
@@ -29,9 +30,8 @@ class UpdatePublicationsPublishablePublish(BaseModel):
     )
 
 
-class UpdatePublicationsPublishablePublishUserErrors(BaseModel):
-    field: Optional[List[str]]
-    message: str
+class UpdatePublicationsPublishablePublishUserErrors(UserErrorFields):
+    pass
 
 
 UpdatePublications.model_rebuild()

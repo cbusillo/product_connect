@@ -18,16 +18,22 @@ mutation StagedUploadsCreate($input: [StagedUploadInput!]!) {
 mutation ProductSetBulkRun($mutation: String!, $stagedUploadPath: String!) {
     bulkOperationRunMutation(mutation: $mutation, stagedUploadPath: $stagedUploadPath) {
         bulkOperation {
-            id status
+            id
+            status
         }
         userErrors {
-            field message
+            field
+            message
         }
     }
 }
 
 query CurrentBulkOperation {
     currentBulkOperation {
-        id status objectCount url partialDataUrl
+        id
+        status
+        objectCount
+        url
+        partialDataUrl
     }
 }

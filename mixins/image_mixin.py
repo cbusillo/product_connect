@@ -4,6 +4,7 @@ from odoo import models, fields, api
 from odoo.tools import config
 from pathlib import Path
 
+
 _logger = logging.getLogger(__name__)
 
 
@@ -17,7 +18,30 @@ class ImageMixin(models.AbstractModel):
     image_1920_width = fields.Integer(compute="_compute_image_dimensions", store=True)
     image_1920_height = fields.Integer(compute="_compute_image_dimensions", store=True)
     image_1920_resolution = fields.Char(compute="_compute_image_dimensions", store=True, string="Image Res")
-    index = fields.Integer()
+    initial_index = fields.Integer()
+    shopify_media_id = fields.Char(string="Shopify Media ID")
+
+    def _mark_for_shopify_product_export(self) -> None:
+        for record in self:
+            if isinstance(record, type(self.env["product.image"])):
+                record.product_variant_id.shopify_next_export = True
+                record.product_variant_id.shopify_next_export_images = True
+
+    @api.model_create_multi
+    def create(self, vals_list: list[dict]) -> "odoo.model.image_mixin":
+        records = super().create(vals_list)
+        records._mark_for_shopify_product_export()
+        return records
+
+    def write(self, vals: dict) -> "odoo.model.image_mixin":
+        res = super().write(vals)
+        if {"image_1920", "sequence"} & vals.keys():
+            self._mark_for_shopify_product_export()
+        return res
+
+    def unlink(self) -> None:
+        self._mark_for_shopify_product_export()
+        super().unlink()
 
     @api.depends("image_1920")
     def _compute_attachment(self) -> None:

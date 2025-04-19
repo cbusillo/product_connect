@@ -1,7 +1,6 @@
 import logging
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import TypeVar
-from zoneinfo import ZoneInfo
 
 from dateutil.parser import parse
 from odoo import models
@@ -9,11 +8,12 @@ from odoo.exceptions import UserError
 from pydantic import BaseModel
 
 T = TypeVar("T")
-UTC = ZoneInfo("UTC")
 
 _logger = logging.getLogger(__name__)
 
-DEFAULT_DATETIME = datetime(2000, 1, 1, tzinfo=UTC)
+DEFAULT_DATETIME = datetime(2000, 1, 1)
+SHOPIFY_PAGE_SIZE = 250
+IMAGE_ORDER_KEY = lambda image: (image.sequence or 0, image.create_date or DEFAULT_DATETIME)
 
 
 class ShopifyApiError(UserError):
@@ -44,30 +44,26 @@ class OdooMissingSkuError(OdooDataError):
     pass
 
 
-def normalize_datetime(dt: datetime | None) -> datetime | None:
-    if not dt:
-        return None
+def parse_shopify_datetime_to_utc(value: datetime | str) -> datetime:
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        dt = parse(value)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
     return dt.astimezone(UTC).replace(tzinfo=None)
 
 
-def parse_shopify_datetime_to_utc(date_str: str) -> datetime:
-    return parse(date_str).astimezone(UTC).replace(tzinfo=None)
-
-
 def format_datetime_for_shopify(dt: datetime) -> str:
-    return dt.isoformat(timespec="seconds").replace("+00:00", "Z")
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-def current_datetime_for_shopify() -> str:
-    return format_datetime_for_shopify(datetime.now(UTC))
-
-
-def current_utc_time() -> datetime:
-    return datetime.now(UTC)
-
-
-def parse_shopify_id_from_gid(gid: str) -> int:
-    return int(gid.split("/")[-1])
+def parse_shopify_id_from_gid(gid: str) -> str:
+    if isinstance(gid, int):
+        return str(gid)
+    return gid.split("/")[-1]
 
 
 def format_shopify_gid_from_id(resource_type: str, resource_id: int | str) -> str:
@@ -99,20 +95,12 @@ def format_sku_bin_for_shopify(sku: str, bin_location: str) -> str:
     return f"{sku} - {bin_location}"
 
 
-def determine_latest_product_modification_time(
-    odoo_product: "odoo.model.product_product", last_import_time: datetime
-) -> datetime:
-    if last_import_time.year < 2001:
-        return normalize_datetime(DEFAULT_DATETIME)
-    odoo_product_template = odoo_product.product_tmpl_id
-    odoo_product_write_date = normalize_datetime(odoo_product.write_date)
-    odoo_product_template_write_date = normalize_datetime(odoo_product_template.write_date)
-    odoo_product_shopify_last_exported = normalize_datetime(odoo_product.shopify_last_exported)
-
+def determine_latest_odoo_product_modification_time(product: "odoo.model.product_product") -> datetime:
     dates = [
-        odoo_product_write_date,
-        odoo_product_template_write_date,
-        odoo_product_shopify_last_exported,
-        normalize_datetime(DEFAULT_DATETIME),
+        product.write_date,
+        product.product_tmpl_id.write_date,
+        product.shopify_last_exported_at,
+        product.shopify_last_imported_at,
+        DEFAULT_DATETIME,
     ]
     return max(filter(None, dates))

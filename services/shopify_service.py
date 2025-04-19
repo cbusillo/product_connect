@@ -18,7 +18,6 @@ class ShopifyService:
     MIN_SLEEP_TIME = 0.5
     MAX_SLEEP_TIME = 60
     API_VERSION = "2025-04"
-    # TODO: remove this key from Odoo system parameters
 
     def __init__(self, env: Environment):
         self.env = env
@@ -35,11 +34,11 @@ class ShopifyService:
     def get_first_location_gid(self) -> str:
         client = self.client
         shopify_response = client.get_locations()
-        edges = shopify_response.locations.edges
-        if not edges:
+        locations = shopify_response.nodes
+        if not locations:
             raise ShopifyApiError("No locations found in the Shopify store.")
 
-        location_gid = edges[0].node.id
+        location_gid = locations[0].id
         if not location_gid:
             raise ShopifyApiError("Location GID not found in the Shopify response.")
 
@@ -68,7 +67,7 @@ class ShopifyService:
             "X-Shopify-Access-Token": api_token,
         }
         timeout = Timeout(30.0, connect=10.0)
-        limits = Limits(max_connections=10, max_keepalive_connections=5)
+        limits = Limits(max_connections=25, max_keepalive_connections=25)
 
         def rate_limit_hook(response: Response) -> None:
             if not response.headers.get("content-type", "").startswith("application/json"):

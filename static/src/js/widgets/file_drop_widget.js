@@ -42,10 +42,10 @@ export class FileDropWidget extends BinaryField {
     }
 
     async getHighestIndex(productId) {
-        const existingImages = await this.orm.searchRead(this.imageModelName, [['product_tmpl_id', '=', productId]], ['index']);
+        const existingImages = await this.orm.searchRead(this.imageModelName, [['product_tmpl_id', '=', productId]], ['initial_index']);
         if (!existingImages.length) return -1
 
-        return Math.max(...existingImages.map(record => record.index));
+        return Math.max(...existingImages.map(record => record.initial_index));
 
     }
 
@@ -76,7 +76,7 @@ export class FileDropWidget extends BinaryField {
                 const recordsToSend = sortedUploadedImageBase.map((image, index) => ({
                     product_tmpl_id: this.props.record.resId,
                     image_1920: image,
-                    index: index + highestIndex + 1,
+                    initial_index: index + highestIndex + 1,
                     name: index + highestIndex + 1,
                 }))
                 this.notification.add(`Uploading ${recordsToSend.length} Image(s)`, {

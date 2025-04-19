@@ -1,15 +1,15 @@
 import logging
 from datetime import datetime
+from decimal import Decimal
 
 from odoo import fields
 from odoo.api import Environment
 
-from .shopify_client import ProductSetProductSetProductResourcePublicationsV2Edges
-from ..utils.shopify_helpers import current_datetime_for_shopify
 from .shopify_client import (
     InventoryItemMeasurementInput,
-    ProductSetProductSetProductResourcePublicationsV2EdgesNodePublication,
     ProductSetProductSetProduct,
+    ProductSetProductSetProductResourcePublicationsV2NodesPublication,
+    ProductSetProductSetProductResourcePublicationsV2Nodes,
     GraphQLClientGraphQLMultiError,
 )
 from .shopify_client.enums import ProductStatus, WeightUnit, LocalizableContentType
@@ -29,8 +29,11 @@ from .shopify_client.input_types import (
 )
 from .shopify_service import ShopifyService
 from ..utils.shopify_helpers import (
-    ShopifyApiError,
+    IMAGE_ORDER_KEY,
+    SHOPIFY_PAGE_SIZE,
     OdooDataError,
+    ShopifyApiError,
+    ShopifyDataError,
     format_shopify_gid_from_id,
     format_sku_bin_for_shopify,
     parse_shopify_id_from_gid,
@@ -50,6 +53,7 @@ class ProductExporter:
     def __init__(self, env: Environment):
         self.env = env
         self.service = ShopifyService(env)
+        self.page_size = SHOPIFY_PAGE_SIZE
         self.odoo_base_url = env["ir.config_parameter"].sudo().get_param("web.base.url")
 
     def export_products_since_last_export(self) -> tuple[int, int]:
@@ -73,8 +77,8 @@ class ProductExporter:
         odoo_products = odoo_products.filtered(
             lambda p: p.shopify_next_export is True
             or (
-                p.write_date > (p.shopify_last_exported or datetime.min)
-                or p.product_tmpl_id.write_date > (p.shopify_last_exported or datetime.min)
+                p.write_date > (p.shopify_last_exported_at or datetime.min)
+                or p.product_tmpl_id.write_date > (p.shopify_last_exported_at or datetime.min)
             )
         )
         return odoo_products
@@ -85,8 +89,7 @@ class ProductExporter:
         for odoo_product in odoo_products:
             _logger.debug(f"Exporting product {exported_count} of {total_count}: {odoo_product.id} {odoo_product.name}")
             try:
-                with self.env.cr.savepoint():
-                    self.export_product(odoo_product)
+                self.export_product(odoo_product)
             except (ShopifyApiError, OdooDataError, ValueError, GraphQLClientGraphQLMultiError) as error:
                 _logger.error(f"Error exporting product {odoo_product.id}: {error}")
                 self.env["notification.manager.mixin"].notify_channel(
@@ -96,9 +99,12 @@ class ProductExporter:
                     record=odoo_product,
                     error=error,
                 )
-                self.env.cr.commit()
                 raise error
             exported_count += 1
+
+            if exported_count % self.page_size == 0:
+                _logger.debug(f"Committing after exporting {exported_count} products")
+                self.env.cr.commit()
 
         return exported_count, total_count
 
@@ -122,17 +128,48 @@ class ProductExporter:
             )
             raise OdooDataError(f"Error exporting product {odoo_product.id} to Shopify: {error}")
 
-        shopify_product = shopify_response.product_set.product
+        shopify_product = shopify_response.product
         if not shopify_product:
             raise ShopifyApiError(f"Shopify product not found in the response\n{shopify_response.product_set.user_errors}")
-        publication_edges = shopify_product.resource_publications_v_2.edges
-        if not publication_edges or not self.is_published_on_all_channels(publication_edges):
+        publication_channels = shopify_product.resource_publications_v_2.nodes
+        if not publication_channels or not self.is_published_on_all_channels(publication_channels):
             self._publish_product(shopify_product_gid)
         self._update_odoo_product(odoo_product, shopify_product)
+        self._update_odoo_image_mapping(odoo_product, shopify_product)
+
+    def _update_odoo_image_mapping(
+        self, odoo_product: "odoo.model.product_product", shopify_product: ProductSetProductSetProduct
+    ) -> None:
+        if not odoo_product.shopify_product_id:
+            raise OdooDataError("Odoo product does not have a Shopify product ID")
+
+        shopify_images = shopify_product.media.nodes
+        if not shopify_images:
+            raise ShopifyDataError("Shopify product does not have any images")
+
+        odoo_ordered_images = sorted(odoo_product.images, key=IMAGE_ORDER_KEY)
+
+        for shopify_image_index, shopify_image in enumerate(shopify_images):
+            media_id = parse_shopify_id_from_gid(shopify_image.id)
+            if shopify_image_index < len(odoo_ordered_images):
+                if odoo_ordered_images[shopify_image_index].shopify_media_id != media_id:
+                    odoo_ordered_images[shopify_image_index].shopify_media_id = media_id
+            else:
+                self.env["product.image"].create(
+                    {
+                        "product_variant_id": odoo_product.id,
+                        "shopify_media_id": media_id,
+                        "sequence": shopify_image_index,
+                    }
+                )
+
+        for orphan in odoo_ordered_images[len(shopify_images) :]:
+            orphan.unlink()
 
     @staticmethod
     def _update_odoo_product(odoo_product: "odoo.model.product_product", shopify_product: ProductSetProductSetProduct) -> None:
-        metafields_by_key = {edge.node.key: edge.node for edge in shopify_product.metafields.edges}
+        metafields = shopify_product.metafields.nodes
+        metafields_by_key = {mf.key: mf for mf in metafields}
         ebay_category_id_metafield = metafields_by_key.get("ebay_category_id")
         condition_metafield = metafields_by_key.get("condition")
         _logger.debug(
@@ -142,28 +179,29 @@ class ProductExporter:
         odoo_product.write(
             {
                 "shopify_product_id": parse_shopify_id_from_gid(shopify_product.id),
-                "shopify_variant_id": parse_shopify_id_from_gid(shopify_product.variants.edges[0].node.id),
+                "shopify_variant_id": parse_shopify_id_from_gid(shopify_product.variants.nodes[0].id),
                 "shopify_condition_id": parse_shopify_id_from_gid(condition_metafield.id) if condition_metafield else None,
                 "shopify_ebay_category_id": (
                     parse_shopify_id_from_gid(ebay_category_id_metafield.id) if ebay_category_id_metafield else None
                 ),
-                "shopify_last_exported": fields.Datetime.now(),
+                "shopify_last_exported_at": fields.Datetime.now(),
                 "shopify_next_export": False,
                 "shopify_next_export_images": False,
+                "shopify_next_export_quantity_change_amount": 0,
             }
         )
 
     def is_published_on_all_channels(
-        self, publication_channels: list[ProductSetProductSetProductResourcePublicationsV2Edges]
+        self, publication_channels: list[ProductSetProductSetProductResourcePublicationsV2Nodes]
     ) -> bool:
         for publication_channel in publication_channels:
-            if not self.is_published_on_channel(publication_channel.node.publication):
+            if not self.is_published_on_channel(publication_channel.publication):
                 return False
         return True
 
     @staticmethod
     def is_published_on_channel(
-        publication_channel: ProductSetProductSetProductResourcePublicationsV2EdgesNodePublication,
+        publication_channel: ProductSetProductSetProductResourcePublicationsV2NodesPublication,
     ) -> bool:
         return parse_shopify_id_from_gid(publication_channel.id) in PUBLICATION_CHANNELS.values()
 
@@ -172,7 +210,7 @@ class ProductExporter:
         publication_input = [
             PublicationInput(
                 publicationId=format_shopify_gid_from_id("Publication", publication_id),
-                publishDate=current_datetime_for_shopify(),
+                publishDate=fields.Datetime.now(),
             )
             for publication_id in PUBLICATION_CHANNELS.values()
         ]
@@ -198,7 +236,7 @@ class ProductExporter:
         )
 
         shopify_inventory_item_input = InventoryItemInput(
-            cost=odoo_product.standard_price,
+            cost=Decimal(odoo_product.standard_price),
             measurement=shopify_inventory_item_measurement_input,
             tracked=True,
         )
@@ -209,7 +247,7 @@ class ProductExporter:
                 if odoo_product.shopify_variant_id
                 else None
             ),
-            price=odoo_product.list_price,
+            price=Decimal(odoo_product.list_price),
             sku=format_sku_bin_for_shopify(odoo_product.default_code, odoo_product.bin or ""),
             barcode=odoo_product.mpn or "",
             inventoryItem=shopify_inventory_item_input,
@@ -233,10 +271,10 @@ class ProductExporter:
                     alt=odoo_product.name,
                     originalSource=self.odoo_base_url + "/web/image/product.image/" + str(odoo_image.id) + "/image_1920",
                 )
-                for odoo_image in odoo_product.images.sorted("name")
+                for odoo_image in sorted(odoo_product.images, key=lambda i: (i.sequence, i.create_date))
             ]
 
-        if not odoo_product.shopify_product_id or odoo_product.shopify_next_export_quantity:
+        if not odoo_product.shopify_product_id or odoo_product.shopify_next_export_quantity_change_amount:
             shopify_product_set_input.variants[0].inventory_quantities = [
                 ProductSetInventoryInput(
                     locationId=self.service.first_location_gid,
