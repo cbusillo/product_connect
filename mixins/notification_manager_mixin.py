@@ -12,23 +12,35 @@ class NotificationHistory(models.Model):
     _name = "notification.history"
     _description = "Notification History"
 
-    subject = fields.Char()
-    timestamp = fields.Datetime(default=fields.Datetime.now)
-    channel_name = fields.Char()
+    subject = fields.Char(required=True)
+    timestamp = fields.Datetime(default=fields.Datetime.now, required=True)
+    channel = fields.Many2one("discuss.channel", required=True)
+
+    @api.model_create_multi
+    def create(self, vals_list: list[dict]) -> "odoo.model.notification_history":
+        history_records = super().create(vals_list)
+        self.cleanup()
+        return history_records
 
     @api.model
     def cleanup(self) -> None:
-        one_week_ago = fields.Datetime.subtract(fields.Datetime.now(), weeks=1)
-        self.search([("timestamp", "<", one_week_ago)]).unlink()
+        cutoff = fields.Datetime.subtract(fields.Datetime.now(), days=1)
+        channels = self.env["discuss.channel"].search([("name", "in", ["errors", "shopify_sync"])])
+        for channel in channels:
+            self.search([("timestamp", "<", cutoff), ("channel", "=", channel)]).unlink()
+
+        self.search([("timestamp", "<", cutoff)]).unlink()
 
     @api.model
-    def count_of_recent_notifications(self, subject: str, channel_name: str, hours: int) -> int:
-        return len(self.recent_notifications(subject, channel_name, hours))
+    def count_of_recent_notifications(self, subject: str, channel: "odoo.model.discuss_channel", hours: int) -> int:
+        cleanup_cutoff = fields.Datetime.subtract(fields.Datetime.now(), hours=hours)
+        count = self.search_count([("timestamp", ">=", cleanup_cutoff), ("subject", "ilike", subject), ("channel", "=", channel)])
+        return count
 
     @api.model
-    def recent_notifications(self, subject: str, channel_name: str, hours: int) -> "NotificationHistory":
+    def recent_notifications(self, subject: str, channel: "odoo.model.discuss_channel", hours: int) -> "NotificationHistory":
         time_frame = fields.Datetime.subtract(fields.Datetime.now(), hours=hours)
-        return self.search([("timestamp", ">=", time_frame), ("subject", "=", subject), ("channel_name", "=", channel_name)])
+        return self.search([("timestamp", ">=", time_frame), ("subject", "ilike", subject), ("channel", "=", channel)])
 
 
 class NotificationManagerMixin(models.AbstractModel):
@@ -54,13 +66,13 @@ class NotificationManagerMixin(models.AbstractModel):
         )
         env = env or self.env
         notification_history = env["notification.history"]
-        if notification_history.count_of_recent_notifications(subject, channel_name, 1) > 5:
-            _logger.info(f"Too many notifications for {subject} in the last hour.")
-            return
-
         channel = env["discuss.channel"].search([("name", "=", channel_name)], limit=1)
         if not channel:
             channel = env["discuss.channel"].create({"name": channel_name})
+
+        if notification_history.count_of_recent_notifications(subject, channel, 1) >= 5:
+            _logger.info(f"Too many notifications for {subject} in the last hour.")
+            return
 
         if error_traceback:
             body += "\n\nError traceback:\n"
@@ -88,8 +100,7 @@ class NotificationManagerMixin(models.AbstractModel):
             record.message_post(body_is_html=True, **post_values)
         channel.message_post(body_is_html=True, **post_values)
 
-        notification_history.create({"subject": subject, "channel_name": channel_name})
-        notification_history.cleanup()
+        notification_history.create({"subject": subject, "channel": channel})
 
     def notify_channel_on_error(
         self,
@@ -99,6 +110,7 @@ class NotificationManagerMixin(models.AbstractModel):
         shopify_record: BaseModel | None = None,
         error: Exception | None = None,
     ) -> None:
+        self.env.cr.rollback()
         error_traceback = "".join(traceback.format_exception(type(error), error, error.__traceback__)) if error else ""
 
         new_cr = self.env.registry.cursor()

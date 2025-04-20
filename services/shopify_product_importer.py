@@ -44,11 +44,8 @@ class ProductImporter:
             [],
         )
 
-        if not newest_imported_product:
-            _logger.debug("No products imported yet.")
-            return DEFAULT_DATETIME
-
-        return newest_imported_product[0]["shopify_last_imported_at"]
+        last_import_time = newest_imported_product[0]["shopify_last_imported_at"] or DEFAULT_DATETIME
+        return last_import_time
 
     def import_products_since_last_import(self) -> tuple[int, int]:
         last_import_time = self.get_last_import_time() - timedelta(seconds=1)
@@ -109,12 +106,11 @@ class ProductImporter:
 
     def import_products(self, products: list[GetProductsProductsNodes]) -> int:
         updated_count = 0
-        for product_index, product in enumerate(products):
+        for product_index, product in enumerate(products, start=1):
             _logger.debug(
                 f"Importing product index {product_index}.  Imported {updated_count} of {len(products)} on this page: {product.id} {product.title}"
             )
 
-            product_index += 1
             if self.import_product(product):
                 updated_count += 1
 
@@ -146,9 +142,12 @@ class ProductImporter:
             if odoo_product:
                 latest_write_date = determine_latest_odoo_product_modification_time(odoo_product)
                 images = shopify_product.media.nodes
-                has_unready_media = any(image.status in (MediaStatus.FAILED, MediaStatus.PROCESSING) for image in images)
-                if has_unready_media:
+                if any(image.status in (MediaStatus.PROCESSING, MediaStatus.UPLOADED) for image in images):
                     _logger.debug(f"Product {odoo_product.id} has media not yet ready. Flagging for re‑import.")
+                    return False
+
+                if any(image.status == MediaStatus.FAILED for image in images):
+                    _logger.debug(f"Product {odoo_product.id} has media failed. Flagging for re‑import.")
                     odoo_product.shopify_next_export = True
                     odoo_product.shopify_next_export_images = True
 

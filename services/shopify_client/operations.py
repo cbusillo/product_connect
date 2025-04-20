@@ -187,7 +187,7 @@ mutation ProductSet($identifier: ProductSetIdentifiers, $input: ProductSetInput!
           ...MetafieldFields
         }
       }
-      media(first: 25) {
+      media(first: 250, sortKey: POSITION) {
         nodes {
           __typename
           status

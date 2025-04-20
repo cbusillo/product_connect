@@ -11,6 +11,7 @@ from .shopify_client import (
     ProductSetProductSetProductResourcePublicationsV2NodesPublication,
     ProductSetProductSetProductResourcePublicationsV2Nodes,
     GraphQLClientGraphQLMultiError,
+    MediaStatus,
 )
 from .shopify_client.enums import ProductStatus, WeightUnit, LocalizableContentType
 from .shopify_client.input_types import (
@@ -33,7 +34,6 @@ from ..utils.shopify_helpers import (
     SHOPIFY_PAGE_SIZE,
     OdooDataError,
     ShopifyApiError,
-    ShopifyDataError,
     format_shopify_gid_from_id,
     format_sku_bin_for_shopify,
     parse_shopify_id_from_gid,
@@ -135,36 +135,7 @@ class ProductExporter:
         if not publication_channels or not self.is_published_on_all_channels(publication_channels):
             self._publish_product(shopify_product_gid)
         self._update_odoo_product(odoo_product, shopify_product)
-        self._update_odoo_image_mapping(odoo_product, shopify_product)
-
-    def _update_odoo_image_mapping(
-        self, odoo_product: "odoo.model.product_product", shopify_product: ProductSetProductSetProduct
-    ) -> None:
-        if not odoo_product.shopify_product_id:
-            raise OdooDataError("Odoo product does not have a Shopify product ID")
-
-        shopify_images = shopify_product.media.nodes
-        if not shopify_images:
-            raise ShopifyDataError("Shopify product does not have any images")
-
-        odoo_ordered_images = sorted(odoo_product.images, key=IMAGE_ORDER_KEY)
-
-        for shopify_image_index, shopify_image in enumerate(shopify_images):
-            media_id = parse_shopify_id_from_gid(shopify_image.id)
-            if shopify_image_index < len(odoo_ordered_images):
-                if odoo_ordered_images[shopify_image_index].shopify_media_id != media_id:
-                    odoo_ordered_images[shopify_image_index].shopify_media_id = media_id
-            else:
-                self.env["product.image"].create(
-                    {
-                        "product_variant_id": odoo_product.id,
-                        "shopify_media_id": media_id,
-                        "sequence": shopify_image_index,
-                    }
-                )
-
-        for orphan in odoo_ordered_images[len(shopify_images) :]:
-            orphan.unlink()
+        self._sync_images_after_export(odoo_product, shopify_product)
 
     @staticmethod
     def _update_odoo_product(odoo_product: "odoo.model.product_product", shopify_product: ProductSetProductSetProduct) -> None:
@@ -190,6 +161,34 @@ class ProductExporter:
                 "shopify_next_export_quantity_change_amount": 0,
             }
         )
+
+    @staticmethod
+    def _sync_images_after_export(
+        odoo_product: "odoo.model.product_product", shopify_product: ProductSetProductSetProduct
+    ) -> None:
+        shopify_images = [image for image in shopify_product.media.nodes if image.status != MediaStatus.FAILED]
+        if not shopify_images:
+            return
+
+        ordered_odoo_images = sorted(odoo_product.images, key=IMAGE_ORDER_KEY)
+
+        if len(ordered_odoo_images) != len(shopify_images):
+            _logger.info(
+                "Mismatch immediately after export (%s Odoo vs %s Shopify). " "Scheduling retry.",
+                len(ordered_odoo_images),
+                len(shopify_images),
+            )
+            odoo_product.shopify_next_export = True
+            odoo_product.shopify_next_export_images = True
+            return
+
+        for odoo_image, shopify_image in zip(ordered_odoo_images, shopify_images):
+            media_id = parse_shopify_id_from_gid(shopify_image.id)
+            if odoo_image.shopify_media_id != media_id:
+                odoo_image.shopify_media_id = media_id
+
+            if shopify_image.alt and odoo_image.name != shopify_image.alt:
+                odoo_image.name = shopify_image.alt
 
     def is_published_on_all_channels(
         self, publication_channels: list[ProductSetProductSetProductResourcePublicationsV2Nodes]
@@ -271,7 +270,7 @@ class ProductExporter:
                     alt=odoo_product.name,
                     originalSource=self.odoo_base_url + "/web/image/product.image/" + str(odoo_image.id) + "/image_1920",
                 )
-                for odoo_image in sorted(odoo_product.images, key=lambda i: (i.sequence, i.create_date))
+                for odoo_image in sorted(odoo_product.images, key=IMAGE_ORDER_KEY)[:24]
             ]
 
         if not odoo_product.shopify_product_id or odoo_product.shopify_next_export_quantity_change_amount:

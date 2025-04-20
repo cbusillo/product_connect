@@ -47,7 +47,7 @@ query GetProducts($cursor: String, $limit: Int!, $query: String) {
             totalInventory
             createdAt
             updatedAt
-            media(first: 25, sortKey: POSITION) { nodes { status ...MediaImageFields } }
+            media (first: 25, sortKey: POSITION) { nodes { status ...MediaImageFields } }
             variants(first: 1) { nodes { ...VariantFields } }
             metafields(first: 15, namespace: "custom") { nodes { ...MetafieldFields } }
         }
@@ -64,7 +64,7 @@ mutation ProductSet($identifier: ProductSetIdentifiers, $input: ProductSetInput!
             updatedAt
             variants (first: 1) { nodes { ...VariantFields } }
             metafields (first: 15, namespace: "custom") { nodes { ...MetafieldFields } }
-            media (first: 25) { nodes { status ...MediaImageFields } }
+            media (first: 250, sortKey: POSITION) { nodes { status ...MediaImageFields } }
             resourcePublicationsV2(onlyPublished: true, first: 10) {
                 nodes { publication { id } }
             }
