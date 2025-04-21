@@ -1,7 +1,10 @@
 import logging
 from datetime import datetime
 from decimal import Decimal
+from typing import Optional
 
+import httpx
+import psycopg2
 from odoo import fields
 from odoo.api import Environment
 
@@ -50,19 +53,28 @@ PUBLICATION_CHANNELS: dict[str, int] = {
 
 
 class ProductExporter:
-    def __init__(self, env: Environment):
+    def __init__(self, env: Environment, sync_record: Optional["odoo.model.shopify_sync"] = None):
         self.env = env
         self.service = ShopifyService(env)
         self.page_size = SHOPIFY_PAGE_SIZE
         self.odoo_base_url = env["ir.config_parameter"].sudo().get_param("web.base.url")
+        self.sync_record = sync_record
 
-    def export_products_since_last_export(self) -> tuple[int, int]:
+    def export_products_since_last_export(self) -> None:
         _logger.info("Exporting products since last export")
         odoo_products = self._find_products_to_export()
         if not odoo_products:
             _logger.info("No products to export")
-            return 0, 0
-        return self.export_products(odoo_products)
+            return
+        self.export_products(odoo_products)
+
+    def export_products_since_datetime(self, cutoff_date: datetime) -> None:
+        _logger.info(f"Exporting products since {cutoff_date}")
+        odoo_products = self._find_products_to_export_by_datetime(cutoff_date)
+        if not odoo_products:
+            _logger.info("No products to export")
+            return
+        self.export_products(odoo_products)
 
     def _find_products_to_export(self) -> "odoo.model.product_product":
         odoo_products = self.env["product.product"].search(
@@ -83,30 +95,56 @@ class ProductExporter:
         )
         return odoo_products
 
-    def export_products(self, odoo_products: "odoo.model.product_product") -> tuple[int, int]:
-        exported_count = 0
-        total_count = len(odoo_products)
+    def _find_products_to_export_by_datetime(self, cutoff_date: datetime) -> "odoo.model.product_product":
+        odoo_products = self.env["product.product"].search(
+            [
+                ("sale_ok", "=", True),
+                ("is_ready_for_sale", "=", True),
+                ("website_description", "!=", False),
+                ("website_description", "!=", ""),
+            ]
+        )
+
+        odoo_products = odoo_products.filtered(
+            lambda p: p.shopify_next_export is True or (p.write_date > cutoff_date or p.product_tmpl_id.write_date > cutoff_date)
+        )
+        return odoo_products
+
+    def export_products(self, odoo_products: "odoo.model.product_product") -> None:
+        self.sync_record.total_count = len(odoo_products)
+        self.env.cr.commit()
         for odoo_product in odoo_products:
-            _logger.debug(f"Exporting product {exported_count} of {total_count}: {odoo_product.id} {odoo_product.name}")
+            _logger.debug(f"Exporting product {self.sync_record.completed_str}: {odoo_product.id} {odoo_product.name}")
             try:
-                self.export_product(odoo_product)
-            except (ShopifyApiError, OdooDataError, ValueError, GraphQLClientGraphQLMultiError) as error:
+                with self.env.cr.savepoint():
+                    self.export_product(odoo_product)
+            except (
+                ShopifyApiError,
+                OdooDataError,
+                ValueError,
+                GraphQLClientGraphQLMultiError,
+                AttributeError,
+                httpx.HTTPError,
+                psycopg2.OperationalError,
+                psycopg2.InterfaceError,
+                psycopg2.errors.DeadlockDetected,
+                psycopg2.errors.SerializationFailure,
+            ) as error:
                 _logger.error(f"Error exporting product {odoo_product.id}: {error}")
-                self.env["notification.manager.mixin"].notify_channel(
-                    subject=f"Exported {exported_count} product(s) with error",
+                self.sync_record.odoo_products_to_syncs = odoo_product
+                self.env.cr.commit()
+                self.env["notification.manager.mixin"].notify_channel_on_error(
+                    subject=f"Exported {self.sync_record.completed_str} with error on {odoo_product.id} {odoo_product.name}",
                     body=str(error),
-                    channel_name="shopify_sync",
                     record=odoo_product,
                     error=error,
                 )
                 raise error
-            exported_count += 1
+            self.sync_record.updated_count += 1
 
-            if exported_count % self.page_size == 0:
-                _logger.debug(f"Committing after exporting {exported_count} products")
+            if self.sync_record.updated_count % (self.page_size // 5) == 0:
+                _logger.debug(f"Committing after exporting {self.sync_record.updated_count} products")
                 self.env.cr.commit()
-
-        return exported_count, total_count
 
     def export_product(self, odoo_product: "odoo.model.product_product") -> None:
         client = self.service.client
@@ -126,11 +164,20 @@ class ProductExporter:
             _logger.debug(
                 f"Error exporting product {shopify_product_set_input} with GID {shopify_product_gid} to Shopify: {error}"
             )
-            raise OdooDataError(f"Error exporting product {odoo_product.id} to Shopify: {error}")
+            raise ShopifyApiError(
+                f"Error exporting product {odoo_product.id} to Shopify: {error}",
+                odoo_record=odoo_product,
+                shopify_input=shopify_product_set_input,
+            )
 
         shopify_product = shopify_response.product
         if not shopify_product:
-            raise ShopifyApiError(f"Shopify product not found in the response\n{shopify_response.product_set.user_errors}")
+            raise ShopifyApiError(
+                f"Shopify product not found in the response\n{shopify_response.user_errors}",
+                shopify_record=shopify_response,
+                odoo_record=odoo_product,
+                shopify_input=shopify_product_set_input,
+            )
         publication_channels = shopify_product.resource_publications_v_2.nodes
         if not publication_channels or not self.is_published_on_all_channels(publication_channels):
             self._publish_product(shopify_product_gid)
@@ -155,12 +202,12 @@ class ProductExporter:
                 "shopify_ebay_category_id": (
                     parse_shopify_id_from_gid(ebay_category_id_metafield.id) if ebay_category_id_metafield else None
                 ),
-                "shopify_last_exported_at": fields.Datetime.now(),
                 "shopify_next_export": False,
                 "shopify_next_export_images": False,
                 "shopify_next_export_quantity_change_amount": 0,
             }
         )
+        odoo_product.shopify_last_exported_at = odoo_product.write_date
 
     @staticmethod
     def _sync_images_after_export(
@@ -270,7 +317,7 @@ class ProductExporter:
                     alt=odoo_product.name,
                     originalSource=self.odoo_base_url + "/web/image/product.image/" + str(odoo_image.id) + "/image_1920",
                 )
-                for odoo_image in sorted(odoo_product.images, key=IMAGE_ORDER_KEY)[:24]
+                for odoo_image in sorted(odoo_product.images, key=IMAGE_ORDER_KEY)
             ]
 
         if not odoo_product.shopify_product_id or odoo_product.shopify_next_export_quantity_change_amount:

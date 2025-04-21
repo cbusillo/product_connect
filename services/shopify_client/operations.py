@@ -102,7 +102,7 @@ query GetProducts($cursor: String, $limit: Int!, $query: String) {
       totalInventory
       createdAt
       updatedAt
-      media(first: 25, sortKey: POSITION) {
+      media(first: 250, sortKey: POSITION) {
         nodes {
           __typename
           status

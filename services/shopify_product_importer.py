@@ -3,11 +3,12 @@ from base64 import b64encode
 from datetime import datetime, timedelta
 from typing import Optional
 
+import httpx
+import psycopg2
 from httpx import HTTPError
 from odoo.api import Environment
 from pydantic import AnyUrl
 
-from odoo.addons.product_connect.utils.shopify_helpers import format_datetime_for_shopify
 from .shopify_client import (
     MediaStatus,
     GetProductsProductsNodes,
@@ -23,8 +24,10 @@ from ..utils.shopify_helpers import (
     ShopifyMissingSkuFieldError,
     determine_latest_odoo_product_modification_time,
     format_shopify_gid_from_id,
+    format_datetime_for_shopify,
     parse_shopify_id_from_gid,
     parse_shopify_sku_field_to_sku_and_bin,
+    parse_shopify_datetime_to_utc,
 )
 
 _logger = logging.getLogger(__name__)
@@ -32,34 +35,28 @@ _logger = logging.getLogger(__name__)
 
 class ProductImporter:
 
-    def __init__(self, env: Environment) -> None:
+    def __init__(self, env: Environment, sync_record: Optional["odoo.model.shopify_sync"] = None) -> None:
         self.env = env
         self.shopify_service = ShopifyService(env)
         self.page_size = SHOPIFY_PAGE_SIZE
+        self.sync_record = sync_record
 
     def get_last_import_time(self) -> datetime:
-        newest_imported_product = self.env["product.product"].read_group(
-            [("shopify_last_imported_at", "!=", False)],
-            ["shopify_last_imported_at:max"],
-            [],
-        )
+        if last_import_time_str := self.env["ir.config_parameter"].sudo().get_param("shopify.last_import_time"):
+            _logger.debug(f"Last import time from config: {last_import_time_str}")
+            return parse_shopify_datetime_to_utc(last_import_time_str)
+        _logger.debug(f"Last import time not found in config, using default: {DEFAULT_DATETIME}")
+        return DEFAULT_DATETIME
 
-        last_import_time = newest_imported_product[0]["shopify_last_imported_at"] or DEFAULT_DATETIME
-        return last_import_time
-
-    def import_products_since_last_import(self) -> tuple[int, int]:
-        last_import_time = self.get_last_import_time() - timedelta(seconds=1)
+    def import_products_since_last_import(self) -> None:
+        last_import_time = self.get_last_import_time() - timedelta(seconds=2)
         _logger.info(f"Importing products since last import time: {last_import_time}")
 
         filter_query = f'updated_at:>"{format_datetime_for_shopify(last_import_time)}"'
         _logger.debug(f"Filter query for products: {filter_query}")
-        updated_count, total_count = self.import_products_from_query(query=filter_query)
+        self.import_products_from_query(query=filter_query)
 
-        return updated_count, total_count
-
-    def import_products_from_query(self, query: str | None = None) -> tuple[int, int]:
-        updated_count = 0
-        total_count = 0
+    def import_products_from_query(self, query: str | None = None) -> bool:
 
         client = self.shopify_service.client
         cursor = None
@@ -71,51 +68,67 @@ class ProductImporter:
             if not products:
                 _logger.debug("No more products to import.")
                 break
+            self.sync_record.write({"total_count": self.sync_record.total_count + len(products)})
             try:
-                page_updated_count = self.import_products(products)
-            except (ShopifyDataError, OdooDataError, AttributeError) as error:
+                self.import_products(products)
+            except (ShopifyDataError, OdooDataError) as error:
                 _logger.error(f"Error importing products: {error}")
-                self.env["notification.manager.mixin"].notify_channel(
-                    f"Imported {updated_count} product(s) with error", str(error), "shopify_sync"
-                )
                 raise error
-
-            updated_count += page_updated_count
-            total_count += len(products)
 
             cursor = products_page.page_info.end_cursor
             has_next_page = products_page.page_info.has_next_page
 
-        _logger.debug(f"Finished importing product query: {updated_count} imported, {total_count} total")
-        return updated_count, total_count
+        _logger.debug(f"Finished importing product query: {self.sync_record.completed_str}")
+        return self.sync_record.is_success
 
-    def import_product_by_id(self, shopify_product_id: str) -> bool:
+    def import_product_by_id(self, shopify_product_id: int) -> bool:
         _logger.info(f"Importing product by ID: {shopify_product_id}")
 
         product_gid = format_shopify_gid_from_id("Product", shopify_product_id)
 
         filter_query = f'id:"{product_gid}"'
-        updated_count, _total_count = self.import_products_from_query(query=filter_query)
-
-        if not updated_count:
+        if self.import_products_from_query(query=filter_query):
+            _logger.info(f"Successfully imported product with ID: {shopify_product_id}")
+            return True
+        else:
             _logger.warning(f"Failed to import product with ID: {shopify_product_id}")
             return False
 
-        _logger.info(f"Successfully imported product with ID: {shopify_product_id}")
-        return True
-
-    def import_products(self, products: list[GetProductsProductsNodes]) -> int:
-        updated_count = 0
+    def import_products(self, products: list[GetProductsProductsNodes]) -> None:
         for product_index, product in enumerate(products, start=1):
             _logger.debug(
-                f"Importing product index {product_index}.  Imported {updated_count} of {len(products)} on this page: {product.id} {product.title}"
+                f"Importing product index {product_index}.  Imported {self.sync_record.completed_str} on this page of {len(products)}: {product.id} {product.title}"
             )
-
-            if self.import_product(product):
-                updated_count += 1
-
-        self.env.cr.commit()
-        return updated_count
+            with self.env.cr.savepoint():
+                try:
+                    if self.import_product(product):
+                        self.sync_record.updated_count += 1
+                except (
+                    OdooDataError,
+                    ShopifyDataError,
+                    httpx.HTTPError,
+                    psycopg2.OperationalError,
+                    psycopg2.InterfaceError,
+                    psycopg2.errors.DeadlockDetected,
+                    psycopg2.errors.SerializationFailure,
+                ) as error:
+                    _logger.error(f"Error importing product {product.id}: {error}")
+                    self.sync_record.error_shopify_record = product
+                    self.env.cr.commit()
+                    self.env["notification.manager.mixin"].notify_channel_on_error(
+                        f"Error importing product {product.id} {product.title}",
+                        body="",
+                        shopify_record=product,
+                        error=error,
+                    )
+                    raise error
+            if product_index % (self.page_size // 5) == 0:
+                self.env["ir.config_parameter"].sudo().set_param(
+                    "shopify.last_import_time", format_datetime_for_shopify(product.updated_at)
+                )
+                _logger.debug(f"Committing after {product_index} products")
+                self.env.cr.commit()
+                self.env.clear()
 
     def import_product(self, shopify_product: GetProductsProductsNodes) -> bool:
         if not shopify_product.variants or not shopify_product.variants.nodes:
@@ -129,14 +142,18 @@ class ProductImporter:
             _logger.warning(f"Missing SKU for product {shopify_product.id} {shopify_product.title}")
             return False
 
-        odoo_product = self.env["product.product"].search(
-            [
-                "|",
-                ("shopify_product_id", "=", parse_shopify_id_from_gid(shopify_product.id)),
-                ("default_code", "=", shopify_sku),
-                ("active", "in", [True, False]),
-            ],
-            limit=1,
+        odoo_product = (
+            self.env["product.product"]
+            .search(
+                [
+                    "|",
+                    ("shopify_product_id", "=", parse_shopify_id_from_gid(shopify_product.id)),
+                    ("default_code", "=", shopify_sku),
+                    ("active", "in", [True, False]),
+                ],
+                limit=1,
+            )
+            .with_context(skip_shopify_sync=True)
         )
         try:
             if odoo_product:
@@ -156,7 +173,6 @@ class ProductImporter:
                     odoo_product = self.save_odoo_product(odoo_product, shopify_product)
                     return True
                 _logger.debug(f"Product {odoo_product.id} is up to date with Shopify")
-                odoo_product.shopify_last_imported_at = shopify_product.updated_at
                 return False
             else:
                 _logger.debug(f"Creating new product {shopify_product.id} from Shopify")
@@ -283,7 +299,6 @@ class ProductImporter:
                 "manufacturer": self.get_or_create_manufacturer(shopify_product.vendor).id,
                 "is_published": shopify_product.status.lower() == "active",
                 "is_ready_for_sale": True,
-                "shopify_last_imported_at": shopify_product.updated_at,
             }
 
             if odoo_product:
@@ -306,7 +321,7 @@ class ProductImporter:
             if odoo_product:
                 odoo_product.write(odoo_product_input)
             else:
-                odoo_product = self.env["product.product"].create(odoo_product_input)
+                odoo_product = self.env["product.product"].with_context(skip_shopify_sync=True).create(odoo_product_input)
 
             self._sync_images_bidirectional(odoo_product, shopify_product)
             if shopify_product.total_inventory is not None:

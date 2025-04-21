@@ -7,7 +7,7 @@ from typing import Any
 
 class ProductTemplate(models.Model):
     _name = "product.template"
-    _inherit = ["product.template", "notification.manager.mixin", "label.mixin"]
+    _inherit = ["product.template", "label.mixin", "notification.manager.mixin"]
     _description = "Product"
     _order = "create_date desc"
     _sql_constraints = [
@@ -157,6 +157,9 @@ class ProductTemplate(models.Model):
                 product.is_ready_to_list = True
                 product.is_storable = True
 
+        if not self.env.context.get("skip_shopify_sync"):
+            self.env["shopify.sync"].create({"mode": "export_batch", "odoo_products_to_sync": [(6, 0, products.ids)]})
+
         return products
 
     def write(self, vals: "odoo.values.product_template") -> bool:
@@ -213,6 +216,10 @@ class ProductTemplate(models.Model):
 
             if product.motor and any(f in vals for f in ui_refresh_fields):
                 product.motor.notify_changes()
+
+        if not self.env.context.get("skip_shopify_sync"):
+            commands = [(4, pid) for pid in self.ids]
+            self.env["shopify.sync"].create({"mode": "export_batch", "odoo_products_to_sync": commands})
         return result
 
     def _track_template(self, changes: set[str]) -> dict[str, tuple[str, dict]]:

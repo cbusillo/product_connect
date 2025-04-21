@@ -27,20 +27,26 @@ class NotificationHistory(models.Model):
         cutoff = fields.Datetime.subtract(fields.Datetime.now(), days=1)
         channels = self.env["discuss.channel"].search([("name", "in", ["errors", "shopify_sync"])])
         for channel in channels:
-            self.search([("timestamp", "<", cutoff), ("channel", "=", channel)]).unlink()
+            self.search([("timestamp", "<", cutoff), ("channel", "=", channel.id)]).unlink()
 
         self.search([("timestamp", "<", cutoff)]).unlink()
 
     @api.model
     def count_of_recent_notifications(self, subject: str, channel: "odoo.model.discuss_channel", hours: int) -> int:
         cleanup_cutoff = fields.Datetime.subtract(fields.Datetime.now(), hours=hours)
-        count = self.search_count([("timestamp", ">=", cleanup_cutoff), ("subject", "ilike", subject), ("channel", "=", channel)])
+        count = self.search_count(
+            [
+                ("timestamp", ">=", cleanup_cutoff),
+                ("subject", "ilike", subject),
+                ("channel", "=", channel.id),
+            ]
+        )
         return count
 
     @api.model
     def recent_notifications(self, subject: str, channel: "odoo.model.discuss_channel", hours: int) -> "NotificationHistory":
         time_frame = fields.Datetime.subtract(fields.Datetime.now(), hours=hours)
-        return self.search([("timestamp", ">=", time_frame), ("subject", "ilike", subject), ("channel", "=", channel)])
+        return self.search([("timestamp", ">=", time_frame), ("subject", "ilike", subject), ("channel", "=", channel.id)])
 
 
 class NotificationManagerMixin(models.AbstractModel):
@@ -100,7 +106,7 @@ class NotificationManagerMixin(models.AbstractModel):
             record.message_post(body_is_html=True, **post_values)
         channel.message_post(body_is_html=True, **post_values)
 
-        notification_history.create({"subject": subject, "channel": channel})
+        notification_history.create({"subject": subject, "channel": channel.id})
 
     def notify_channel_on_error(
         self,

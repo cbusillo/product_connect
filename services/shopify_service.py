@@ -95,6 +95,7 @@ class ShopifyService:
             timeout=timeout,
             limits=limits,
             event_hooks={"response": [rate_limit_hook]},
+            http2=True,
         )
 
         original_send = client.send

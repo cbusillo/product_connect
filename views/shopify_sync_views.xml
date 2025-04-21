@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <!-- ─────────────────────────────────────────  ACTION  ────────────────────────────────────────── -->
+    <record id="action_shopify_sync" model="ir.actions.act_window">
+        <field name="name">Shopify – Sync Runs</field>
+        <field name="res_model">shopify.sync</field>
+        <field name="view_mode">list,kanban,form,graph</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No sync has been executed yet.
+            </p>
+        </field>
+    </record>
+
+    <!-- ─────────────────────────────────────────  MENU  ──────────────────────────────────────────── -->
+    <menuitem id="menu_shopify_root"
+              name="Shopify"
+              parent="stock.menu_stock_warehouse_mgmt"
+              sequence="60"/>
+    <menuitem id="menu_shopify_sync" name="Sync Runs"
+              parent="menu_shopify_root" action="action_shopify_sync" sequence="10"/>
+
+    <!-- ───────────────────────────────────────  LIST VIEW  ───────────────────────────────────────── -->
+    <record id="view_shopify_sync_list" model="ir.ui.view">
+        <field name="name">shopify.sync.list</field>
+        <field name="model">shopify.sync</field>
+        <field name="arch" type="xml">
+            <list string="Shopify Sync Runs" default_order="start_time desc">
+                <field name="start_time_human"/>
+                <field name="end_time_human"/>
+                <field name="run_time_human"/>
+                <field name="mode" widget="badge"/>
+                <field name="state" widget="badge"
+                       decoration-danger="state == 'failed'"
+                       decoration-warning="state == 'running'"
+                       decoration-success="state == 'success'"/>
+                <field name="updated_count" string="Updated" sum="updated_count"/>
+                <field name="total_count" string="Total" sum="total_count"/>
+                <field name="progress_percent" widget="progressbar" sum="progress_percent"
+                       options="{'max_value': 100, 'suffix': '%'}"/>
+                <field name="user"/>
+
+            </list>
+        </field>
+    </record>
+
+    <!-- ───────────────────────────────────────  KANBAN VIEW  ───────────────────────────────────────── -->
+    <record id="view_shopify_sync_kanban" model="ir.ui.view">
+        <field name="name">shopify.sync.kanban</field>
+        <field name="model">shopify.sync</field>
+        <field name="arch" type="xml">
+            <kanban class="o_shopify_sync_kanban" autorefresh="15">
+                <templates>
+                    <t t-name="kanban-box">
+                        <div t-attf-class="oe_kanban_global_click o_kanban_record_card o_kanban_card_{{ record.state.raw_value }}">
+                            <div class="oe_kanban_details">
+                                <field name="state" widget="badge"
+                                       decoration-danger="state == 'failed'"
+                                       decoration-warning="state == 'running'"
+                                       decoration-success="state == 'success'"/>
+                                <field name="mode" widget="badge"/>
+                                <field name="updated_count"/> /
+                                <field name="total_count"/>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- ───────────────────────────────────────  SEARCH VIEW  ─────────────────────────────────────── -->
+    <record id="view_shopify_sync_search" model="ir.ui.view">
+        <field name="name">shopify.sync.search</field>
+        <field name="model">shopify.sync</field>
+        <field name="arch" type="xml">
+            <search string="Search Sync Runs">
+                <field name="user"/>
+                <filter name="running" string="Running" domain="[('state','=','running')]" help="Currently running"/>
+                <filter name="failed" string="Failed" domain="[('state','=','failed')]" help="Runs with errors"/>
+                <filter name="import" string="Import" domain="[('mode','ilike','import')]"/>
+                <filter name="export" string="Export" domain="[('mode','ilike','export')]"/>
+                <filter name="filter_create_date" date="create_date"/>
+                <group expand="0" string="Group By">
+                    <filter name="g_state" string="State" domain="[]" context="{'group_by':'state'}"/>
+                    <filter name="g_user" string="User" domain="[]" context="{'group_by':'user'}"/>
+                    <filter name="g_mode" string="Mode" domain="[]" context="{'group_by':'mode'}"/>
+                </group>
+                <searchpanel>
+                    <field name="state"/>
+                    <field name="mode"/>
+                </searchpanel>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_shopify_sync_form" model="ir.ui.view">
+        <field name="name">shopify.sync.form</field>
+        <field name="model">shopify.sync</field>
+        <field name="arch" type="xml">
+            <form string="Run Shopify Sync">
+                <sheet>
+                    <group>
+                        <field name="mode" widget="selection_badge" readonly="id"/>
+                        <field name="odoo_products_to_sync" invisible="mode != 'export_batch'"/>
+                        <field name="shopify_product_id_to_sync" invisible="mode != 'import_one'"/>
+                        <field name="datetime_to_sync" string="Date from"
+                               invisible="mode not in ['export_since', 'import_since']"/>
+                        <field name="start_time" readonly="1" invisible="not start_time"/>
+                        <field name="end_time" readonly="1" invisible="not end_time"/>
+                        <field name="run_time_human" readonly="1" invisible="not run_time"/>
+                    </group>
+                    <group string="Progress" invisible="not id">
+                        <field name="updated_count" readonly="1" invisible="not updated_count"/>
+                        <field name="total_count" readonly="1" invisible="not total_count"/>
+                        <field name="updated_count" widget="progressbar" string="Progress" readonly="1"
+                               options="{'max_value': 'total_count', 'current_value': 'updated_count'}"
+                               invisible="state not in ['queued','draft']"/>
+                        <field name="state" widget="badge" readonly="1"
+                               decoration-danger="state == 'failed'"
+                               decoration-warning="state == 'running'"
+                               decoration-success="state == 'success'" invisible="not start_time"/>
+                    </group>
+                    <group string="Error Item" invisible="not error_odoo_record and not error_shopify_record">
+                        <field name="error_odoo_record" readonly="1" invisible="not error_odoo_record"/>
+                        <field name="error_shopify_record" widget="jsonb" readonly="1"
+                               invisible="not error_shopify_record"/>
+                        <field name="error_shopify_input" widget="jsonb" readonly="1"
+                               invisible="not error_shopify_input"/>
+                    </group>
+                    <group string="Error Info" invisible="state != 'failed'">
+                        <field name="error_message" readonly="1"/>
+                        <field name="error_exception" readonly="1"/>
+                        <label for="error_traceback"/>
+                        <div class="o_row d-flex align-items-start">
+                            <field name="error_traceback" widget="text" nolabel="1" readonly="1"
+                                   class="flex-grow-1 me-2"/>
+                            <field name="error_traceback" widget="CopyClipboardButton" nolabel="1" readonly="1"/>
+                        </div>
+                    </group>
+                    <chatter/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_shopify_sync_graph" model="ir.ui.view">
+        <field name="name">shopify.sync.graph</field>
+        <field name="model">shopify.sync</field>
+        <field name="arch" type="xml">
+            <graph string="Sync KPI" type="bar">
+                <field name="start_time" type="row"/>
+                <field name="updated_count" type="measure"/>
+                <field name="state" type="col"/>
+            </graph>
+        </field>
+    </record>
+</odoo>

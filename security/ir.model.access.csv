@@ -31,3 +31,5 @@ access_motor_product_template,access_motor_product_template,model_motor_product_
 access_motor_disassemble_result, access_motor_disassemble_result,model_motor_dismantle_result,base.group_user,1,1,1,1
 
 access_notification_history,access.notification.history,model_notification_history,base.group_user,1,1,1,1
+
+access_shopify_sync_user,access.shopify_sync.user,model_shopify_sync,base.group_user,1,0,0,0

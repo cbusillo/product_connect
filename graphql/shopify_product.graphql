@@ -47,7 +47,7 @@ query GetProducts($cursor: String, $limit: Int!, $query: String) {
             totalInventory
             createdAt
             updatedAt
-            media (first: 25, sortKey: POSITION) { nodes { status ...MediaImageFields } }
+            media (first: 250, sortKey: POSITION) { nodes { status ...MediaImageFields } }
             variants(first: 1) { nodes { ...VariantFields } }
             metafields(first: 15, namespace: "custom") { nodes { ...MetafieldFields } }
         }

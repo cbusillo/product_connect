@@ -17,10 +17,17 @@ IMAGE_ORDER_KEY = lambda image: (image.sequence or 0, image.create_date or DEFAU
 
 
 class ShopifyApiError(UserError):
-    def __init__(self, message: str, shopify_record: BaseModel | None = None, odoo_record: models.Model | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        shopify_record: BaseModel | None = None,
+        shopify_input: BaseModel | None = None,
+        odoo_record: models.Model | None = None,
+    ) -> None:
         super().__init__(message)
-        self.record = odoo_record
+        self.odoo_record = odoo_record
         self.shopify_record = shopify_record
+        self.shopify_input = shopify_input
 
 
 class ShopifyDataError(ShopifyApiError):
@@ -100,7 +107,6 @@ def determine_latest_odoo_product_modification_time(product: "odoo.model.product
         product.write_date,
         product.product_tmpl_id.write_date,
         product.shopify_last_exported_at,
-        product.shopify_last_imported_at,
         DEFAULT_DATETIME,
     ]
     return max(filter(None, dates))
