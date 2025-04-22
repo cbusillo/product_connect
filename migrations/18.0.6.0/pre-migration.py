@@ -23,3 +23,5 @@ def migrate(cr: Cursor, version: str) -> None:
     util.rename_field(cr, "motor.image", "index", "initial_index")
 
     util.remove_field(cr, "product.product", "shopify_last_exported")
+
+    env["product.image"].remove_missing_images()

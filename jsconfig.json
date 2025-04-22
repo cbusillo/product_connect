@@ -1,5 +1,24 @@
 {
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "@odoo/owl": [
+        "odoo/addons/web/static/lib/owl/owl.js"
+      ],
+      "@web/*": [
+        "odoo/addons/web/static/*"
+      ],
+      "@product_connect/*": [
+        "addons/product_connect/static/src/*"
+      ]
+    },
+    "target": "ES2021",
+    "allowJs": true,
+    "checkJs": false
+  },
   "include": [
-    "./static/src/**/*"
+    "addons/**/static/src/**/*",
+    "odoo/addons/web/static/**/*"
   ]
 }

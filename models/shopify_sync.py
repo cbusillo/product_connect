@@ -1,17 +1,19 @@
 import logging
+import threading
 import traceback
+from contextlib import contextmanager
+from typing import Generator, Union
 
 from babel.dates import format_timedelta
-from contextlib import contextmanager
-from typing import Generator
-
 from odoo import api, models, fields
+from pydantic import BaseModel
 
 from odoo.addons.product_connect.utils.shopify_helpers import (
     ShopifyApiError,
     OdooDataError,
     format_datetime_for_shopify,
     DEFAULT_DATETIME,
+    ShopifySyncRunFailed,
 )
 
 _logger = logging.getLogger(__name__)
@@ -20,17 +22,21 @@ _logger = logging.getLogger(__name__)
 class ShopifySync(models.TransientModel):
     _name = "shopify.sync"
     _description = "Shopify Sync"
-    _inherit = ["notification.manager.mixin", "mail.activity.mixin", "mail.thread"]
+    _inherit = ["mail.activity.mixin", "mail.thread"]
     _order = "start_time DESC"
+    _transient_max_hours = 24 * 7
+    _transient_max_count = 1000
+
+    LOCK_ID = 87945012
+    IMPORT_EXPORT_CRON_TIME = 60 * 60
+    CRON_IDLE_TIMEOUT_THRESHOLD_SECONDS = 60  # TODO: increase in prod
 
     start_time = fields.Datetime(default=fields.Datetime.now, required=True)
     start_time_human = fields.Char(compute="_compute_start_time_human", string="Started")
     end_time = fields.Datetime()
     end_time_human = fields.Char(compute="_compute_end_time_human", string="Ended")
-    run_time = fields.Float(compute="_compute_run_time")
+    run_time = fields.Float(compute="_compute_run_time", string="Run Time (seconds)")
     run_time_human = fields.Char(compute="_compute_run_time", string="Run Time")
-
-    LOCK_ID = 87945012
 
     mode = fields.Selection(
         [
@@ -42,14 +48,14 @@ class ShopifySync(models.TransientModel):
             ("import_since", "Import Since Date"),
             ("export_since", "Export Since Date"),
             ("import_one", "Import One"),
-            ("export_batch", "Export batch"),
+            ("export_batch", "Export Batch"),
             ("reset_shopify", "Reset Shopify IDs"),
         ],
         required=True,
         index=True,
     )
     odoo_products_to_sync = fields.Many2many("product.product")
-    shopify_product_id_to_sync = fields.Integer()
+    shopify_product_id_to_sync = fields.Char(string="Shopify Product ID")
     datetime_to_sync = fields.Datetime()
     updated_count = fields.Integer()
     total_count = fields.Integer()
@@ -57,7 +63,6 @@ class ShopifySync(models.TransientModel):
         string="Progress %",
         compute="_compute_progress_percent",
         store=True,
-        aggregator="avg",
     )
 
     state = fields.Selection(
@@ -90,6 +95,12 @@ class ShopifySync(models.TransientModel):
         syncs.state = "queued"
         return syncs
 
+    def unlink(self) -> None:
+        self.env["mail.activity"].search([("res_id", "in", self.ids)]).unlink()
+        self.env["mail.message"].search([("res_id", "in", self.ids)]).unlink()
+
+        return super().unlink()
+
     @api.depends("updated_count", "total_count")
     def _compute_progress_percent(self) -> None:
         for record in self:
@@ -119,7 +130,10 @@ class ShopifySync(models.TransientModel):
                 record.run_time = 0.0
                 record.run_time_human = "-"
 
-    def _fail_stale_runs(self, threshold_seconds: int = 60) -> None:
+    def _fail_stale_runs(self, threshold_seconds: int = 0) -> None:
+        if not threshold_seconds:
+            threshold_seconds = self.CRON_IDLE_TIMEOUT_THRESHOLD_SECONDS
+
         cutoff = fields.Datetime.subtract(fields.Datetime.now(), seconds=threshold_seconds)
         stale_runs = self.search(
             [
@@ -130,41 +144,48 @@ class ShopifySync(models.TransientModel):
         if not stale_runs:
             return
 
-        mark_failed_vals: "odoo.values.shopify_sync" = {
-            "state": "failed",
-            "error_message": f"Automatically marked failed - no activity for {threshold_seconds} seconds",
-            "end_time": fields.Datetime.now(),
-        }
-        stale_runs.write(mark_failed_vals)
+        stale_runs.write(
+            {
+                "state": "failed",
+                "error_message": f"Automatically marked failed - no activity for {threshold_seconds} seconds",
+                "end_time": fields.Datetime.now(),
+            }
+        )
         self.env.cr.commit()
 
     @api.model
     def _cron_dispatch_next(self) -> None:
         self._fail_stale_runs()
 
-        self.env.cr.execute("SELECT pg_try_advisory_lock(%s)", [self.LOCK_ID])
-        if not self.env.cr.fetchone()[0]:
-            _logger.debug("Another cron worker is already draining the queue.")
-            return
+        while True:
+            with self.env.cr.savepoint():
+                self.env.cr.execute("SELECT pg_try_advisory_lock(%s)", [self.LOCK_ID])
+                if not self.env.cr.fetchone()[0]:
+                    _logger.debug("Another worker is already running; skipping.")
+                    return
 
-        if self.search([("state", "=", "running")], limit=1):
-            _logger.debug("Another sync is already running, skipping dispatch.")
-            return
-        try:
-            while True:
-                self.env.cr.commit()
+                if self.search([("state", "=", "running")], limit=1):
+                    self.env.cr.execute("SELECT pg_advisory_unlock(%s)", [self.LOCK_ID])
+                    _logger.debug("Sync already running; skipping.")
+                    return
+
                 next_sync = self.search([("state", "=", "queued")], order="id asc", limit=1)
-                if not next_sync:
-                    break
+                if next_sync:
+                    next_sync.sudo().write({"state": "running"})
+                self.env.cr.execute("SELECT pg_advisory_unlock(%s)", [self.LOCK_ID])
 
-                try:
-                    next_sync._execute_mode()
-                except (ShopifyApiError, OdooDataError):
-                    self.env.cr.commit()
-                    continue
-        finally:
-            self.env.cr.execute("SELECT pg_advisory_unlock(%s)", [self.LOCK_ID])
-            self.env.cr.commit()
+            if not next_sync:
+                _logger.debug("No queued syncs found; exiting.")
+                break
+
+            try:
+                next_sync._execute_mode()
+            except (ShopifyApiError, OdooDataError, ShopifySyncRunFailed):
+                self.env.cr.commit()
+                continue
+            except Exception as error:
+                self.env.cr.commit()
+                raise error
 
         now = fields.Datetime.now()
         last_import_then_export = self.search(
@@ -175,11 +196,31 @@ class ShopifySync(models.TransientModel):
         )
         if (
             not last_import_then_export
-            or (now - last_import_then_export.start_time).total_seconds() >= 3600
+            or (now - last_import_then_export.start_time).total_seconds() >= self.IMPORT_EXPORT_CRON_TIME
             or not last_export_changed
-            or (now - last_export_changed.start_time).total_seconds() >= 3600
+            or (now - last_export_changed.start_time).total_seconds() >= self.IMPORT_EXPORT_CRON_TIME
         ):
             self.create({"mode": "import_then_export"})
+
+    def run_async(self) -> None:
+        def run_in_thread() -> None:
+            with self.env.registry.cursor() as cr:
+                thread_env = self.env(cr)
+                sync_jobs = thread_env["shopify.sync"].browse(self.ids)
+                for sync_job in sync_jobs:
+                    sync_job._cron_dispatch_next()
+
+        threading.Thread(target=run_in_thread, daemon=True).start()
+
+    def create_and_run_async(
+        self, vals_list: Union[list["odoo.values.shopify_sync"], "odoo.values.shopify_sync"]
+    ) -> "odoo.model.shopify_sync":
+        if isinstance(vals_list, dict):
+            vals_list = [vals_list]
+
+        sync_jobs = self.sudo().create(vals_list)
+        sync_jobs.run_async()
+        return sync_jobs
 
     @api.model
     def _execute_mode(self) -> None:
@@ -206,6 +247,7 @@ class ShopifySync(models.TransientModel):
 
     def _mark_failed(self, error: Exception) -> None:
         tb = traceback.format_exc()
+        truncate = lambda s, l=100000: s if len(s) <= l else s[:l] + f"...[{len(s)-l} more]"
         vals: "odoo.values.shopify_sync" = {
             "state": "failed",
             "end_time": fields.Datetime.now(),
@@ -214,14 +256,25 @@ class ShopifySync(models.TransientModel):
             "error_traceback": tb,
         }
 
-        if isinstance(error, (ShopifyApiError, OdooDataError)):
+        if hasattr(error, "odoo_record") and isinstance(error.odoo_record, models.Model):
             vals["error_odoo_record"] = error.odoo_record
 
-        if isinstance(error, ShopifyApiError):
-            if error.shopify_input:
-                vals["error_shopify_input"] = error.shopify_input.model_dump(exclude_none=True, mode="json")
-            if error.shopify_record:
-                vals["error_shopify_record"] = error.shopify_record.model_dump(exclude_none=True, mode="json")
+        if hasattr(error, "shopify_record") and isinstance(error.shopify_record, BaseModel):
+            vals["error_shopify_record"] = error.shopify_record.model_dump(exclude_none=True, mode="json")
+
+        if hasattr(error, "shopify_input") and isinstance(error.shopify_input, BaseModel):
+            vals["error_shopify_input"] = error.shopify_input.model_dump(exclude_none=True, mode="json")
+
+        if hasattr(error, "errors"):
+            raw_errors = error.errors() if callable(error.errors) else error.errors
+            try:
+                errors = list(raw_errors)
+            except TypeError:
+                errors = [raw_errors]
+            extra = "\n".join([str(e) for e in errors])
+            existing = vals.get("error_shopify_record", "")
+            combined = f"{existing}\n{extra}" if existing else extra
+            vals["error_shopify_record"] = truncate(combined)
 
         self.sudo().write(vals)
         self.env.cr.commit()
@@ -234,23 +287,21 @@ class ShopifySync(models.TransientModel):
         try:
             yield
             self.state = "success"
-            if self.mode in ("import_changed", "import_then_export", "import_all"):
+            if self.mode in ("import_changed", "import_then_export", "import_all") and self.last_import_start_time:
                 self.env["ir.config_parameter"].sudo().set_param(
                     "shopify.last_import_time", format_datetime_for_shopify(self.last_import_start_time)
                 )
+            self.env.cr.commit()
         except Exception as error:
             self._mark_failed(error)
-            raise
+            self.env.cr.commit()
+            raise ShopifySyncRunFailed()
         finally:
             self.end_time = fields.Datetime.now()
 
     @property
     def completed_str(self) -> str:
         return f"{self.updated_count} of {self.total_count} product(s)"
-
-    @property
-    def is_success(self) -> bool:
-        return self.updated_count == self.total_count
 
     def _run_reset_shopify(self) -> None:
         products = self.env["product.product"].search([])

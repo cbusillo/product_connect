@@ -158,7 +158,9 @@ class ProductTemplate(models.Model):
                 product.is_storable = True
 
         if not self.env.context.get("skip_shopify_sync"):
-            self.env["shopify.sync"].create({"mode": "export_batch", "odoo_products_to_sync": [(6, 0, products.ids)]})
+            self.env["shopify.sync"].create_and_run_async(
+                {"mode": "export_batch", "odoo_products_to_sync": [(6, 0, products.ids)]}
+            )
 
         return products
 
@@ -218,8 +220,9 @@ class ProductTemplate(models.Model):
                 product.motor.notify_changes()
 
         if not self.env.context.get("skip_shopify_sync"):
-            commands = [(4, pid) for pid in self.ids]
-            self.env["shopify.sync"].create({"mode": "export_batch", "odoo_products_to_sync": commands})
+            variant_ids = self.mapped("product_variant_ids").ids
+            commands = [(4, vid) for vid in variant_ids]
+            self.env["shopify.sync"].create_and_run_async({"mode": "export_batch", "odoo_products_to_sync": commands})
         return result
 
     def _track_template(self, changes: set[str]) -> dict[str, tuple[str, dict]]:

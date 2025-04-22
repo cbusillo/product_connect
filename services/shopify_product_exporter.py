@@ -7,6 +7,7 @@ import httpx
 import psycopg2
 from odoo import fields
 from odoo.api import Environment
+from psycopg2.errors import DeadlockDetected, SerializationFailure  # type: ignore[attr-defined]
 
 from .shopify_client import (
     InventoryItemMeasurementInput,
@@ -127,23 +128,15 @@ class ProductExporter:
                 httpx.HTTPError,
                 psycopg2.OperationalError,
                 psycopg2.InterfaceError,
-                psycopg2.errors.DeadlockDetected,
-                psycopg2.errors.SerializationFailure,
+                DeadlockDetected,
+                SerializationFailure,
             ) as error:
                 _logger.error(f"Error exporting product {odoo_product.id}: {error}")
-                self.sync_record.odoo_products_to_syncs = odoo_product
+                error.odoo_record = odoo_product
                 self.env.cr.commit()
-                self.env["notification.manager.mixin"].notify_channel_on_error(
-                    subject=f"Exported {self.sync_record.completed_str} with error on {odoo_product.id} {odoo_product.name}",
-                    body=str(error),
-                    record=odoo_product,
-                    error=error,
-                )
                 raise error
             self.sync_record.updated_count += 1
-
             if self.sync_record.updated_count % (self.page_size // 5) == 0:
-                _logger.debug(f"Committing after exporting {self.sync_record.updated_count} products")
                 self.env.cr.commit()
 
     def export_product(self, odoo_product: "odoo.model.product_product") -> None:
@@ -207,7 +200,7 @@ class ProductExporter:
                 "shopify_next_export_quantity_change_amount": 0,
             }
         )
-        odoo_product.shopify_last_exported_at = odoo_product.write_date
+        odoo_product.shopify_last_exported_at = fields.Datetime.now()
 
     @staticmethod
     def _sync_images_after_export(
@@ -249,7 +242,7 @@ class ProductExporter:
     def is_published_on_channel(
         publication_channel: ProductSetProductSetProductResourcePublicationsV2NodesPublication,
     ) -> bool:
-        return parse_shopify_id_from_gid(publication_channel.id) in PUBLICATION_CHANNELS.values()
+        return int(parse_shopify_id_from_gid(publication_channel.id)) in PUBLICATION_CHANNELS.values()
 
     def _publish_product(self, shopify_product_gid: str) -> None:
         client = self.service.client

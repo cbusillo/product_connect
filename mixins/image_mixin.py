@@ -1,4 +1,5 @@
 import logging
+
 from PIL import Image, UnidentifiedImageError
 from odoo import models, fields, api
 from odoo.tools import config
@@ -30,17 +31,19 @@ class ImageMixin(models.AbstractModel):
     @api.model_create_multi
     def create(self, vals_list: list[dict]) -> "odoo.model.image_mixin":
         records = super().create(vals_list)
-        records._mark_for_shopify_product_export()
+        if not self.env.context.get("skip_shopify_sync"):
+            records._mark_for_shopify_product_export()
         return records
 
     def write(self, vals: dict) -> "odoo.model.image_mixin":
         res = super().write(vals)
-        if {"image_1920", "sequence"} & vals.keys():
+        if {"image_1920", "sequence"} & vals.keys() and not self.env.context.get("skip_shopify_sync"):
             self._mark_for_shopify_product_export()
         return res
 
     def unlink(self) -> None:
-        self._mark_for_shopify_product_export()
+        if not self.env.context.get("skip_shopify_sync"):
+            self._mark_for_shopify_product_export()
         super().unlink()
 
     @api.depends("image_1920")
@@ -94,6 +97,16 @@ class ImageMixin(models.AbstractModel):
         image.image_1920_width = None
         image.image_1920_height = None
         image.image_1920_resolution = None
+
+    @api.model
+    def remove_missing_images(self) -> None:
+        images_to_remove = self.search([("image_1920", "=", False)])
+        placeholder_images = self.search([("image_1920_resolution", "=", "256x256"), ("image_1920_file_size", "=", 5966)])
+
+        _logger.info(f"Found {len(images_to_remove)} missing images and {len(placeholder_images)} placeholder images.")
+        images_to_remove |= placeholder_images
+        _logger.info(f"Total images to remove: {len(images_to_remove)}")
+        images_to_remove.with_context(skip_shopify_sync=True).unlink()
 
     def action_open_full_image(self) -> dict:
         self.ensure_one()

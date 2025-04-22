@@ -1,6 +1,8 @@
+import base64
 import logging
-from base64 import b64encode
+import time
 from datetime import datetime, timedelta
+from tempfile import NamedTemporaryFile
 from typing import Optional
 
 import httpx
@@ -8,6 +10,8 @@ import psycopg2
 from httpx import HTTPError
 from odoo.api import Environment
 from pydantic import AnyUrl
+from psycopg2.errors import DeadlockDetected, SerializationFailure  # type: ignore[attr-defined]
+
 
 from .shopify_client import (
     MediaStatus,
@@ -23,7 +27,6 @@ from ..utils.shopify_helpers import (
     ShopifyDataError,
     ShopifyMissingSkuFieldError,
     determine_latest_odoo_product_modification_time,
-    format_shopify_gid_from_id,
     format_datetime_for_shopify,
     parse_shopify_id_from_gid,
     parse_shopify_sku_field_to_sku_and_bin,
@@ -40,6 +43,7 @@ class ProductImporter:
         self.shopify_service = ShopifyService(env)
         self.page_size = SHOPIFY_PAGE_SIZE
         self.sync_record = sync_record
+        self._last_heartbeat = time.monotonic()
 
     def get_last_import_time(self) -> datetime:
         if last_import_time_str := self.env["ir.config_parameter"].sudo().get_param("shopify.last_import_time"):
@@ -79,14 +83,12 @@ class ProductImporter:
             has_next_page = products_page.page_info.has_next_page
 
         _logger.debug(f"Finished importing product query: {self.sync_record.completed_str}")
-        return self.sync_record.is_success
+        return True
 
-    def import_product_by_id(self, shopify_product_id: int) -> bool:
+    def import_product_by_id(self, shopify_product_id: int | str) -> bool:
         _logger.info(f"Importing product by ID: {shopify_product_id}")
 
-        product_gid = format_shopify_gid_from_id("Product", shopify_product_id)
-
-        filter_query = f'id:"{product_gid}"'
+        filter_query = f'id:"{shopify_product_id}"'
         if self.import_products_from_query(query=filter_query):
             _logger.info(f"Successfully imported product with ID: {shopify_product_id}")
             return True
@@ -109,30 +111,30 @@ class ProductImporter:
                     httpx.HTTPError,
                     psycopg2.OperationalError,
                     psycopg2.InterfaceError,
-                    psycopg2.errors.DeadlockDetected,
-                    psycopg2.errors.SerializationFailure,
+                    DeadlockDetected,
+                    SerializationFailure,
                 ) as error:
                     _logger.error(f"Error importing product {product.id}: {error}")
-                    self.sync_record.error_shopify_record = product
-                    self.env.cr.commit()
-                    self.env["notification.manager.mixin"].notify_channel_on_error(
-                        f"Error importing product {product.id} {product.title}",
-                        body="",
-                        shopify_record=product,
-                        error=error,
-                    )
+                    error.shopify_record = product
                     raise error
-            if product_index % (self.page_size // 5) == 0:
-                self.env["ir.config_parameter"].sudo().set_param(
-                    "shopify.last_import_time", format_datetime_for_shopify(product.updated_at)
-                )
+                except Exception as error:
+                    error.shopify_record = product
+                    _logger.error(f"Unexpected error importing product {product.id}: {error}")
+                    raise ShopifyDataError(f"Unexpected error importing product {product.id}: {error}") from error
+            if product_index % (self.page_size // 2) == 0 or product_index == len(products):
+                self.sync_record.last_import_start_time = product.updated_at
                 _logger.debug(f"Committing after {product_index} products")
                 self.env.cr.commit()
-                self.env.clear()
+            if (time.monotonic() - self._last_heartbeat) > 30:
+                self.sync_record.write({})
+                self._last_heartbeat = time.monotonic()
 
     def import_product(self, shopify_product: GetProductsProductsNodes) -> bool:
         if not shopify_product.variants or not shopify_product.variants.nodes:
-            raise ShopifyDataError(f"No variants found for product {shopify_product.id} {shopify_product.title}")
+            raise ShopifyDataError(
+                f"No variants found for product {shopify_product.id} {shopify_product.title}",
+                shopify_record=shopify_product,
+            )
 
         variant = shopify_product.variants.nodes[0]
 
@@ -161,6 +163,9 @@ class ProductImporter:
                 images = shopify_product.media.nodes
                 if any(image.status in (MediaStatus.PROCESSING, MediaStatus.UPLOADED) for image in images):
                     _logger.debug(f"Product {odoo_product.id} has media not yet ready. Flagging for re‑import.")
+                    self.env["shopify.sync"].create(
+                        {"mode": "import_one", "shopify_product_id_to_sync": parse_shopify_id_from_gid(shopify_product.id)}
+                    )
                     return False
 
                 if any(image.status == MediaStatus.FAILED for image in images):
@@ -180,11 +185,23 @@ class ProductImporter:
                 return True
 
         except ValueError as error:
-            raise OdooDataError(f"Failed to update odoo product from shopify with id {shopify_product.id}\n{error}", odoo_product)
+            raise ShopifyDataError(
+                f"Failed to update odoo product from shopify with id {shopify_product.id}\n{error}",
+                shopify_record=shopify_product,
+                odoo_record=odoo_product,
+            ) from error
 
     def _images_are_in_sync(
         self, odoo_product: "odoo.model.product_product", shopify_images: list[GetProductsProductsNodesMediaNodesMediaImage]
     ) -> bool:
+        if len(odoo_product.images) != len(shopify_images):
+            _logger.debug(
+                f"Image count mismatch for product {odoo_product.id}: Odoo has {len(odoo_product.images)}, Shopify has {len(shopify_images)}"
+            )
+            return False
+        if any(image.shopify_media_id is None for image in odoo_product.images):
+            _logger.debug(f"Missing Shopify media ID for product {odoo_product.id}")
+            return False
         return self._ordered_odoo_media_ids(odoo_product) == self._ordered_shopify_media_ids(shopify_images)
 
     def get_or_create_manufacturer(self, manufacturer_name: str) -> "odoo.model.product_manufacturer":
@@ -235,7 +252,11 @@ class ProductImporter:
             else:
                 preview_url = shopify_image.preview.image.url
                 if not preview_url:
-                    raise ShopifyDataError(f"No image URL for product {shopify_product.id} {shopify_product.title}")
+                    raise ShopifyDataError(
+                        f"No image URL for product {shopify_product.id} {shopify_product.title}",
+                        shopify_record=shopify_product,
+                        odoo_record=odoo_product,
+                    )
                 image = self.env["product.image"].create(
                     {
                         "name": shopify_image.alt or shopify_product.title,
@@ -250,12 +271,17 @@ class ProductImporter:
         for sequence, image in enumerate(ordered_images):
             image.sequence = sequence
 
-    def fetch_image_data(self, image_url: AnyUrl) -> bytes:
+    def fetch_image_data(self, image_url: AnyUrl) -> str:
         client = self.shopify_service.client.http_client
-        response = client.get(str(image_url))
-        response.raise_for_status()
         try:
-            return b64encode(response.content)
+            with client.stream("GET", str(image_url), follow_redirects=True) as response:
+                response.raise_for_status()
+                with NamedTemporaryFile() as temp_file:
+                    for chunk in response.iter_bytes():
+                        temp_file.write(chunk)
+                    temp_file.seek(0)
+
+                    return base64.b64encode(temp_file.read()).decode()
         except HTTPError as error:
             raise ShopifyDataError(f"Failed to fetch image data from {image_url}: {error}")
 
@@ -276,12 +302,12 @@ class ProductImporter:
     def save_odoo_product(
         self, odoo_product: Optional["odoo.model.product_product"], shopify_product: GetProductsProductsNodes
     ) -> "odoo.model.product_product":
-        variant = shopify_product.variants.nodes[0]
-        sku, bin_location = parse_shopify_sku_field_to_sku_and_bin(variant.sku or "")
-        metafields = shopify_product.metafields.nodes
-        metafields_by_key = {mf.key: mf for mf in metafields}
-
         try:
+            variant = shopify_product.variants.nodes[0]
+            sku, bin_location = parse_shopify_sku_field_to_sku_and_bin(variant.sku or "")
+            metafields = shopify_product.metafields.nodes
+            metafields_by_key = {mf.key: mf for mf in metafields}
+
             odoo_product_input: "odoo.values.product_product" = {
                 "shopify_product_id": parse_shopify_id_from_gid(shopify_product.id),
                 "shopify_variant_id": parse_shopify_id_from_gid(variant.id),
@@ -293,10 +319,10 @@ class ProductImporter:
                 "standard_price": float(variant.inventory_item.unit_cost.amount),
                 "mpn": variant.barcode,
                 "bin": bin_location,
-                "weight": float(variant.inventory_item.measurement.weight.value),
+                "weight": float(variant.inventory_item.measurement.weight.value or 0),
                 "type": "consu",
                 "is_storable": True,
-                "manufacturer": self.get_or_create_manufacturer(shopify_product.vendor).id,
+                "manufacturer": self.get_or_create_manufacturer(shopify_product.vendor).id if shopify_product.vendor else False,
                 "is_published": shopify_product.status.lower() == "active",
                 "is_ready_for_sale": True,
             }
@@ -330,4 +356,8 @@ class ProductImporter:
             return odoo_product
 
         except (ValueError, TypeError, AttributeError) as error:
-            raise OdooDataError(f"Failed to create odoo product from shopify with id {shopify_product.id}\n{error}", odoo_product)
+            raise ShopifyDataError(
+                f"Failed to create odoo product from shopify with id {shopify_product.id}\n{error}",
+                shopify_record=shopify_product,
+                odoo_record=odoo_product,
+            )

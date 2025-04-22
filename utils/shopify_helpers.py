@@ -16,6 +16,10 @@ SHOPIFY_PAGE_SIZE = 250
 IMAGE_ORDER_KEY = lambda image: (image.sequence or 0, image.create_date or DEFAULT_DATETIME)
 
 
+class ShopifySyncRunFailed(Exception):
+    pass
+
+
 class ShopifyApiError(UserError):
     def __init__(
         self,
@@ -39,12 +43,12 @@ class ShopifyMissingSkuFieldError(ShopifyDataError):
 
 
 class OdooDataError(UserError):
-    def __init__(self, message: str, record: models.Model | None = None) -> None:
+    def __init__(self, message: str, odoo_record: models.Model | None = None) -> None:
         super().__init__(message)
-        self.record = record
+        self.odoo_record = odoo_record
 
     def __str__(self) -> str:
-        return super().__str__() + f"(Odoo record: {self.record})" if self.record else ""
+        return super().__str__() + f"(Odoo record: {self.odoo_record})" if self.odoo_record else ""
 
 
 class OdooMissingSkuError(OdooDataError):
