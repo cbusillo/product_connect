@@ -1,15 +1,11 @@
 from odoo import api, SUPERUSER_ID
 from odoo.sql_db import Cursor
 from odoo.upgrade import util
-from psycopg2.errors import UndefinedTable
 
 
-def _safe_rename(cr, model: str, old: str, new: str) -> None:
-    try:
-        util.rename_field(cr, model, old, new)
-    except UndefinedTable:
-        table = model.replace(".", "_")
-        cr.execute(f'ALTER TABLE {table} RENAME COLUMN "{old}" TO {new}')
+def _safe_rename(cr: Cursor, model: str, old: str, new: str) -> None:
+    table = model.replace(".", "_")
+    cr.execute(f'ALTER TABLE {table} RENAME COLUMN "{old}" TO {new}')
 
 
 def migrate(cr: Cursor, version: str) -> None:
