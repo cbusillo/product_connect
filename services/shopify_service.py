@@ -15,7 +15,7 @@ _logger = logging.getLogger(__name__)
 class ShopifyService:
     MIN_SHOPIFY_REMAINING_API_POINTS = 500
     MAX_RETRY_ATTEMPTS = 10
-    MIN_SLEEP_TIME = 0.5
+    MIN_SLEEP_TIME = 1
     MAX_SLEEP_TIME = 60
     API_VERSION = "2025-04"
 
