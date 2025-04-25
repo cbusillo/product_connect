@@ -45,6 +45,7 @@ class ShopifySync(models.TransientModel):
     IMPORT_EXPORT_CRON_TIME = 60 * 60
     CRON_IDLE_TIMEOUT_THRESHOLD_SECONDS = 60  # TODO: increase in prod
 
+    create_time_human = fields.Char(compute="_compute_create_time_human", string="Created")
     start_time = fields.Datetime()
     start_time_human = fields.Char(compute="_compute_start_time_human", string="Started")
     end_time = fields.Datetime()
@@ -147,6 +148,14 @@ class ShopifySync(models.TransientModel):
     def _compute_progress_percent(self) -> None:
         for record in self:
             record.progress_percent = (record.updated_count / record.total_count) * 100 if record.total_count else 0.0
+
+    def _compute_create_time_human(self) -> None:
+        for record in self:
+            if record.create_date:
+                record.create_time_human = format_timedelta(fields.Datetime.now() - record.create_date, locale="en_US")
+                record.create_time_human += " ago"
+            else:
+                record.create_time_human = "-"
 
     def _compute_start_time_human(self) -> None:
         for record in self:

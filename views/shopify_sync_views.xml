@@ -31,6 +31,7 @@
                   decoration-warning="state == 'running'"
                   decoration-success="state == 'success'"
                   decoration-muted="state == 'draft' or state == 'queued'">
+                <field name="create_time_human"/>
                 <field name="start_time_human"/>
                 <field name="end_time_human"/>
                 <field name="run_time_human"/>
@@ -134,6 +135,7 @@
                         <field name="shopify_product_id_to_sync" invisible="mode != 'import_one'"/>
                         <field name="datetime_to_sync" string="Date from"
                                invisible="mode not in ['export_since', 'import_since']"/>
+                        <field name="create_date" readonly="1" String="Create Time"/>
                         <field name="start_time" readonly="1" invisible="not start_time" widget="date"/>
                         <field name="end_time" readonly="1" invisible="not end_time"/>
                         <field name="run_time_human" readonly="1" invisible="not run_time"/>
