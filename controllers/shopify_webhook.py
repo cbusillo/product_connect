@@ -4,7 +4,7 @@ from odoo import http
 from odoo.http import Response
 from werkzeug.exceptions import Unauthorized, BadRequest
 
-from odoo.addons.product_connect.utils.shopify_helpers import SyncMode, ShopifyApiError
+from ..utils.shopify_helpers import SyncMode, ShopifyApiError
 
 
 class ShopifyWebhook(http.Controller):
