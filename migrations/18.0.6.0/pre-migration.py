@@ -11,10 +11,6 @@ def migrate(cr: Cursor, version: str) -> None:
     if not env:
         return
 
-    env["ir.config_parameter"].sudo().set_param(
-        "shopify.shop_url_key", env["ir.config_parameter"].sudo().get_param("shopify.shop_url")
-    )
-
     env["ir.config_parameter"].sudo().search([("key", "=", "shopify.last_import_time")]).unlink()
     env["ir.config_parameter"].sudo().search([("key", "=", "shopify.shop_url")]).unlink()
     env["ir.config_parameter"].sudo().search([("key", "=", "shopify.api_version")]).unlink()
@@ -24,4 +20,4 @@ def migrate(cr: Cursor, version: str) -> None:
 
     util.remove_field(cr, "product.product", "shopify_last_exported")
 
-    env["product.image"].remove_missing_images()
+    util.remove_model(cr, "notification.history")

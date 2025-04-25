@@ -77,8 +77,8 @@ mutation UpdatePublications($id: ID!, $input: [PublicationInput!]!) {
         userErrors { ...UserErrorFields } }
 }
 
-mutation DeleteProduct($input: ProductDeleteInput!) {
-    productDelete(input: $input) {
+mutation DeleteProduct($input: ProductDeleteInput!, $synchronous: Boolean = false ) {
+    productDelete(input: $input, synchronous: $synchronous) {
         deletedProductId
         userErrors { ...UserErrorFields }
     }

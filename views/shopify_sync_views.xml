@@ -26,12 +26,17 @@
         <field name="name">shopify.sync.list</field>
         <field name="model">shopify.sync</field>
         <field name="arch" type="xml">
-            <list string="Shopify Sync Runs" default_order="start_time desc" js_class="list_autorefresh">
+            <list string="Shopify Sync Runs" default_order="id desc" js_class="list_autorefresh"
+                  decoration-danger="state == 'failed'"
+                  decoration-warning="state == 'running'"
+                  decoration-success="state == 'success'"
+                  decoration-muted="state == 'draft' or state == 'queued'">
                 <field name="start_time_human"/>
                 <field name="end_time_human"/>
                 <field name="run_time_human"/>
                 <field name="mode" widget="badge"/>
                 <field name="error_exception" optional="show"/>
+                <field name="retry_attempts" string="Retries"/>
                 <field name="state" widget="badge"
                        decoration-danger="state == 'failed'"
                        decoration-warning="state == 'running'"
@@ -109,6 +114,19 @@
         <field name="model">shopify.sync</field>
         <field name="arch" type="xml">
             <form string="Run Shopify Sync">
+                <header>
+                    <field name="state" widget="statusbar"/>
+                    <button name="run_async"
+                            string="Run Now"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state not in ['draft','queued'] or not mode"/>
+                    <button name="duplicate_and_run_async"
+                            string="Duplicate"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state in ['draft','queued']"/>"
+                </header>
                 <sheet>
                     <group>
                         <field name="mode" widget="selection_badge" readonly="id"/>
@@ -126,6 +144,7 @@
                         <field name="updated_count" widget="progressbar" string="Progress" readonly="1"
                                options="{'max_value': 'total_count', 'current_value': 'updated_count'}"
                                invisible="state not in ['queued','draft']"/>
+                        <field name="retry_attempts" invisible="not retry_attempts"/>
                         <field name="state" widget="badge" readonly="1"
                                decoration-danger="state == 'failed'"
                                decoration-warning="state == 'running'"
@@ -167,5 +186,12 @@
                 <field name="state" type="col"/>
             </graph>
         </field>
+    </record>
+    <record id="shopify_sync_action_run_now" model="ir.actions.server">
+        <field name="name">Run Now</field>
+        <field name="model_id" ref="model_shopify_sync"/>
+        <field name="binding_model_id" ref="model_shopify_sync"/>
+        <field name="state">code</field>
+        <field name="code">records.run_async()</field>
     </record>
 </odoo>

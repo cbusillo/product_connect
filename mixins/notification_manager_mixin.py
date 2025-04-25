@@ -25,7 +25,7 @@ class NotificationHistory(models.Model):
     @api.model
     def cleanup(self) -> None:
         cutoff = fields.Datetime.subtract(fields.Datetime.now(), days=1)
-        channels = self.env["discuss.channel"].search([("name", "in", ["errors", "shopify_sync"])])
+        channels = self.env["discuss.channel"].sudo().search([("name", "in", ["errors", "shopify_sync"])])
         for channel in channels:
             self.search([("timestamp", "<", cutoff), ("channel", "=", channel.id)]).unlink()
 
@@ -71,10 +71,10 @@ class NotificationManagerMixin(models.AbstractModel):
             else error
         )
         env = env or self.env
-        notification_history = env["notification.history"]
-        channel = env["discuss.channel"].search([("name", "=", channel_name)], limit=1)
+        notification_history = env["notification.history"].sudo()
+        channel = env["discuss.channel"].sudo().search([("name", "=", channel_name)], limit=1)
         if not channel:
-            channel = env["discuss.channel"].create({"name": channel_name})
+            channel = env["discuss.channel"].sudo().create({"name": channel_name})
 
         if notification_history.count_of_recent_notifications(subject, channel, 1) >= 5:
             _logger.info(f"Too many notifications for {subject} in the last hour.")
@@ -103,8 +103,8 @@ class NotificationManagerMixin(models.AbstractModel):
         }
 
         if record and isinstance(record, MailThread):
-            record.message_post(body_is_html=True, **post_values)
-        channel.message_post(body_is_html=True, **post_values)
+            record.sudo().message_post(body_is_html=True, **post_values)
+        channel.sudo().message_post(body_is_html=True, **post_values)
 
         notification_history.create({"subject": subject, "channel": channel.id})
 
@@ -121,7 +121,7 @@ class NotificationManagerMixin(models.AbstractModel):
 
         new_cr = self.env.registry.cursor()
         try:
-            new_env = api.Environment(new_cr, self.env.uid, self.env.context)
+            new_env = api.Environment(new_cr, self.env.uid, self.env.context, su=True)
             self.notify_channel(subject, body, "errors", record, shopify_record, new_env, error)
             message = f"{body}"
             if record:
@@ -136,12 +136,11 @@ class NotificationManagerMixin(models.AbstractModel):
             new_cr.close()
 
     def send_email_notification_to_admin(self, subject: str, body: str) -> None:
-        recipient_user = self.env["res.users"].search([("login", "=", self.ADMIN_EMAIL)], limit=1)
+        recipient_user = self.env["res.users"].sudo().search([("login", "=", self.ADMIN_EMAIL)], limit=1)
         if not recipient_user:
             _logger.error("Recipient email %s not found among partners.", self.ADMIN_EMAIL)
             return
 
-        # Create an email and send it
         mail_values = {
             "subject": subject,
             "body_html": f"<div>{body}</div>",

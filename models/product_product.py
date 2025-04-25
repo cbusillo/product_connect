@@ -26,6 +26,8 @@ class ProductProduct(models.Model):
             return
 
         for product in self:
+            if quantity == product.qty_available:
+                continue
 
             quant = self.env["stock.quant"].search(
                 [

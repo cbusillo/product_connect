@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime, UTC
-from typing import TypeVar
+from enum import StrEnum, auto
+from typing import TypeVar, cast
 
 from dateutil.parser import parse
 from odoo import models
@@ -16,30 +17,30 @@ SHOPIFY_PAGE_SIZE = 250
 IMAGE_ORDER_KEY = lambda image: (image.sequence or 0, image.create_date or DEFAULT_DATETIME)
 
 
-class ShopifySyncRunFailed(Exception):
-    pass
+# noinspection PyEnum
+class SyncMode(StrEnum):
+    @staticmethod
+    def _generate_next_value_(name: str, start: int, count: int, last_values: list[str]) -> str:
+        return name.lower()
 
+    IMPORT_THEN_EXPORT = auto()
+    IMPORT_CHANGED = auto()
+    EXPORT_CHANGED = auto()
+    IMPORT_ALL = auto()
+    EXPORT_ALL = auto()
+    IMPORT_SINCE_DATE = auto()
+    EXPORT_SINCE_DATE = auto()
+    IMPORT_ONE = auto()
+    EXPORT_BATCH = auto()
+    RESET_SHOPIFY = auto()
 
-class ShopifyApiError(UserError):
-    def __init__(
-        self,
-        message: str,
-        shopify_record: BaseModel | None = None,
-        shopify_input: BaseModel | None = None,
-        odoo_record: models.Model | None = None,
-    ) -> None:
-        super().__init__(message)
-        self.odoo_record = odoo_record
-        self.shopify_record = shopify_record
-        self.shopify_input = shopify_input
+    @property
+    def display_name(self) -> str:
+        return self.value.replace("_", " ").title()
 
-
-class ShopifyDataError(ShopifyApiError):
-    pass
-
-
-class ShopifyMissingSkuFieldError(ShopifyDataError):
-    pass
+    @classmethod
+    def choices(cls) -> list[tuple[str, str]]:
+        return cast(list[tuple[str, str]], [(m.value, m.display_name) for m in cls])
 
 
 class OdooDataError(UserError):
@@ -47,11 +48,98 @@ class OdooDataError(UserError):
         super().__init__(message)
         self.odoo_record = odoo_record
 
+    @property
+    def sku(self) -> str:
+        if self.odoo_record:
+            return getattr(self.odoo_record, "default_code", "")
+        return ""
+
+    @property
+    def odoo_product_id(self) -> str:
+        if self.odoo_record:
+            return getattr(self.odoo_record, "id", "")
+        return ""
+
+    @property
+    def name(self) -> str:
+        if self.odoo_record:
+            return getattr(self.odoo_record, "name", "")
+        return ""
+
     def __str__(self) -> str:
-        return super().__str__() + f"(Odoo record: {self.odoo_record})" if self.odoo_record else ""
+        text = super().__str__()
+        if self.name:
+            text += f" [Odoo Name {self.name}]"
+        if self.odoo_product_id:
+            text += f" [Odoo ID {self.odoo_product_id}]"
+        if self.sku:
+            text += f" [Odoo SKU {self.sku}]"
+        return text
 
 
 class OdooMissingSkuError(OdooDataError):
+    pass
+
+
+class ShopifySyncRunFailed(Exception):
+    pass
+
+
+class ShopifyApiError(OdooDataError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        shopify_record: BaseModel | None = None,
+        shopify_input: BaseModel | None = None,
+        odoo_record: models.Model | None = None,
+    ) -> None:
+        super().__init__(message, odoo_record=odoo_record)
+        self.shopify_record = shopify_record
+        self.shopify_input = shopify_input
+
+    def __str__(self) -> str:
+        text = super().__str__()
+        if self.__cause__:
+            text += f"\nShopify error: {self.__cause__}"
+
+        if not self.shopify_record:
+            return text
+
+        if self.name and self.name not in text:
+            text += f" [{self.name}]"
+        if self.shopify_product_id:
+            text += f" [Shopify ID {self.shopify_product_id}]"
+        if self.sku and self.sku not in text:
+            text += f" [Shopify SKU {self.sku}]"
+        return text
+
+    @property
+    def sku(self) -> str:
+        try:
+            return self.shopify_record.variants.nodes[0].sku or ""
+        except (AttributeError, IndexError, TypeError):
+            pass
+        return ""
+
+    @property
+    def shopify_product_id(self) -> str:
+        if self.shopify_record:
+            return getattr(self.shopify_record, "id", "")
+        return ""
+
+    @property
+    def name(self) -> str:
+        if self.shopify_record:
+            return getattr(self.shopify_record, "title", "")
+        return super().name
+
+
+class ShopifyDataError(ShopifyApiError):
+    pass
+
+
+class ShopifyMissingSkuFieldError(ShopifyDataError):
     pass
 
 

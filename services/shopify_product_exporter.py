@@ -1,13 +1,10 @@
 import logging
+import time
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
 
-import httpx
-import psycopg2
 from odoo import fields
 from odoo.api import Environment
-from psycopg2.errors import DeadlockDetected, SerializationFailure  # type: ignore[attr-defined]
 
 from .shopify_client import (
     InventoryItemMeasurementInput,
@@ -54,12 +51,13 @@ PUBLICATION_CHANNELS: dict[str, int] = {
 
 
 class ProductExporter:
-    def __init__(self, env: Environment, sync_record: Optional["odoo.model.shopify_sync"] = None):
+    def __init__(self, env: Environment, sync_record: "odoo.model.shopify_sync"):
         self.env = env
         self.service = ShopifyService(env)
         self.page_size = SHOPIFY_PAGE_SIZE
         self.odoo_base_url = env["ir.config_parameter"].sudo().get_param("web.base.url")
         self.sync_record = sync_record
+        self._last_heartbeat = time.monotonic()
 
     def export_products_since_last_export(self) -> None:
         _logger.info("Exporting products since last export")
@@ -112,32 +110,29 @@ class ProductExporter:
         return odoo_products
 
     def export_products(self, odoo_products: "odoo.model.product_product") -> None:
-        self.sync_record.total_count = len(odoo_products)
+        self.sync_record.total_count = self.sync_record.total_count if self.sync_record.total_count else len(odoo_products)
         self.env.cr.commit()
         for odoo_product in odoo_products:
             _logger.debug(f"Exporting product {self.sync_record.completed_str}: {odoo_product.id} {odoo_product.name}")
             try:
                 with self.env.cr.savepoint():
                     self.export_product(odoo_product)
-            except (
-                ShopifyApiError,
-                OdooDataError,
-                ValueError,
-                GraphQLClientGraphQLMultiError,
-                AttributeError,
-                httpx.HTTPError,
-                psycopg2.OperationalError,
-                psycopg2.InterfaceError,
-                DeadlockDetected,
-                SerializationFailure,
-            ) as error:
-                _logger.error(f"Error exporting product {odoo_product.id}: {error}")
-                error.odoo_record = odoo_product
+            except (OdooDataError, ShopifyApiError) as error:
                 self.env.cr.commit()
                 raise error
+            except Exception as error:
+                self.env.cr.commit()
+                exception = ShopifyApiError("Unexpected error exporting product", odoo_record=odoo_product)
+                _logger.error(exception)
+                raise exception from error
+
             self.sync_record.updated_count += 1
             if self.sync_record.updated_count % (self.page_size // 5) == 0:
                 self.env.cr.commit()
+            if (time.monotonic() - self._last_heartbeat) > 30:
+                self.sync_record.write({})
+                self.env.cr.commit()
+                self._last_heartbeat = time.monotonic()
 
     def export_product(self, odoo_product: "odoo.model.product_product") -> None:
         client = self.service.client
@@ -154,26 +149,26 @@ class ProductExporter:
         try:
             shopify_response = client.product_set(shopify_product_set_input, identifier)
         except (ValueError, GraphQLClientGraphQLMultiError) as error:
-            _logger.debug(
-                f"Error exporting product {shopify_product_set_input} with GID {shopify_product_gid} to Shopify: {error}"
+            exception = ShopifyApiError(
+                "Error exporting product", odoo_record=odoo_product, shopify_input=shopify_product_set_input
             )
-            raise ShopifyApiError(
-                f"Error exporting product {odoo_product.id} to Shopify: {error}",
-                odoo_record=odoo_product,
-                shopify_input=shopify_product_set_input,
-            )
+            _logger.error(exception)
+            raise exception from error
 
         shopify_product = shopify_response.product
         if not shopify_product:
-            raise ShopifyApiError(
-                f"Shopify product not found in the response\n{shopify_response.user_errors}",
+            exception = ShopifyApiError(
+                "Shopify product not found in the response",
                 shopify_record=shopify_response,
                 odoo_record=odoo_product,
                 shopify_input=shopify_product_set_input,
             )
+            _logger.error(exception)
+            raise exception
+
         publication_channels = shopify_product.resource_publications_v_2.nodes
         if not publication_channels or not self.is_published_on_all_channels(publication_channels):
-            self._publish_product(shopify_product_gid)
+            self._publish_product(shopify_product_gid or shopify_product.id)
         self._update_odoo_product(odoo_product, shopify_product)
         self._sync_images_after_export(odoo_product, shopify_product)
 
@@ -253,7 +248,7 @@ class ProductExporter:
             )
             for publication_id in PUBLICATION_CHANNELS.values()
         ]
-        if not any(term in client.url for term in ("local", "testing")):
+        if not self.env["ir.config_parameter"].sudo().get_param("shopify.test_store"):
             client.update_publications(shopify_product_gid, publication_input)
 
     @staticmethod

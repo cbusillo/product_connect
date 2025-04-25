@@ -1,27 +1,23 @@
 {
   "compilerOptions": {
+    "target": "ES2021",
+    "module": "ES2020",
+    "strict": true,
+    "moduleResolution": "node",
     "baseUrl": ".",
     "paths": {
-      "qr-scanner": [
-        "./static/src/types/qr-scanner.d.ts"
+      "@odoo/*": [
+        "odoo/addons/web/static/lib/owl/*"
+      ],
+      "@web/*": [
+        "odoo/addons/web/static/*"
+      ],
+      "@product_connect/*": [
+        "addons/product_connect/static/src/*"
       ]
-    },
-    "target": "es2020",
-    "module": "es2020",
-    "moduleResolution": "node",
-    "allowJs": true,
-    "checkJs": false,
-    "noEmit": true,
-    "strict": false,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    }
   },
   "include": [
-    "./static/src/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "**/node_modules/*",
+    "addons/**/static/src/**/*"
   ]
 }

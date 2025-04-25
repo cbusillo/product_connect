@@ -6,12 +6,16 @@ import { onWillUnmount } from "@odoo/owl"
 
 class AutoRefreshListController extends ListController {
     static services = ["action"]
+    static props = {
+        ...ListController.props,
+        refreshInterval: { type: Number, optional: true, default: 10 },
+    }
 
     setup() {
         super.setup()
         this.action = useService("action")
         this._reloading = false
-        const seconds = Number(this.props?.context?.refreshInterval || 30)
+        const seconds = Number(this.props?.context?.refreshInterval)
         if (seconds > 0) {
             this._interval = setInterval(() => this._softReload(), seconds * 1_000)
             onWillUnmount(() => clearInterval(this._interval))
