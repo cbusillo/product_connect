@@ -174,8 +174,6 @@ class ShopifySync(models.TransientModel):
                 record.run_time = 0.0
                 record.run_time_human = "-"
 
-    # ------------------------------------------------------------------
-
     def _fail_stale_runs(self, threshold_seconds: int = 0) -> None:
         if not threshold_seconds:
             threshold_seconds = self.CRON_IDLE_TIMEOUT_THRESHOLD_SECONDS
@@ -208,16 +206,16 @@ class ShopifySync(models.TransientModel):
 
     @api.model
     def _cron_dispatch_next(self) -> None:
-        self._fail_stale_runs()
 
         while True:
-            next_sync = None  # silence linters / ensure defined
+            next_sync = None
             with self.env.cr.savepoint():
                 self.env.cr.execute("SELECT pg_try_advisory_lock(%s)", [self.LOCK_ID])
                 if not self.env.cr.fetchone()[0]:
                     _logger.debug("Another worker already running; skipping.")
                     return
 
+                self._fail_stale_runs()
                 if self.search([("state", "=", "running")], limit=1):
                     self.env.cr.execute("SELECT pg_advisory_unlock(%s)", [self.LOCK_ID])
                     _logger.debug("Sync already running; skipping.")
