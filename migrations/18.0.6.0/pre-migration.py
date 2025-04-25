@@ -15,6 +15,9 @@ def migrate(cr: Cursor, version: str) -> None:
     env["ir.config_parameter"].sudo().search([("key", "=", "shopify.shop_url")]).unlink()
     env["ir.config_parameter"].sudo().search([("key", "=", "shopify.api_version")]).unlink()
 
+    util.rename_field(cr, "product.image", "index", "initial_index")
+    util.rename_field(cr, "motor.image", "index", "initial_index")
+
     util.remove_field(cr, "product.product", "shopify_last_exported")
 
     util.remove_model(cr, "notification.history")
