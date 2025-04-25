@@ -16,7 +16,6 @@ class ProductDeleter:
     def __init__(self, env: Environment, sync_record: "odoo.model.shopify_sync") -> None:
         self.env = env
         self.service = ShopifyService(env)
-        self.page_size = SHOPIFY_PAGE_SIZE
         self.sync_record = sync_record
 
     def delete_all_products(self) -> None:
@@ -31,7 +30,7 @@ class ProductDeleter:
                 raise exception from error
 
             self.sync_record.updated_count += 1
-            if self.sync_record.updated_count % (self.page_size // 5) == 0:
+            if self.sync_record.updated_count % (SHOPIFY_PAGE_SIZE // 5) == 0:
                 self.env.cr.commit()
                 _logger.info(f"Deleted {self.sync_record.updated_count} products so far.")
 
@@ -43,7 +42,7 @@ class ProductDeleter:
 
         while has_next_page:
             try:
-                products_page = client.get_product_ids(cursor=cursor, limit=self.page_size)
+                products_page = client.get_product_ids(cursor=cursor, limit=SHOPIFY_PAGE_SIZE)
             except (GraphQLClientGraphQLMultiError, httpx.HTTPError) as error:
                 exception = ShopifyApiError("Failed to fetch product IDs from Shopify")
                 _logger.error(exception)
@@ -52,6 +51,7 @@ class ProductDeleter:
             products = products_page.nodes
             product_ids = [product.id for product in products]
             all_product_ids.extend(product_ids)
+            self.sync_record.total_count += len(product_ids)
 
             cursor = products_page.page_info.end_cursor
             has_next_page = products_page.page_info.has_next_page

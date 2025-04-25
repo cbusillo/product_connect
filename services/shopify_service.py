@@ -84,9 +84,8 @@ class ShopifyService:
                 _logger.debug(f"Shopify API rate limit status: {throttle_status}")
 
                 if currently_available < self.MIN_SHOPIFY_REMAINING_API_POINTS:
-                    wait_time = (
-                        (self.MIN_SHOPIFY_REMAINING_API_POINTS - currently_available) / restore_rate if restore_rate else 0
-                    )
+                    deficit = self.MIN_SHOPIFY_REMAINING_API_POINTS - currently_available
+                    wait_time = min(self.MAX_SLEEP_TIME, max(deficit / restore_rate, self.MIN_SLEEP_TIME))
                     _logger.info(f"Low API points. Waiting for {wait_time:.2f} seconds...")
                     sleep(wait_time)
 
@@ -118,11 +117,11 @@ class ShopifyService:
                     is_json = response.headers.get("content-type", "").startswith("application/json")
                     if is_json and status == 200:
                         data = response.json()
-                        wait = throttle_wait(data)
-                        if wait is not None:
-                            _logger.info(f"GraphQL throttled – retrying in {wait:.2f}s")
+                        wait_time = throttle_wait(data)
+                        if wait_time is not None:
+                            _logger.info(f"GraphQL throttled – retrying in {wait_time:.2f}s")
                             response.close()
-                            sleep(wait)
+                            sleep(wait_time)
                             continue
                         return response
                     if status not in transient:
@@ -133,9 +132,9 @@ class ShopifyService:
                 response.close()
                 if attempt == self.MAX_RETRY_ATTEMPTS:
                     break
-                wait = min(self.MAX_SLEEP_TIME, self.MIN_SLEEP_TIME * 2**attempt)
-                _logger.warning(f"Retry {attempt + 1} for {request.url} ({status}); sleeping {wait:.2f}s")
-                sleep(wait)
+                wait_time = min(self.MAX_SLEEP_TIME, self.MIN_SLEEP_TIME * 2**attempt)
+                _logger.warning(f"Retry {attempt + 1} for {request.url} ({status}); sleeping {wait_time:.2f}s")
+                sleep(wait_time)
             raise ShopifyApiError(f"Max retries reached for {request.url}")
 
         client.send = send_with_retry

@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, UTC
 from enum import StrEnum, auto
-from typing import TypeVar, cast
+from typing import TypeVar, cast, Union
 
 from dateutil.parser import parse
 from odoo import models
@@ -14,7 +14,19 @@ _logger = logging.getLogger(__name__)
 
 DEFAULT_DATETIME = datetime(2000, 1, 1)
 SHOPIFY_PAGE_SIZE = 250
-IMAGE_ORDER_KEY = lambda image: (image.sequence or 0, image.create_date or DEFAULT_DATETIME)
+PUBLICATION_CHANNELS: dict[str, int] = {
+    "online_store": 19453116480,
+    "pos": 42683596853,
+    "google": 88268636213,
+    "shop": 99113467957,
+}
+
+
+def image_order_key(image: "odoo.model.product_image") -> tuple[int, datetime]:
+    return image.sequence or 0, image.create_date or DEFAULT_DATETIME
+
+
+SyncVals = Union[list["odoo.values.shopify_sync"], "odoo.values.shopify_sync"]
 
 
 # noinspection PyEnum
@@ -140,6 +152,10 @@ class ShopifyDataError(ShopifyApiError):
 
 
 class ShopifyMissingSkuFieldError(ShopifyDataError):
+    pass
+
+
+class ShopifyStaleRunTimeout(Exception):
     pass
 
 

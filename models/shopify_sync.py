@@ -3,18 +3,21 @@ import threading
 import traceback
 from contextlib import contextmanager
 from time import sleep
-from typing import Generator, Union
+from typing import Generator
 
 from babel.dates import format_timedelta
 from httpx import RequestError
 from odoo import api, models, fields
+from odoo.sql_db import Cursor
 from psycopg2 import OperationalError, InterfaceError
 from psycopg2.errors import TransactionRollbackError
 from pydantic import BaseModel
 
 from ..utils.shopify_helpers import (
     SyncMode,
+    SyncVals,
     ShopifyApiError,
+    ShopifyStaleRunTimeout,
     OdooDataError,
     format_datetime_for_shopify,
     DEFAULT_DATETIME,
@@ -97,11 +100,23 @@ class ShopifySync(models.TransientModel):
 
         return resource
 
+    @staticmethod
+    def _is_duplicate(vals: "odoo.values.shopify_sync", duplicates: SyncVals) -> bool:
+        if vals["mode"] == SyncMode.EXPORT_BATCH:
+            command = vals.get("odoo_products_to_sync") or []
+            ids = tuple(sorted(command[0][2])) if command and command[0][0] == 6 else ()
+            duplicates = duplicates.filtered(lambda sync, s_ids=ids: tuple(sorted(sync.odoo_products_to_sync.ids)) == s_ids)
+        return bool(duplicates)
+
     @api.model_create_multi
-    def create(self, vals_list: Union[list["odoo.values.shopify_sync"], "odoo.values.shopify_sync"]) -> "odoo.model.shopify_sync":
+    def create(self, vals_list: SyncVals) -> "odoo.model.shopify_sync":
         if isinstance(vals_list, dict):
             vals_list = [vals_list]
-        self._fail_stale_runs()
+
+        with self._dispatch_lock(self.env.cr, self.LOCK_ID) as dispatch_lock:
+            if dispatch_lock:
+                self._fail_stale_runs()
+
         self.env.cr.flush()
         vals_to_create: list["odoo.values.shopify_sync"] = []
         for vals in vals_list:
@@ -111,22 +126,9 @@ class ShopifySync(models.TransientModel):
                 ("shopify_product_id_to_sync", "=", vals.get("shopify_product_id_to_sync")),
                 ("datetime_to_sync", "=", vals.get("datetime_to_sync")),
             ]
-            potential_duplicates = self.search(domain)
-
-            if vals["mode"] == SyncMode.EXPORT_BATCH:
-                command = vals.get("odoo_products_to_sync") or []
-                product_ids: list[int] = []
-                if command and command[0][0] == 6:
-                    product_ids = sorted(command[0][2])
-
-                product_ids_copy = tuple(product_ids)
-
-                potential_duplicates = potential_duplicates.filtered(
-                    lambda sync, ids=product_ids_copy: tuple(sorted(sync.odoo_products_to_sync.ids)) == ids
-                )
-
-            if potential_duplicates:
-                _logger.debug(f"Duplicate Shopify sync found: {vals['mode']}")
+            potential = self.search(domain)
+            if self._is_duplicate(vals, potential):
+                _logger.debug("Duplicate Shopify sync found: %s", vals["mode"])
                 continue
 
             vals_to_create.append(vals)
@@ -188,27 +190,29 @@ class ShopifySync(models.TransientModel):
             threshold_seconds = self.CRON_IDLE_TIMEOUT_THRESHOLD_SECONDS
 
         cutoff = fields.Datetime.subtract(fields.Datetime.now(), seconds=threshold_seconds)
-        stale_runs = self.search([("state", "=", "running"), ("write_date", "<", cutoff)])
-        if not stale_runs:
+        cr = self.env.cr
+        cr.execute("SELECT id FROM shopify_sync WHERE state = 'running' AND write_date < %s FOR UPDATE SKIP LOCKED", [cutoff])
+        stale_ids = [row[0] for row in cr.fetchall()]
+        if not stale_ids:
             return
 
-        class StaleRunTimeout(Exception):
-            pass
+        stale_runs = self.browse(stale_ids)
 
         for run in stale_runs:
             if run.retry_attempts < run.MAX_RETRY_ATTEMPTS:
+                stale_message = f"Stale sync {run.id} (run {run.retry_attempts + 1}/{run.MAX_RETRY_ATTEMPTS})"
                 run.write(
                     {
                         "state": "queued",
                         "retry_attempts": run.retry_attempts + 1,
-                        "error_message": f"Auto-retry after {threshold_seconds}s inactivity",
+                        "error_message": run.error_message + "\n" + stale_message if run.error_message else stale_message,
                         "start_time": False,
                         "end_time": False,
                     }
                 )
                 _logger.warning(f"Re-queued stale sync {run.id} (run {run.retry_attempts + 1}/{run.MAX_RETRY_ATTEMPTS})")
             else:
-                vals = run._prepare_failure_vals(StaleRunTimeout(f"No activity for {threshold_seconds}s"))
+                vals = run._prepare_failure_vals(ShopifyStaleRunTimeout(f"No activity for {threshold_seconds}s"))
                 vals["end_time"] = run.write_date
                 run.write(vals)
         self.env.cr.commit()
@@ -275,6 +279,17 @@ class ShopifySync(models.TransientModel):
         if not (healthy_import and healthy_export):
             self.create({"mode": SyncMode.IMPORT_THEN_EXPORT.value})
 
+    @contextmanager
+    def _dispatch_lock(self, cr: Cursor, lock_id: int) -> Generator[bool, None, None]:
+        cr.execute("SELECT pg_try_advisory_lock(%s)", [lock_id])
+        if not cr.fetchone()[0]:
+            yield False
+            return
+        try:
+            yield True
+        finally:
+            cr.execute("SELECT pg_advisory_unlock(%s)", [lock_id])
+
     def run_async(self) -> None:
         _logger.debug(f"Running async sync for {self}")
 
@@ -287,9 +302,7 @@ class ShopifySync(models.TransientModel):
 
         threading.Thread(target=run_in_thread, daemon=True).start()
 
-    def create_and_run_async(
-        self, vals_list: Union[list["odoo.values.shopify_sync"], "odoo.values.shopify_sync"]
-    ) -> "odoo.model.shopify_sync":
+    def create_and_run_async(self, vals_list: SyncVals) -> "odoo.model.shopify_sync":
         if isinstance(vals_list, dict):
             vals_list = [vals_list]
 
@@ -360,7 +373,11 @@ class ShopifySync(models.TransientModel):
         return vals
 
     def _mark_failed(self, error: Exception) -> None:
-        truncate = lambda s, l=100000: s if len(s) <= l else s[:l] + f"...[{len(s)-l} more]"
+        def _truncate_text(text: str) -> str:
+            if len(text) > 100000:
+                return text[:50000] + f"...{len(text)-50000}"
+            return text
+
         vals = self._prepare_failure_vals(error)
 
         if hasattr(error, "odoo_record") and isinstance(error.odoo_record, models.Model):
@@ -379,7 +396,7 @@ class ShopifySync(models.TransientModel):
             except TypeError:
                 errors = [raw_errors]
             combined = "\n".join(map(str, errors))
-            vals["error_shopify_record"] = truncate(f"{vals.get('error_shopify_record', '')}\n{combined}".strip())
+            vals["error_shopify_record"] = _truncate_text(f"{vals.get('error_shopify_record', '')}\n{combined}".strip())
 
         self.write(vals)
         self.env.cr.commit()
@@ -429,7 +446,7 @@ class ShopifySync(models.TransientModel):
         products.shopify_condition_id = False
         products.shopify_ebay_category_id = False
 
-        self.total_count = len(products)
+        self.total_count = max(len(products), self.total_count)
         self.env.cr.commit()
 
     def _run_import_all(self) -> None:

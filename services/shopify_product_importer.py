@@ -8,24 +8,23 @@ from typing import Optional
 from httpx import HTTPError
 from odoo.api import Environment
 from pydantic import AnyUrl
-from psycopg2.errors import DeadlockDetected, SerializationFailure  # type: ignore[attr-defined]
 
-from odoo.addons.product_connect.utils.shopify_helpers import SyncMode
+from .shopify_service import ShopifyService
 from .shopify_client import (
     MediaStatus,
     GetProductsProductsNodes,
     GetProductsProductsNodesMediaNodesMediaImage,
 )
-from .shopify_service import ShopifyService
 from ..utils.shopify_helpers import (
     DEFAULT_DATETIME,
-    IMAGE_ORDER_KEY,
     SHOPIFY_PAGE_SIZE,
+    SyncMode,
     OdooDataError,
     ShopifyDataError,
     ShopifyMissingSkuFieldError,
     determine_latest_odoo_product_modification_time,
     format_datetime_for_shopify,
+    image_order_key,
     parse_shopify_id_from_gid,
     parse_shopify_sku_field_to_sku_and_bin,
     parse_shopify_datetime_to_utc,
@@ -39,7 +38,6 @@ class ProductImporter:
     def __init__(self, env: Environment, sync_record: "odoo.model.shopify_sync") -> None:
         self.env = env
         self.shopify_service = ShopifyService(env)
-        self.page_size = SHOPIFY_PAGE_SIZE
         self.sync_record = sync_record
         self._last_heartbeat = time.monotonic()
 
@@ -66,7 +64,7 @@ class ProductImporter:
         has_next_page = True
 
         while has_next_page:
-            products_page = client.get_products(query=query, cursor=cursor, limit=self.page_size)
+            products_page = client.get_products(query=query, cursor=cursor, limit=SHOPIFY_PAGE_SIZE)
             products = products_page.nodes
             if not products:
                 _logger.debug("No more products to import.")
@@ -105,7 +103,7 @@ class ProductImporter:
                 exception = ShopifyDataError("Unexpected error in import_product", shopify_record=product)
                 _logger.error(exception)
                 raise exception from error
-            if product_index % (self.page_size // 2) == 0 or product_index == len(products):
+            if product_index % (SHOPIFY_PAGE_SIZE // 2) == 0 or product_index == len(products):
                 self.sync_record.last_import_start_time = product.updated_at
                 _logger.debug(f"Committing after {product_index} products")
                 self.env.cr.commit()
@@ -271,7 +269,7 @@ class ProductImporter:
 
     @staticmethod
     def _ordered_odoo_media_ids(product: "odoo.model.product_product") -> list[str]:
-        ordered_images = sorted(product.images, key=IMAGE_ORDER_KEY)
+        ordered_images = sorted(product.images, key=image_order_key)
         return [image.shopify_media_id for image in ordered_images if image.shopify_media_id]
 
     @staticmethod

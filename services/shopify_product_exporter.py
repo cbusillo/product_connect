@@ -31,30 +31,23 @@ from .shopify_client.input_types import (
 )
 from .shopify_service import ShopifyService
 from ..utils.shopify_helpers import (
-    IMAGE_ORDER_KEY,
+    PUBLICATION_CHANNELS,
     SHOPIFY_PAGE_SIZE,
     OdooDataError,
     ShopifyApiError,
     format_shopify_gid_from_id,
     format_sku_bin_for_shopify,
+    image_order_key,
     parse_shopify_id_from_gid,
 )
 
 _logger = logging.getLogger(__name__)
-
-PUBLICATION_CHANNELS: dict[str, int] = {
-    "online_store": 19453116480,
-    "pos": 42683596853,
-    "google": 88268636213,
-    "shop": 99113467957,
-}
 
 
 class ProductExporter:
     def __init__(self, env: Environment, sync_record: "odoo.model.shopify_sync"):
         self.env = env
         self.service = ShopifyService(env)
-        self.page_size = SHOPIFY_PAGE_SIZE
         self.odoo_base_url = env["ir.config_parameter"].sudo().get_param("web.base.url")
         self.sync_record = sync_record
         self._last_heartbeat = time.monotonic()
@@ -127,7 +120,7 @@ class ProductExporter:
                 raise exception from error
 
             self.sync_record.updated_count += 1
-            if self.sync_record.updated_count % (self.page_size // 5) == 0:
+            if self.sync_record.updated_count % (SHOPIFY_PAGE_SIZE // 5) == 0:
                 self.env.cr.commit()
             if (time.monotonic() - self._last_heartbeat) > 30:
                 self.sync_record.write({})
@@ -205,7 +198,7 @@ class ProductExporter:
         if not shopify_images:
             return
 
-        ordered_odoo_images = sorted(odoo_product.images, key=IMAGE_ORDER_KEY)
+        ordered_odoo_images = sorted(odoo_product.images, key=image_order_key)
 
         if len(ordered_odoo_images) != len(shopify_images):
             _logger.info(
@@ -305,7 +298,7 @@ class ProductExporter:
                     alt=odoo_product.name,
                     originalSource=self.odoo_base_url + "/web/image/product.image/" + str(odoo_image.id) + "/image_1920",
                 )
-                for odoo_image in sorted(odoo_product.images, key=IMAGE_ORDER_KEY)
+                for odoo_image in sorted(odoo_product.images, key=image_order_key)
             ]
 
         if not odoo_product.shopify_product_id or odoo_product.shopify_next_export_quantity_change_amount:
