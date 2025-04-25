@@ -1,6 +1,15 @@
 from odoo import api, SUPERUSER_ID
 from odoo.sql_db import Cursor
 from odoo.upgrade import util
+from psycopg2.errors import UndefinedTable
+
+
+def _safe_rename(cr, model: str, old: str, new: str) -> None:
+    try:
+        util.rename_field(cr, model, old, new)
+    except UndefinedTable:
+        table = model.replace(".", "_")
+        cr.execute(f'ALTER TABLE {table} RENAME COLUMN "{old}" TO {new}')
 
 
 def migrate(cr: Cursor, version: str) -> None:
@@ -15,8 +24,8 @@ def migrate(cr: Cursor, version: str) -> None:
     env["ir.config_parameter"].sudo().search([("key", "=", "shopify.shop_url")]).unlink()
     env["ir.config_parameter"].sudo().search([("key", "=", "shopify.api_version")]).unlink()
 
-    util.rename_field(cr, "product.image", "index", "initial_index")
-    util.rename_field(cr, "motor.image", "index", "initial_index")
+    _safe_rename(cr, "product.image", "index", "initial_index")
+    _safe_rename(cr, "motor.image", "index", "initial_index")
 
     util.remove_field(cr, "product.product", "shopify_last_exported")
 
