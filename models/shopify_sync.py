@@ -132,9 +132,7 @@ class ShopifySync(models.TransientModel):
                     _logger.debug("Duplicate Shopify sync found: %s", vals["mode"])
                     continue
 
-                    vals_to_create.append(vals)
-            else:
-                vals_to_create = vals_list
+                vals_to_create.append(vals)
         self.env.cr.commit()
 
         if not vals_to_create:
@@ -230,24 +228,24 @@ class ShopifySync(models.TransientModel):
                     _logger.debug("Another worker already running; skipping.")
                     return
 
-                    self._fail_stale_runs()
-                    if self.search([("state", "=", "running")], limit=1):
-                        _logger.debug("Sync already running; skipping.")
-                        return
+                self._fail_stale_runs()
+                if self.search([("state", "=", "running")], limit=1):
+                    _logger.debug("Sync already running; skipping.")
+                    return
 
-                    next_sync = self.search(
-                        [("state", "=", "queued")],
-                        order="retry_attempts desc, id asc",
-                        limit=1,
+                next_sync = self.search(
+                    [("state", "=", "queued")],
+                    order="retry_attempts desc, id asc",
+                    limit=1,
+                )
+                if next_sync:
+                    next_sync.write(
+                        {
+                            "state": "running",
+                            "start_time": fields.Datetime.now(),
+                        }
                     )
-                    if next_sync:
-                        next_sync.write(
-                            {
-                                "state": "running",
-                                "start_time": fields.Datetime.now(),
-                            }
-                        )
-                self.env.cr.commit()
+            self.env.cr.commit()
 
             if not next_sync:
                 _logger.debug("No queued syncs found; exiting dispatcher.")
