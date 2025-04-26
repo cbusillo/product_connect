@@ -115,8 +115,10 @@ class ShopifyService:
             def _throttle_info(response_data: dict) -> tuple[bool, float]:
                 errors = response_data.get("errors", [])
                 throttled = any(
-                    (error.get("extensions", {}).get("code", "").upper() == "THROTTLED")
-                    or (error.get("message", "").lower().startswith("throttled"))
+                    (
+                        error.get("extensions", {}).get("code", "").upper() == "THROTTLED"
+                        or error.get("message", "").lower().startswith("throttled")
+                    )
                     for error in errors
                 )
                 throttle_retry_after = compute_throttle_delay(response_data)
