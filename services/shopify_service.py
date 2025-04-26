@@ -113,11 +113,14 @@ class ShopifyService:
                 return max(min(throttle_wait_sec, self.MAX_SLEEP_TIME), self.MIN_SLEEP_TIME)
 
             def _throttle_info(response_data: dict) -> tuple[bool, float]:
-                hard_throttled = any(
-                    err.get("extensions", {}).get("code", "").upper() == "THROTTLED" for err in response_data.get("errors", [])
+                errors = response_data.get("errors", [])
+                throttled = any(
+                    (error.get("extensions", {}).get("code", "").upper() == "THROTTLED")
+                    or (error.get("message", "").lower().startswith("throttled"))
+                    for error in errors
                 )
                 throttle_retry_after = compute_throttle_delay(response_data)
-                return hard_throttled, throttle_retry_after
+                return throttled, throttle_retry_after
 
             for attempt in range(self.MAX_RETRY_ATTEMPTS + 1):
                 response = original_send(request, **kwargs)
