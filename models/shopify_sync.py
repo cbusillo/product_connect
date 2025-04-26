@@ -114,31 +114,35 @@ class ShopifySync(models.TransientModel):
         if isinstance(vals_list, dict):
             vals_list = [vals_list]
 
-        with self._dispatch_lock(self.env.cr, self.LOCK_ID) as dispatch_lock:
-            if dispatch_lock:
-                self._fail_stale_runs()
-
-        self.env.cr.flush()
         vals_to_create: list["odoo.values.shopify_sync"] = []
-        for vals in vals_list:
-            domain = [
-                ("mode", "=", vals["mode"]),
-                ("state", "in", ["running", "queued"]),
-                ("shopify_product_id_to_sync", "=", vals.get("shopify_product_id_to_sync")),
-                ("datetime_to_sync", "=", vals.get("datetime_to_sync")),
-            ]
-            potential = self.search(domain)
-            if self._is_duplicate(vals, potential):
-                _logger.debug("Duplicate Shopify sync found: %s", vals["mode"])
-                continue
+        with self._dispatch_lock(self.env.cr, self.LOCK_ID) as lock_acquired:
+            if lock_acquired:
 
-            vals_to_create.append(vals)
+                self._fail_stale_runs()
+                self.env.cr.flush()
+                for vals in vals_list:
+                    domain = [
+                        ("mode", "=", vals["mode"]),
+                        ("state", "in", ["running", "queued"]),
+                        ("shopify_product_id_to_sync", "=", vals.get("shopify_product_id_to_sync")),
+                        ("datetime_to_sync", "=", vals.get("datetime_to_sync")),
+                    ]
+                    potential = self.search(domain)
+                    if self._is_duplicate(vals, potential):
+                        _logger.debug("Duplicate Shopify sync found: %s", vals["mode"])
+                        continue
+
+                    vals_to_create.append(vals)
+            else:
+                vals_to_create = vals_list
+        self.env.cr.commit()
 
         if not vals_to_create:
             return self.browse()
 
         syncs = super().create(vals_to_create)
         syncs.state = "queued"
+        self.env.cr.commit()
         return syncs
 
     def unlink(self) -> models.BaseModel:
@@ -245,6 +249,7 @@ class ShopifySync(models.TransientModel):
                                 "start_time": fields.Datetime.now(),
                             }
                         )
+                self.env.cr.commit()
 
             if not next_sync:
                 _logger.debug("No queued syncs found; exiting dispatcher.")
