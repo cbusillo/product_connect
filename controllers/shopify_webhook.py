@@ -38,7 +38,7 @@ class ShopifyWebhook(http.Controller):
 
         topic = http.request.httprequest.headers.get("X-Shopify-Topic")
         payload = json.loads(http.request.httprequest.data)
-        if topic.startswith(self.PRODUCT_TOPICS + self.PRODUCT_TOPICS):
+        if topic.startswith(self.PRODUCT_TOPICS + self.INVENTORY_TOPICS):
             product_id = payload.get("id") or payload.get("odoo_product_id")
             if not product_id:
                 raise BadRequest()
