@@ -28,6 +28,7 @@ from ..utils.shopify_helpers import (
     parse_shopify_id_from_gid,
     parse_shopify_sku_field_to_sku_and_bin,
     parse_shopify_datetime_to_utc,
+    write_if_changed,
 )
 
 _logger = logging.getLogger(__name__)
@@ -309,9 +310,6 @@ class ProductImporter:
                 "is_ready_for_sale": True,
             }
 
-            if odoo_product:
-                odoo_product_input["id"] = odoo_product.id
-
             condition = metafields_by_key.get("condition")
             if condition:
                 if self.env["product.condition"].search([("code", "=", condition.value)], limit=1):
@@ -327,7 +325,7 @@ class ProductImporter:
                 ).id
 
             if odoo_product:
-                odoo_product.write(odoo_product_input)
+                write_if_changed(odoo_product, odoo_product_input)
             else:
                 odoo_product = self.env["product.product"].with_context(skip_shopify_sync=True).create(odoo_product_input)
 

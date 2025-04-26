@@ -6,6 +6,7 @@ from typing import TypeVar, cast, Union
 from dateutil.parser import parse
 from odoo import models
 from odoo.exceptions import UserError
+from odoo.tools import float_compare
 from pydantic import BaseModel
 
 T = TypeVar("T")
@@ -157,6 +158,37 @@ class ShopifyMissingSkuFieldError(ShopifyDataError):
 
 class ShopifyStaleRunTimeout(Exception):
     pass
+
+
+def write_if_changed(record: "odoo.model.product_product", vals: "odoo.values.shopify_sync") -> None:
+    for key, new_val in list(vals.items()):
+        old_val = record[key]
+        field = record._fields[key]
+
+        if isinstance(new_val, (list, tuple)):
+            raise UserError(f"write_if_changed(): unsupported value for field '{key}'. lists and tuples are not supported.")
+        if isinstance(old_val, models.BaseModel) and len(old_val) > 1:
+            raise UserError(f"write_if_changed(): field '{key}' contains a multi‑record recordset " "which is not supported.")
+        if isinstance(old_val, float):
+            digits_attr = getattr(field, "digits", None)
+            if callable(digits_attr):
+                raw_digits = digits_attr(record.env)
+            else:
+                raw_digits = digits_attr
+
+            precision_digits = raw_digits[1] if raw_digits else 2
+            if float_compare(old_val, new_val, precision_digits=precision_digits) == 0:
+                vals.pop(key)
+        elif isinstance(old_val, models.BaseModel):
+            old_id = old_val.id if old_val else False
+            new_id = new_val.id if isinstance(new_val, models.BaseModel) else new_val
+            if old_id == new_id:
+                vals.pop(key)
+        elif old_val == new_val:
+            vals.pop(key)
+
+    if vals:
+        record.write(vals)
 
 
 def parse_shopify_datetime_to_utc(value: datetime | str) -> datetime:

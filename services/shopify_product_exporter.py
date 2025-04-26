@@ -39,6 +39,7 @@ from ..utils.shopify_helpers import (
     format_sku_bin_for_shopify,
     image_order_key,
     parse_shopify_id_from_gid,
+    write_if_changed,
 )
 
 _logger = logging.getLogger(__name__)
@@ -175,19 +176,18 @@ class ProductExporter:
             f"Updating product {odoo_product.id} with Shopify product {shopify_product.id} and metafields {metafields_by_key}"
         )
 
-        odoo_product.write(
-            {
-                "shopify_product_id": parse_shopify_id_from_gid(shopify_product.id),
-                "shopify_variant_id": parse_shopify_id_from_gid(shopify_product.variants.nodes[0].id),
-                "shopify_condition_id": parse_shopify_id_from_gid(condition_metafield.id) if condition_metafield else None,
-                "shopify_ebay_category_id": (
-                    parse_shopify_id_from_gid(ebay_category_id_metafield.id) if ebay_category_id_metafield else None
-                ),
-                "shopify_next_export": False,
-                "shopify_next_export_images": False,
-                "shopify_next_export_quantity_change_amount": 0,
-            }
-        )
+        flags_and_ids: "odoo.values.product_product" = {
+            "shopify_product_id": parse_shopify_id_from_gid(shopify_product.id),
+            "shopify_variant_id": parse_shopify_id_from_gid(shopify_product.variants.nodes[0].id),
+            "shopify_condition_id": parse_shopify_id_from_gid(condition_metafield.id) if condition_metafield else None,
+            "shopify_ebay_category_id": (
+                parse_shopify_id_from_gid(ebay_category_id_metafield.id) if ebay_category_id_metafield else None
+            ),
+            "shopify_next_export": False,
+            "shopify_next_export_images": False,
+            "shopify_next_export_quantity_change_amount": 0,
+        }
+        write_if_changed(odoo_product, flags_and_ids)
         odoo_product.shopify_last_exported_at = fields.Datetime.now()
 
     @staticmethod
