@@ -31,7 +31,7 @@
                   decoration-warning="state == 'running'"
                   decoration-success="state == 'success'"
                   decoration-muted="state == 'draft' or state == 'queued'">
-                <field name="create_time_human"/>
+                <field name="create_time_human" optional="show"/>
                 <field name="start_time_human"/>
                 <field name="end_time_human"/>
                 <field name="run_time_human"/>
@@ -46,8 +46,8 @@
                 <field name="updated_count" string="Updated" sum="updated_count"/>
                 <field name="total_count" string="Total" sum="total_count"/>
                 <field name="progress_percent" widget="progressbar" avg="progress_percent"
-                       options="{'max_value': 100, 'suffix': '%'}"/>
-                <field name="user"/>
+                       options="{'max_value': 100, 'suffix': '%'}" optional="show"/>
+                <field name="user" optional="show"/>
 
             </list>
         </field>
