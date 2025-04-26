@@ -15,7 +15,7 @@ _logger = logging.getLogger(__name__)
 class ProductDeleter:
     def __init__(self, env: Environment, sync_record: "odoo.model.shopify_sync") -> None:
         self.env = env
-        self.service = ShopifyService(env)
+        self.service = ShopifyService(env, sync_record)
         self.sync_record = sync_record
 
     def delete_all_products(self) -> None:

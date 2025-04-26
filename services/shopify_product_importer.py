@@ -37,7 +37,7 @@ class ProductImporter:
 
     def __init__(self, env: Environment, sync_record: "odoo.model.shopify_sync") -> None:
         self.env = env
-        self.shopify_service = ShopifyService(env)
+        self.shopify_service = ShopifyService(env, sync_record)
         self.sync_record = sync_record
         self._last_heartbeat = time.monotonic()
 
@@ -263,7 +263,7 @@ class ProductImporter:
 
                     return base64.b64encode(temp_file.read()).decode()
         except HTTPError as error:
-            exception = ShopifyDataError("Failed to fetch image data from {image_url}")
+            exception = ShopifyDataError(f"Failed to fetch image data from {image_url}")
             _logger.error(exception)
             raise exception from error
 

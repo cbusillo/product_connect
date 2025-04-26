@@ -47,7 +47,7 @@ _logger = logging.getLogger(__name__)
 class ProductExporter:
     def __init__(self, env: Environment, sync_record: "odoo.model.shopify_sync"):
         self.env = env
-        self.service = ShopifyService(env)
+        self.service = ShopifyService(env, sync_record)
         self.odoo_base_url = env["ir.config_parameter"].sudo().get_param("web.base.url")
         self.sync_record = sync_record
         self._last_heartbeat = time.monotonic()

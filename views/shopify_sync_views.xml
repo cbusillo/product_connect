@@ -37,6 +37,7 @@
                 <field name="run_time_human"/>
                 <field name="mode" widget="badge"/>
                 <field name="error_exception" optional="show"/>
+                <field name="hard_throttle_count" string="Throttles"/>
                 <field name="retry_attempts" string="Retries"/>
                 <field name="state" widget="badge"
                        decoration-danger="state == 'failed'"
@@ -146,6 +147,7 @@
                         <field name="updated_count" widget="progressbar" string="Progress" readonly="1"
                                options="{'max_value': 'total_count', 'current_value': 'updated_count'}"
                                invisible="state not in ['queued','draft']"/>
+                        <field name="hard_throttle_count" invisible="not hard_throttle_errors"/>
                         <field name="retry_attempts" invisible="not retry_attempts"/>
                         <field name="state" widget="badge" readonly="1"
                                decoration-danger="state == 'failed'"

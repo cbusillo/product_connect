@@ -63,6 +63,7 @@ class ShopifySync(models.TransientModel):
     updated_count = fields.Integer()
     total_count = fields.Integer()
     progress_percent = fields.Float(string="Progress %", compute="_compute_progress_percent", store=True)
+    hard_throttle_count = fields.Integer(default=0)
     retry_attempts = fields.Integer(default=0)
 
     state = fields.Selection(

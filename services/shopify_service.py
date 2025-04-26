@@ -15,13 +15,14 @@ _logger = logging.getLogger(__name__)
 class ShopifyService:
     MIN_SHOPIFY_REMAINING_API_POINTS = 500
     MAX_RETRY_ATTEMPTS = 10
-    MIN_SLEEP_TIME = 1
-    MAX_SLEEP_TIME = 60
+    MIN_SLEEP_TIME = 1.0
+    MAX_SLEEP_TIME = 60.0
     API_VERSION = "2025-04"
 
-    def __init__(self, env: Environment):
+    def __init__(self, env: Environment, sync_record: "odoo.model.shopify_sync") -> None:
         self.env = env
         self._client: ShopifyClient | None = None
+        self.sync_record = sync_record
         self.first_location_gid: str | None = None
 
     @property
@@ -102,26 +103,35 @@ class ShopifyService:
         def send_with_retry(request: Request, **kwargs: object) -> Response:
             transient = {429, 500, 502, 503, 504}
 
-            def throttle_wait(throttle_data: dict) -> float | None:
+            def throttle_wait(throttle_data: dict) -> float:
                 throttle = throttle_data.get("extensions", {}).get("cost", {}).get("throttleStatus", {})
                 available = throttle.get("currentlyAvailable", 0)
                 if available >= self.MIN_SHOPIFY_REMAINING_API_POINTS:
-                    return None
+                    return 0.0
                 rate = throttle.get("restoreRate", 1.0)
-                return max(1.0, (self.MIN_SHOPIFY_REMAINING_API_POINTS - available) / rate)
+                throttle_wait_sec = (self.MIN_SHOPIFY_REMAINING_API_POINTS - available) / rate
+                return max(min(throttle_wait_sec, self.MAX_SLEEP_TIME), self.MIN_SLEEP_TIME)
 
             for attempt in range(self.MAX_RETRY_ATTEMPTS + 1):
                 response = original_send(request, **kwargs)
                 status = response.status_code
                 try:
-                    is_json = response.headers.get("content-type", "").startswith("application/json")
-                    if is_json and status == 200:
+                    if response.headers.get("content-type", "").startswith("application/json") and status == 200:
                         data = response.json()
-                        wait_time = throttle_wait(data)
-                        if wait_time is not None:
-                            _logger.info(f"GraphQL throttled – retrying in {wait_time:.2f}s")
+                        retry_after = throttle_wait(data)
+
+                        throttled_in_errors = any(
+                            err.get("extensions", {}).get("code", "").upper() == "THROTTLED" for err in data.get("errors", [])
+                        )
+
+                        if throttled_in_errors or retry_after:
+                            if not retry_after:
+                                retry_after = self.MIN_SLEEP_TIME
+                            _logger.info(f"GraphQL throttled – retrying in {retry_after:.2f}s")
                             response.close()
-                            sleep(wait_time)
+                            sleep(retry_after)
+                            if throttled_in_errors:
+                                self.sync_record.hard_throttle_count += 1
                             continue
                         return response
                     if status not in transient:
