@@ -117,20 +117,20 @@ class ShopifySync(models.TransientModel):
         vals_to_create: list["odoo.values.shopify_sync"] = []
         with self._dispatch_lock(self.env.cr, self.LOCK_ID) as lock_acquired:
             if lock_acquired:
-
                 self._fail_stale_runs()
                 self.env.cr.flush()
-                for vals in vals_list:
-                    domain = [
-                        ("mode", "=", vals["mode"]),
-                        ("state", "in", ["running", "queued"]),
-                        ("shopify_product_id_to_sync", "=", vals.get("shopify_product_id_to_sync")),
-                        ("datetime_to_sync", "=", vals.get("datetime_to_sync")),
-                    ]
-                    potential = self.search(domain)
-                    if self._is_duplicate(vals, potential):
-                        _logger.debug("Duplicate Shopify sync found: %s", vals["mode"])
-                        continue
+
+            for vals in vals_list:
+                existing = [
+                    ("mode", "=", vals["mode"]),
+                    ("state", "=", "queued"),
+                    ("shopify_product_id_to_sync", "=", vals.get("shopify_product_id_to_sync")),
+                    ("datetime_to_sync", "=", vals.get("datetime_to_sync")),
+                ]
+                potential = self.search(existing)
+                if self._is_duplicate(vals, potential):
+                    _logger.debug("Duplicate Shopify sync found: %s", vals["mode"])
+                    continue
 
                     vals_to_create.append(vals)
             else:
@@ -220,17 +220,15 @@ class ShopifySync(models.TransientModel):
                 vals = run._prepare_failure_vals(ShopifyStaleRunTimeout(f"No activity for {threshold_seconds}s"))
                 vals["end_time"] = run.write_date
                 run.write(vals)
-        self.env.cr.commit()
 
     @api.model
     def _cron_dispatch_next(self) -> None:
         while True:
             next_sync = None
-            with self.env.cr.savepoint():
-                with self._dispatch_lock(self.env.cr, self.LOCK_ID) as lock_acquired:
-                    if not lock_acquired:
-                        _logger.debug("Another worker already running; skipping.")
-                        return
+            with self._dispatch_lock(self.env.cr, self.LOCK_ID) as lock_acquired:
+                if not lock_acquired:
+                    _logger.debug("Another worker already running; skipping.")
+                    return
 
                     self._fail_stale_runs()
                     if self.search([("state", "=", "running")], limit=1):
