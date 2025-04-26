@@ -103,7 +103,7 @@ class ShopifyService:
         def send_with_retry(request: Request, **kwargs: object) -> Response:
             transient = {429, 500, 502, 503, 504}
 
-            def throttle_wait(throttle_data: dict) -> float:
+            def compute_throttle_delay(throttle_data: dict) -> float:
                 throttle = throttle_data.get("extensions", {}).get("cost", {}).get("throttleStatus", {})
                 available = throttle.get("currentlyAvailable", 0)
                 if available >= self.MIN_SHOPIFY_REMAINING_API_POINTS:
@@ -113,11 +113,11 @@ class ShopifyService:
                 return max(min(throttle_wait_sec, self.MAX_SLEEP_TIME), self.MIN_SLEEP_TIME)
 
             def _throttle_info(response_data: dict) -> tuple[bool, float]:
-                is_throttled = any(
+                hard_throttled = any(
                     err.get("extensions", {}).get("code", "").upper() == "THROTTLED" for err in response_data.get("errors", [])
                 )
-                throttle_retry_after = throttle_wait(response_data)
-                return is_throttled, throttle_retry_after
+                throttle_retry_after = compute_throttle_delay(response_data)
+                return hard_throttled, throttle_retry_after
 
             for attempt in range(self.MAX_RETRY_ATTEMPTS + 1):
                 response = original_send(request, **kwargs)
@@ -125,15 +125,15 @@ class ShopifyService:
                 try:
                     if response.headers.get("content-type", "").startswith("application/json") and status == 200:
                         data = response.json()
-                        is_hard_throttled, retry_after_seconds = _throttle_info(data)
+                        hard_throttled, retry_after_seconds = _throttle_info(data)
 
-                        if is_hard_throttled or retry_after_seconds:
+                        if hard_throttled or retry_after_seconds:
                             if not retry_after_seconds:
                                 retry_after_seconds = self.MIN_SLEEP_TIME
                             _logger.info(f"GraphQL throttled – retrying in {retry_after_seconds:.2f}s")
                             response.close()
                             sleep(retry_after_seconds)
-                            if is_hard_throttled:
+                            if hard_throttled:
                                 self.sync_record.hard_throttle_count += 1
                             continue
                         return response
