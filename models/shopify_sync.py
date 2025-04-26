@@ -220,34 +220,31 @@ class ShopifySync(models.TransientModel):
 
     @api.model
     def _cron_dispatch_next(self) -> None:
-
         while True:
             next_sync = None
             with self.env.cr.savepoint():
-                self.env.cr.execute("SELECT pg_try_advisory_lock(%s)", [self.LOCK_ID])
-                if not self.env.cr.fetchone()[0]:
-                    _logger.debug("Another worker already running; skipping.")
-                    return
+                with self._dispatch_lock(self.env.cr, self.LOCK_ID) as lock_acquired:
+                    if not lock_acquired:
+                        _logger.debug("Another worker already running; skipping.")
+                        return
 
-                self._fail_stale_runs()
-                if self.search([("state", "=", "running")], limit=1):
-                    self.env.cr.execute("SELECT pg_advisory_unlock(%s)", [self.LOCK_ID])
-                    _logger.debug("Sync already running; skipping.")
-                    return
+                    self._fail_stale_runs()
+                    if self.search([("state", "=", "running")], limit=1):
+                        _logger.debug("Sync already running; skipping.")
+                        return
 
-                next_sync = self.search(
-                    [("state", "=", "queued")],
-                    order="retry_attempts desc, id asc",
-                    limit=1,
-                )
-                if next_sync:
-                    next_sync.write(
-                        {
-                            "state": "running",
-                            "start_time": fields.Datetime.now(),
-                        }
+                    next_sync = self.search(
+                        [("state", "=", "queued")],
+                        order="retry_attempts desc, id asc",
+                        limit=1,
                     )
-                self.env.cr.execute("SELECT pg_advisory_unlock(%s)", [self.LOCK_ID])
+                    if next_sync:
+                        next_sync.write(
+                            {
+                                "state": "running",
+                                "start_time": fields.Datetime.now(),
+                            }
+                        )
 
             if not next_sync:
                 _logger.debug("No queued syncs found; exiting dispatcher.")
