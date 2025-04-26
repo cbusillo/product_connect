@@ -147,7 +147,7 @@
                         <field name="updated_count" widget="progressbar" string="Progress" readonly="1"
                                options="{'max_value': 'total_count', 'current_value': 'updated_count'}"
                                invisible="state not in ['queued','draft']"/>
-                        <field name="hard_throttle_count" invisible="not hard_throttle_errors"/>
+                        <field name="hard_throttle_count" invisible="not hard_throttle_count"/>
                         <field name="retry_attempts" invisible="not retry_attempts"/>
                         <field name="state" widget="badge" readonly="1"
                                decoration-danger="state == 'failed'"
