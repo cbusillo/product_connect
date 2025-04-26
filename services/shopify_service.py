@@ -112,25 +112,28 @@ class ShopifyService:
                 throttle_wait_sec = (self.MIN_SHOPIFY_REMAINING_API_POINTS - available) / rate
                 return max(min(throttle_wait_sec, self.MAX_SLEEP_TIME), self.MIN_SLEEP_TIME)
 
+            def _throttle_info(response_data: dict) -> tuple[bool, float]:
+                is_throttled = any(
+                    err.get("extensions", {}).get("code", "").upper() == "THROTTLED" for err in response_data.get("errors", [])
+                )
+                throttle_retry_after = throttle_wait(response_data)
+                return is_throttled, throttle_retry_after
+
             for attempt in range(self.MAX_RETRY_ATTEMPTS + 1):
                 response = original_send(request, **kwargs)
                 status = response.status_code
                 try:
                     if response.headers.get("content-type", "").startswith("application/json") and status == 200:
                         data = response.json()
-                        retry_after = throttle_wait(data)
+                        is_hard_throttled, retry_after_seconds = _throttle_info(data)
 
-                        throttled_in_errors = any(
-                            err.get("extensions", {}).get("code", "").upper() == "THROTTLED" for err in data.get("errors", [])
-                        )
-
-                        if throttled_in_errors or retry_after:
-                            if not retry_after:
-                                retry_after = self.MIN_SLEEP_TIME
-                            _logger.info(f"GraphQL throttled – retrying in {retry_after:.2f}s")
+                        if is_hard_throttled or retry_after_seconds:
+                            if not retry_after_seconds:
+                                retry_after_seconds = self.MIN_SLEEP_TIME
+                            _logger.info(f"GraphQL throttled – retrying in {retry_after_seconds:.2f}s")
                             response.close()
-                            sleep(retry_after)
-                            if throttled_in_errors:
+                            sleep(retry_after_seconds)
+                            if is_hard_throttled:
                                 self.sync_record.hard_throttle_count += 1
                             continue
                         return response
