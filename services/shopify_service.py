@@ -1,19 +1,17 @@
 import logging
-
 from time import sleep
-
 from httpx import Client, Timeout, Limits, Request, Response
 from odoo.api import Environment
-
 from ..utils.shopify_helpers import ShopifyApiError
 from .shopify_client import Client as ShopifyClient
 
+THROTTLE_TRANSIENT_STATUS: set[int] = {429, 500, 502, 503, 504}
 
 _logger = logging.getLogger(__name__)
 
 
 class ShopifyService:
-    MIN_SHOPIFY_REMAINING_API_POINTS = 500
+    MIN_API_POINTS = 500
     MAX_RETRY_ATTEMPTS = 10
     MIN_SLEEP_TIME = 1.0
     MAX_SLEEP_TIME = 60.0
@@ -81,11 +79,11 @@ class ShopifyService:
             if "extensions" in data:
                 throttle_status = data.get("extensions", {}).get("cost", {}).get("throttleStatus", {})
                 currently_available = throttle_status.get("currentlyAvailable", 0)
-                restore_rate = throttle_status.get("restoreRate", 1)
+                restore_rate = throttle_status.get("restoreRate", 1) or 1
                 _logger.debug(f"Shopify API rate limit status: {throttle_status}")
 
-                if currently_available < self.MIN_SHOPIFY_REMAINING_API_POINTS:
-                    deficit = self.MIN_SHOPIFY_REMAINING_API_POINTS - currently_available
+                if currently_available < self.MIN_API_POINTS:
+                    deficit = self.MIN_API_POINTS - currently_available
                     wait_time = min(self.MAX_SLEEP_TIME, max(deficit / restore_rate, self.MIN_SLEEP_TIME))
                     _logger.info(f"Low API points. Waiting for {wait_time:.2f} seconds...")
                     sleep(wait_time)
@@ -101,28 +99,7 @@ class ShopifyService:
         original_send = client.send
 
         def send_with_retry(request: Request, **kwargs: object) -> Response:
-            transient = {429, 500, 502, 503, 504}
-
-            def compute_throttle_delay(throttle_data: dict) -> float:
-                throttle = throttle_data.get("extensions", {}).get("cost", {}).get("throttleStatus", {})
-                available = throttle.get("currentlyAvailable", 0)
-                if available >= self.MIN_SHOPIFY_REMAINING_API_POINTS:
-                    return 0.0
-                rate = throttle.get("restoreRate", 1.0)
-                throttle_wait_sec = (self.MIN_SHOPIFY_REMAINING_API_POINTS - available) / rate
-                return max(min(throttle_wait_sec, self.MAX_SLEEP_TIME), self.MIN_SLEEP_TIME)
-
-            def _throttle_info(response_data: dict) -> tuple[bool, float]:
-                errors = response_data.get("errors", [])
-                throttled = any(
-                    (
-                        error.get("extensions", {}).get("code", "").upper() == "THROTTLED"
-                        or error.get("message", "").lower().startswith("throttled")
-                    )
-                    for error in errors
-                )
-                throttle_retry_after = compute_throttle_delay(response_data)
-                return throttled, throttle_retry_after
+            transient = THROTTLE_TRANSIENT_STATUS
 
             for attempt in range(self.MAX_RETRY_ATTEMPTS + 1):
                 response = original_send(request, **kwargs)
@@ -130,12 +107,18 @@ class ShopifyService:
                 try:
                     if response.headers.get("content-type", "").startswith("application/json") and status == 200:
                         data = response.json()
-                        hard_throttled, retry_after_seconds = _throttle_info(data)
+                        hard_throttled, retry_after_seconds = self._throttle_info(data)
 
-                        if hard_throttled or retry_after_seconds:
-                            if not retry_after_seconds:
-                                retry_after_seconds = self.MIN_SLEEP_TIME
-                            _logger.info(f"GraphQL throttled – retrying in {retry_after_seconds:.2f}s")
+                        has_delay = retry_after_seconds is not None and retry_after_seconds > 0
+                        should_retry = hard_throttled or has_delay
+
+                        if should_retry:
+                            if not retry_after_seconds or retry_after_seconds <= 0:
+                                retry_after_seconds = min(
+                                    self.MAX_SLEEP_TIME,
+                                    max(self.MIN_SLEEP_TIME * 2**attempt, self.MIN_SLEEP_TIME),
+                                )
+                            _logger.info(f"GraphQL throttled – sync {self.sync_record.id} retrying in {retry_after_seconds:.2f}s")
                             response.close()
                             sleep(retry_after_seconds)
                             if hard_throttled:
@@ -151,9 +134,35 @@ class ShopifyService:
                 if attempt == self.MAX_RETRY_ATTEMPTS:
                     break
                 wait_time = min(self.MAX_SLEEP_TIME, self.MIN_SLEEP_TIME * 2**attempt)
-                _logger.warning(f"Retry {attempt + 1} for {request.url} ({status}); sleeping {wait_time:.2f}s")
+                _logger.warning(
+                    f"Retry {attempt + 1} for sync {self.sync_record.id} {request.url} ({status}); sleeping {wait_time:.2f}s"
+                )
                 sleep(wait_time)
             raise ShopifyApiError(f"Max retries reached for {request.url}")
 
         client.send = send_with_retry
         return client
+
+    def _compute_throttle_delay(self, throttle_data: dict) -> float | None:
+        throttle = throttle_data.get("extensions", {}).get("cost", {}).get("throttleStatus", {})
+        if not throttle:
+            return None
+        available = throttle.get("currentlyAvailable", 0)
+        if available >= self.MIN_API_POINTS:
+            return 0.0
+        rate = throttle.get("restoreRate", 1) or 1
+        return max(
+            min((self.MIN_API_POINTS - available) / rate, self.MAX_SLEEP_TIME),
+            self.MIN_SLEEP_TIME,
+        )
+
+    def _throttle_info(self, response_data: dict) -> tuple[bool, float | None]:
+        errors = response_data.get("errors", [])
+
+        def _is_throttled(err: dict) -> bool:
+            return err.get("extensions", {}).get("code", "").upper() == "THROTTLED" or str(
+                err.get("message", "")
+            ).strip().lower().startswith("throttled")
+
+        throttled = any(_is_throttled(e) for e in errors)
+        return throttled, self._compute_throttle_delay(response_data)
