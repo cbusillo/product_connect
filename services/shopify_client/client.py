@@ -11,6 +11,8 @@ from .current_bulk_operation import (
 )
 from .delete_product import DeleteProduct, DeleteProductProductDelete
 from .get_locations import GetLocations, GetLocationsLocations
+from .get_order_ids import GetOrderIds, GetOrderIdsOrders
+from .get_orders import GetOrders, GetOrdersOrders
 from .get_product_ids import GetProductIds, GetProductIdsProducts
 from .get_products import GetProducts, GetProductsProducts
 from .input_types import (
@@ -24,6 +26,8 @@ from .operations import (
     CURRENT_BULK_OPERATION_GQL,
     DELETE_PRODUCT_GQL,
     GET_LOCATIONS_GQL,
+    GET_ORDER_IDS_GQL,
+    GET_ORDERS_GQL,
     GET_PRODUCT_IDS_GQL,
     GET_PRODUCTS_GQL,
     PRODUCT_SET_BULK_RUN_GQL,
@@ -92,6 +96,48 @@ class Client(BaseClient):
         )
         data = self.get_data(response)
         return CurrentBulkOperation.model_validate(data).current_bulk_operation
+
+    def get_order_ids(
+        self,
+        limit: int,
+        cursor: Union[Optional[str], UnsetType] = UNSET,
+        query: Union[Optional[str], UnsetType] = UNSET,
+        **kwargs: Any
+    ) -> GetOrderIdsOrders:
+        variables: Dict[str, object] = {
+            "cursor": cursor,
+            "limit": limit,
+            "query": query,
+        }
+        response = self.execute(
+            query=GET_ORDER_IDS_GQL,
+            operation_name="GetOrderIds",
+            variables=variables,
+            **kwargs
+        )
+        data = self.get_data(response)
+        return GetOrderIds.model_validate(data).orders
+
+    def get_orders(
+        self,
+        limit: int,
+        cursor: Union[Optional[str], UnsetType] = UNSET,
+        query: Union[Optional[str], UnsetType] = UNSET,
+        **kwargs: Any
+    ) -> GetOrdersOrders:
+        variables: Dict[str, object] = {
+            "cursor": cursor,
+            "limit": limit,
+            "query": query,
+        }
+        response = self.execute(
+            query=GET_ORDERS_GQL,
+            operation_name="GetOrders",
+            variables=variables,
+            **kwargs
+        )
+        data = self.get_data(response)
+        return GetOrders.model_validate(data).orders
 
     def get_product_ids(
         self,

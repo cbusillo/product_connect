@@ -5,6 +5,8 @@ __all__ = [
     "CURRENT_BULK_OPERATION_GQL",
     "DELETE_PRODUCT_GQL",
     "GET_LOCATIONS_GQL",
+    "GET_ORDERS_GQL",
+    "GET_ORDER_IDS_GQL",
     "GET_PRODUCTS_GQL",
     "GET_PRODUCT_IDS_GQL",
     "PRODUCT_SET_BULK_RUN_GQL",
@@ -58,6 +60,129 @@ query CurrentBulkOperation {
     objectCount
     url
     partialDataUrl
+  }
+}
+"""
+
+GET_ORDER_IDS_GQL = """
+query GetOrderIds($cursor: String, $limit: Int!, $query: String) {
+  orders(first: $limit, after: $cursor, query: $query, sortKey: UPDATED_AT) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      id
+    }
+  }
+}
+"""
+
+GET_ORDERS_GQL = """
+query GetOrders($cursor: String, $limit: Int!, $query: String) {
+  orders(first: $limit, after: $cursor, query: $query, sortKey: UPDATED_AT) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      ...OrderFields
+    }
+  }
+}
+
+fragment AddressFields on MailingAddress {
+  id
+  name
+  address1
+  address2
+  city
+  provinceCode
+  countryCodeV2
+  zip
+  phone
+}
+
+fragment MetafieldFields on Metafield {
+  id
+  key
+  value
+}
+
+fragment MoneyFields on MoneyV2 {
+  amount
+  currencyCode
+}
+
+fragment OrderFields on Order {
+  id
+  name
+  createdAt
+  updatedAt
+  processedAt
+  closedAt
+  cancelledAt
+  currencyCode
+  totalPriceSet {
+    presentmentMoney {
+      ...MoneyFields
+    }
+  }
+  subtotalPriceSet {
+    presentmentMoney {
+      ...MoneyFields
+    }
+  }
+  totalShippingPriceSet {
+    presentmentMoney {
+      ...MoneyFields
+    }
+  }
+  customer {
+    id
+    defaultEmailAddress {
+      emailAddress
+    }
+    firstName
+    lastName
+  }
+  shippingAddress {
+    ...AddressFields
+  }
+  billingAddress {
+    ...AddressFields
+  }
+  lineItems(first: 250) {
+    nodes {
+      ...OrderLineItemFields
+    }
+  }
+  metafields(first: 15, namespace: "custom") {
+    nodes {
+      ...MetafieldFields
+    }
+  }
+}
+
+fragment OrderLineItemFields on LineItem {
+  id
+  sku
+  quantity
+  name
+  variant {
+    id
+  }
+  originalUnitPriceSet {
+    presentmentMoney {
+      ...MoneyFields
+    }
+    shopMoney {
+      ...MoneyFields
+    }
+  }
+  customAttributes {
+    key
+    value
   }
 }
 """
