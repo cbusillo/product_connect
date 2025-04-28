@@ -160,7 +160,7 @@ class ShopifyStaleRunTimeout(Exception):
     pass
 
 
-def write_if_changed(record: "odoo.model.product_product", vals: "odoo.values.shopify_sync") -> None:
+def write_if_changed(record: "odoo.model.product_product", vals: "odoo.values.shopify_sync") -> bool:
     for key, new_val in list(vals.items()):
         old_val = record[key]
         field = record._fields[key]
@@ -188,7 +188,10 @@ def write_if_changed(record: "odoo.model.product_product", vals: "odoo.values.sh
             vals.pop(key)
 
     if vals:
-        record.write(vals)
+        record.with_context(skip_shopify_sync=True).write(vals)
+        return True
+
+    return False
 
 
 def parse_shopify_datetime_to_utc(value: datetime | str) -> datetime:
