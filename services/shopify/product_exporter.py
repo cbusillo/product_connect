@@ -6,7 +6,7 @@ from decimal import Decimal
 from odoo import fields
 from odoo.api import Environment
 
-from .shopify_client import (
+from .client import (
     InventoryItemMeasurementInput,
     ProductSetProductSetProduct,
     ProductSetProductSetProductResourcePublicationsV2NodesPublication,
@@ -14,8 +14,8 @@ from .shopify_client import (
     GraphQLClientGraphQLMultiError,
     MediaStatus,
 )
-from .shopify_client.enums import ProductStatus, WeightUnit, LocalizableContentType
-from .shopify_client.input_types import (
+from .client.enums import ProductStatus, WeightUnit, LocalizableContentType
+from .client.input_types import (
     ProductSetInput,
     ProductVariantSetInput,
     ProductSetInventoryInput,
@@ -29,8 +29,8 @@ from .shopify_client.input_types import (
     VariantOptionValueInput,
     ProductSetIdentifiers,
 )
-from .shopify_service import ShopifyService
-from ..utils.shopify_helpers import (
+from .client_service import ShopifyService
+from .client_helpers import (
     PUBLICATION_CHANNELS,
     SHOPIFY_PAGE_SIZE,
     OdooDataError,

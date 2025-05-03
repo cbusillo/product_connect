@@ -5,13 +5,12 @@ from typing import Optional, Literal
 
 from odoo.api import Environment
 
-from .shopify_service import ShopifyService
-from .shopify_client import (
-    AddressFields,
+from .client_service import ShopifyService
+from .client import (
     GetOrdersOrdersNodes,
     OrderFieldsCustomer,
 )
-from ..utils.shopify_helpers import (
+from .client_helpers import (
     DEFAULT_DATETIME,
     SHOPIFY_PAGE_SIZE,
     OdooDataError,

@@ -45,6 +45,7 @@ class SyncMode(StrEnum):
     EXPORT_PRODUCTS_SINCE_DATE = auto()
     IMPORT_ONE_PRODUCT = auto()
     EXPORT_BATCH_PRODUCTS = auto()
+
     IMPORT_ALL_ORDERS = auto()
     IMPORT_CHANGED_ORDERS = auto()
     IMPORT_ONE_ORDER = auto()

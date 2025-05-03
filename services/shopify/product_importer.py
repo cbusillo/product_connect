@@ -9,13 +9,13 @@ from httpx import HTTPError
 from odoo.api import Environment
 from pydantic import AnyUrl
 
-from .shopify_service import ShopifyService
-from .shopify_client import (
+from .client_service import ShopifyService
+from .client import (
     MediaStatus,
     GetProductsProductsNodes,
     GetProductsProductsNodesMediaNodesMediaImage,
 )
-from ..utils.shopify_helpers import (
+from .client_helpers import (
     DEFAULT_DATETIME,
     SHOPIFY_PAGE_SIZE,
     SyncMode,

@@ -4,10 +4,9 @@ import httpx
 from ariadne_codegen.client_generators.dependencies.exceptions import GraphQLClientGraphQLMultiError
 from odoo.api import Environment
 
-from odoo.addons.product_connect.utils.shopify_helpers import ShopifyApiError
-from .shopify_client import ProductDeleteInput
-from .shopify_service import ShopifyService
-from ..utils.shopify_helpers import SHOPIFY_PAGE_SIZE
+from .client import ProductDeleteInput
+from .client_helpers import ShopifyApiError, SHOPIFY_PAGE_SIZE
+from .client_service import ShopifyService
 
 _logger = logging.getLogger(__name__)
 
