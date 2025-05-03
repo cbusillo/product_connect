@@ -1,0 +1,31 @@
+fragment AddressFields on MailingAddress {
+    id
+    name
+    address1
+    address2
+    city
+    provinceCode
+    countryCodeV2
+    zip
+    phone
+}
+
+fragment CustomerFields on Customer {
+    id
+    firstName
+    lastName
+    defaultEmailAddress { emailAddress }
+    defaultPhoneNumber { phoneNumber }
+    createdAt
+    updatedAt
+    defaultAddress { ...AddressFields }
+    addressesV2 { nodes { ...AddressFields } }
+}
+
+
+query GetCustomers($cursor: String, $limit: Int!, $query: String) {
+    customers(first: $limit, after: $cursor, query: $query, sortKey: UPDATED_AT) {
+        pageInfo { hasNextPage endCursor }
+        nodes  { ...CustomerFields }
+    }
+}
