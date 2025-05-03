@@ -36,15 +36,18 @@ class SyncMode(StrEnum):
     def _generate_next_value_(name: str, start: int, count: int, last_values: list[str]) -> str:
         return name.lower()
 
-    IMPORT_THEN_EXPORT = auto()
-    IMPORT_CHANGED = auto()
-    EXPORT_CHANGED = auto()
-    IMPORT_ALL = auto()
-    EXPORT_ALL = auto()
-    IMPORT_SINCE_DATE = auto()
-    EXPORT_SINCE_DATE = auto()
-    IMPORT_ONE = auto()
-    EXPORT_BATCH = auto()
+    IMPORT_THEN_EXPORT_PRODUCTS = auto()
+    IMPORT_CHANGED_PRODUCTS = auto()
+    EXPORT_CHANGED_PRODUCTS = auto()
+    IMPORT_ALL_PRODUCTS = auto()
+    EXPORT_ALL_PRODUCTS = auto()
+    IMPORT_PRODUCTS_SINCE_DATE = auto()
+    EXPORT_PRODUCTS_SINCE_DATE = auto()
+    IMPORT_ONE_PRODUCT = auto()
+    EXPORT_BATCH_PRODUCTS = auto()
+    IMPORT_ALL_ORDERS = auto()
+    IMPORT_CHANGED_ORDERS = auto()
+    IMPORT_ONE_ORDER = auto()
     RESET_SHOPIFY = auto()
 
     @property

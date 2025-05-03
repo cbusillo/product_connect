@@ -11,7 +11,10 @@ from . import (
     product_product,
     product_template,
     repair_order,
+    res_partner,
     res_users,
+    sale_order,
+    sale_order_line,
     shopify_sync,
     stock_move,
 )

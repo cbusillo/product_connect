@@ -43,7 +43,7 @@ class ShopifyWebhook(http.Controller):
             if not product_id:
                 raise BadRequest()
 
-            env["shopify.sync"].create_and_run_async({"mode": SyncMode.IMPORT_CHANGED.value, "user": shopify_user.id})
+            env["shopify.sync"].create_and_run_async({"mode": SyncMode.IMPORT_CHANGED_PRODUCTS.value, "user": shopify_user.id})
             return http.Response(json.dumps({"status": "ok"}), content_type="application/json")
 
         return http.Response(json.dumps({"status": "ok"}), content_type="application/json")

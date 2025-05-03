@@ -145,7 +145,10 @@ class ProductImporter:
                 if any(image.status in (MediaStatus.PROCESSING, MediaStatus.UPLOADED) for image in images):
                     _logger.debug(f"Product {odoo_product.id} has media not yet ready. Flagging for re‑import.")
                     self.env["shopify.sync"].create(
-                        {"mode": SyncMode.IMPORT_ONE, "shopify_product_id_to_sync": parse_shopify_id_from_gid(shopify_product.id)}
+                        {
+                            "mode": SyncMode.IMPORT_ONE_PRODUCT,
+                            "shopify_product_id_to_sync": parse_shopify_id_from_gid(shopify_product.id),
+                        }
                     )
                     return False
 

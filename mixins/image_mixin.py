@@ -5,6 +5,8 @@ from odoo import models, fields, api
 from odoo.tools import config
 from pathlib import Path
 
+from ..utils.shopify_helpers import SyncMode
+
 _logger = logging.getLogger(__name__)
 
 
@@ -26,7 +28,7 @@ class ImageMixin(models.AbstractModel):
             if isinstance(record, type(self.env["product.image"])):
                 record.product_variant_id.shopify_next_export = True
                 record.product_variant_id.shopify_next_export_images = True
-                self.env["shopify.sync"].create_and_run_async({"mode": "export_changed"})
+                self.env["shopify.sync"].create_and_run_async({"mode": SyncMode.EXPORT_CHANGED_PRODUCTS})
 
     @api.model_create_multi
     def create(self, vals_list: list[dict]) -> "odoo.model.image_mixin":

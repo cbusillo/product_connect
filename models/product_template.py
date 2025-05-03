@@ -4,6 +4,8 @@ from odoo import api, fields, models
 from odoo.exceptions import ValidationError, UserError
 from typing import Any
 
+from ..utils.shopify_helpers import SyncMode
+
 
 class ProductTemplate(models.Model):
     _name = "product.template"
@@ -159,7 +161,7 @@ class ProductTemplate(models.Model):
 
         if not self.env.context.get("skip_shopify_sync"):
             self.env["shopify.sync"].create_and_run_async(
-                {"mode": "export_batch", "odoo_products_to_sync": [(6, 0, products.ids)]}
+                {"mode": SyncMode.EXPORT_BATCH_PRODUCTS, "odoo_products_to_sync": [(6, 0, products.ids)]}
             )
 
         return products
@@ -222,7 +224,9 @@ class ProductTemplate(models.Model):
         if not self.env.context.get("skip_shopify_sync"):
             variant_ids = self.mapped("product_variant_ids").ids
             commands = [(4, vid) for vid in variant_ids]
-            self.env["shopify.sync"].create_and_run_async({"mode": "export_batch", "odoo_products_to_sync": commands})
+            self.env["shopify.sync"].create_and_run_async(
+                {"mode": SyncMode.EXPORT_BATCH_PRODUCTS, "odoo_products_to_sync": commands}
+            )
         return result
 
     def _track_template(self, changes: set[str]) -> dict[str, tuple[str, dict]]:
