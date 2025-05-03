@@ -543,6 +543,12 @@ from .exceptions import (
 )
 from .fragments import (
     AddressFields,
+    CustomerFields,
+    CustomerFieldsAddressesV2,
+    CustomerFieldsAddressesV2Nodes,
+    CustomerFieldsDefaultAddress,
+    CustomerFieldsDefaultEmailAddress,
+    CustomerFieldsDefaultPhoneNumber,
     MediaImageFields,
     MediaImageFieldsOriginalSource,
     MediaImageFieldsPreview,
@@ -576,6 +582,12 @@ from .fragments import (
     VariantFieldsInventoryItemMeasurement,
     VariantFieldsInventoryItemMeasurementWeight,
     VariantFieldsInventoryItemUnitCost,
+)
+from .get_customers import (
+    GetCustomers,
+    GetCustomersCustomers,
+    GetCustomersCustomersNodes,
+    GetCustomersCustomersPageInfo,
 )
 from .get_locations import (
     GetLocations,
@@ -1109,6 +1121,7 @@ from .input_types import (
 from .operations import (
     CURRENT_BULK_OPERATION_GQL,
     DELETE_PRODUCT_GQL,
+    GET_CUSTOMERS_GQL,
     GET_LOCATIONS_GQL,
     GET_ORDER_IDS_GQL,
     GET_ORDERS_GQL,
@@ -1381,6 +1394,12 @@ __all__ = [
     "CustomerEmailMarketingConsentUpdateInput",
     "CustomerEmailMarketingConsentUpdateUserErrorCode",
     "CustomerEmailMarketingState",
+    "CustomerFields",
+    "CustomerFieldsAddressesV2",
+    "CustomerFieldsAddressesV2Nodes",
+    "CustomerFieldsDefaultAddress",
+    "CustomerFieldsDefaultEmailAddress",
+    "CustomerFieldsDefaultPhoneNumber",
     "CustomerIdentifierInput",
     "CustomerInput",
     "CustomerMarketingOptInLevel",
@@ -1557,11 +1576,16 @@ __all__ = [
     "FulfillmentStatus",
     "FulfillmentTrackingInput",
     "FulfillmentV2Input",
+    "GET_CUSTOMERS_GQL",
     "GET_LOCATIONS_GQL",
     "GET_ORDERS_GQL",
     "GET_ORDER_IDS_GQL",
     "GET_PRODUCTS_GQL",
     "GET_PRODUCT_IDS_GQL",
+    "GetCustomers",
+    "GetCustomersCustomers",
+    "GetCustomersCustomersNodes",
+    "GetCustomersCustomersPageInfo",
     "GetLocations",
     "GetLocationsLocations",
     "GetLocationsLocationsNodes",
