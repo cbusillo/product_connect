@@ -1,0 +1,65 @@
+fragment MoneyFields on MoneyV2 {
+    amount
+    currencyCode
+}
+
+fragment AddressFields on MailingAddress {
+    id
+    name
+    address1
+    address2
+    city
+    provinceCode
+    countryCodeV2
+    zip
+    phone
+}
+
+fragment OrderLineItemFields on LineItem {
+    id
+    sku
+    quantity
+    name
+    variant {
+        id
+    }
+    originalUnitPriceSet {
+        presentmentMoney { ...MoneyFields }
+        shopMoney        { ...MoneyFields }
+    }
+
+    customAttributes { key value }
+}
+
+fragment OrderFields on Order {
+    id
+    name
+    createdAt
+    updatedAt
+    processedAt
+    closedAt
+    cancelledAt
+    currencyCode
+    totalPriceSet      { presentmentMoney { ...MoneyFields } }
+    subtotalPriceSet   { presentmentMoney { ...MoneyFields } }
+    totalShippingPriceSet { presentmentMoney { ...MoneyFields } }
+    customer           { id defaultEmailAddress { emailAddress } firstName lastName }
+    shippingAddress    { ...AddressFields }
+    billingAddress     { ...AddressFields }
+    lineItems(first: 250) { nodes { ...OrderLineItemFields } }
+    metafields(first: 15, namespace: "custom") { nodes { ...MetafieldFields } }
+}
+
+query GetOrderIds($cursor: String, $limit: Int!, $query: String) {
+    orders(first: $limit, after: $cursor, query: $query, sortKey: UPDATED_AT) {
+        pageInfo { hasNextPage endCursor }
+        nodes    { id }
+    }
+}
+
+query GetOrders($cursor: String, $limit: Int!, $query: String) {
+    orders(first: $limit, after: $cursor, query: $query, sortKey: UPDATED_AT) {
+        pageInfo { hasNextPage endCursor }
+        nodes    { ...OrderFields }
+    }
+}
