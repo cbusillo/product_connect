@@ -10,6 +10,7 @@ from ..utils.shopify_helpers import SyncMode, ShopifyApiError
 class ShopifyWebhook(http.Controller):
     PRODUCT_TOPICS = ("products/",)
     INVENTORY_TOPICS = ("inventory_items/", "inventory_levels/", "inventory/")
+    ORDER_TOPICS = ("orders/",)
 
     STATE_DOMAIN = ("state", "in", ["queued", "running"])
     SHOPIFY_LOGIN = "shopify@outboardpartswarehouse.com"
@@ -44,6 +45,14 @@ class ShopifyWebhook(http.Controller):
                 raise BadRequest()
 
             env["shopify.sync"].create_and_run_async({"mode": SyncMode.IMPORT_CHANGED_PRODUCTS.value, "user": shopify_user.id})
+            return http.Response(json.dumps({"status": "ok"}), content_type="application/json")
+
+        if topic.startswith(self.ORDER_TOPICS):
+            order_id = payload.get("id")
+            if not order_id:
+                raise BadRequest()
+
+            env["shopify.sync"].create_and_run_async({"mode": SyncMode.IMPORT_CHANGED_ORDERS.value, "user": shopify_user.id})
             return http.Response(json.dumps({"status": "ok"}), content_type="application/json")
 
         return http.Response(json.dumps({"status": "ok"}), content_type="application/json")
