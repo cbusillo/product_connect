@@ -1,20 +1,3 @@
-fragment MoneyFields on MoneyV2 {
-    amount
-    currencyCode
-}
-
-fragment AddressFields on MailingAddress {
-    id
-    name
-    address1
-    address2
-    city
-    provinceCode
-    countryCodeV2
-    zip
-    phone
-}
-
 fragment OrderLineItemFields on LineItem {
     id
     sku
