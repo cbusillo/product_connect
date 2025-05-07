@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, UTC
-from enum import StrEnum, auto
-from typing import TypeVar, cast, Union
+from enum import StrEnum
+from typing import TypeVar, Union, Self
 
 from dateutil.parser import parse
 from odoo import models
@@ -13,8 +13,10 @@ T = TypeVar("T")
 
 _logger = logging.getLogger(__name__)
 
+HEARTBEAT_SECONDS = 30
 DEFAULT_DATETIME = datetime(2000, 1, 1)
 SHOPIFY_PAGE_SIZE = 250
+COMMIT_SIZE = SHOPIFY_PAGE_SIZE // 2
 PUBLICATION_CHANNELS: dict[str, int] = {
     "online_store": 19453116480,
     "pos": 42683596853,
@@ -27,36 +29,52 @@ def image_order_key(image: "odoo.model.product_image") -> tuple[int, datetime]:
     return image.sequence or 0, image.create_date or DEFAULT_DATETIME
 
 
+def last_import_config_key(resource_type: str) -> str:
+    return f"shopify.last_{resource_type}_import_time"
+
+
 SyncVals = Union[list["odoo.values.shopify_sync"], "odoo.values.shopify_sync"]
 
 
-# noinspection PyEnum
 class SyncMode(StrEnum):
-    @staticmethod
-    def _generate_next_value_(name: str, start: int, count: int, last_values: list[str]) -> str:
-        return name.lower()
+    def __new__(cls, value: str, resource_type: str | None = None) -> Self:
+        obj = str.__new__(cls, value)
+        obj._value_ = value
+        obj._resource_type = resource_type
+        return obj
 
-    IMPORT_THEN_EXPORT_PRODUCTS = auto()
-    IMPORT_CHANGED_PRODUCTS = auto()
-    EXPORT_CHANGED_PRODUCTS = auto()
-    IMPORT_ALL_PRODUCTS = auto()
-    EXPORT_ALL_PRODUCTS = auto()
-    IMPORT_PRODUCTS_SINCE_DATE = auto()
-    EXPORT_PRODUCTS_SINCE_DATE = auto()
-    IMPORT_ONE_PRODUCT = auto()
-    EXPORT_BATCH_PRODUCTS = auto()
+    IMPORT_THEN_EXPORT_PRODUCTS = ("import_then_export_products", "product")
+    IMPORT_CHANGED_PRODUCTS = ("import_changed_products", "product")
+    EXPORT_CHANGED_PRODUCTS = ("export_changed_products", "product")
+    IMPORT_ALL_PRODUCTS = ("import_all_products", "product")
+    EXPORT_ALL_PRODUCTS = ("export_all_products", "product")
+    IMPORT_PRODUCTS_SINCE_DATE = ("import_products_since_date", "product")
+    EXPORT_PRODUCTS_SINCE_DATE = ("export_products_since_date", "product")
+    IMPORT_ONE_PRODUCT = ("import_one_product", None)
+    EXPORT_BATCH_PRODUCTS = ("export_batch_products", None)
 
-    IMPORT_ALL_ORDERS = auto()
-    IMPORT_CHANGED_ORDERS = auto()
-    IMPORT_ONE_ORDER = auto()
-    RESET_SHOPIFY = auto()
+    IMPORT_ALL_ORDERS = ("import_all_orders", "order")
+    IMPORT_CHANGED_ORDERS = ("import_changed_orders", "order")
+    IMPORT_ONE_ORDER = ("import_one_order", None)
+
+    IMPORT_ALL_CUSTOMERS = ("import_all_customers", "customer")
+    IMPORT_CHANGED_CUSTOMERS = ("import_changed_customers", "customer")
+    IMPORT_ONE_CUSTOMER = ("import_one_customer", None)
+
+    RESET_SHOPIFY = ("reset_shopify", None)
 
     @property
     def display_name(self) -> str:
         return self.value.replace("_", " ").title()
 
+    @property
+    def resource_type(self) -> str | None:
+        return self._resource_type
+
     @classmethod
     def choices(cls) -> list[tuple[str, str]]:
+        from typing import cast
+
         return cast(list[tuple[str, str]], [(m.value, m.display_name) for m in cls])
 
 
@@ -193,9 +211,8 @@ def write_if_changed(record: "odoo.model.product_product", vals: "odoo.values.sh
 
     if vals:
         record.with_context(skip_shopify_sync=True).write(vals)
-        return True
 
-    return False
+    return bool(vals)
 
 
 def parse_shopify_datetime_to_utc(value: datetime | str) -> datetime:

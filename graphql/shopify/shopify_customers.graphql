@@ -19,7 +19,8 @@ fragment CustomerFields on Customer {
     createdAt
     updatedAt
     defaultAddress { ...AddressFields }
-    addressesV2 { nodes { ...AddressFields } }
+    addressesV2(first: 50) { nodes { ...AddressFields } }
+    tags
 }
 
 

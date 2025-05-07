@@ -1,12 +1,11 @@
 import logging
-import time
 from datetime import datetime
 from decimal import Decimal
 
 from odoo import fields
 from odoo.api import Environment
 
-from .client import (
+from ...gql import (
     InventoryItemMeasurementInput,
     ProductSetProductSetProduct,
     ProductSetProductSetProductResourcePublicationsV2NodesPublication,
@@ -14,8 +13,8 @@ from .client import (
     GraphQLClientGraphQLMultiError,
     MediaStatus,
 )
-from .client.enums import ProductStatus, WeightUnit, LocalizableContentType
-from .client.input_types import (
+from ...gql.enums import ProductStatus, WeightUnit, LocalizableContentType
+from ...gql.input_types import (
     ProductSetInput,
     ProductVariantSetInput,
     ProductSetInventoryInput,
@@ -29,11 +28,8 @@ from .client.input_types import (
     VariantOptionValueInput,
     ProductSetIdentifiers,
 )
-from .client_service import ShopifyService
-from .client_helpers import (
+from ...helpers import (
     PUBLICATION_CHANNELS,
-    SHOPIFY_PAGE_SIZE,
-    OdooDataError,
     ShopifyApiError,
     format_shopify_gid_from_id,
     format_sku_bin_for_shopify,
@@ -41,17 +37,15 @@ from .client_helpers import (
     parse_shopify_id_from_gid,
     write_if_changed,
 )
+from ..base import ShopifyBaseExporter
 
 _logger = logging.getLogger(__name__)
 
 
-class ProductExporter:
+class ProductExporter(ShopifyBaseExporter["odoo.model.product_product"]):
     def __init__(self, env: Environment, sync_record: "odoo.model.shopify_sync"):
-        self.env = env
-        self.service = ShopifyService(env, sync_record)
+        super().__init__(env, sync_record)
         self.odoo_base_url = env["ir.config_parameter"].sudo().get_param("web.base.url")
-        self.sync_record = sync_record
-        self._last_heartbeat = time.monotonic()
 
     def export_products_since_last_export(self) -> None:
         _logger.info("Exporting products since last export")
@@ -63,13 +57,13 @@ class ProductExporter:
 
     def export_products_since_datetime(self, cutoff_date: datetime) -> None:
         _logger.info(f"Exporting products since {cutoff_date}")
-        odoo_products = self._find_products_to_export_by_datetime(cutoff_date)
+        odoo_products = self._find_products_to_export(cutoff_date)
         if not odoo_products:
             _logger.info("No products to export")
             return
         self.export_products(odoo_products)
 
-    def _find_products_to_export(self) -> "odoo.model.product_product":
+    def _find_products_to_export(self, cutoff_date: datetime | None = None) -> "odoo.model.product_product":
         odoo_products = self.env["product.product"].search(
             [
                 ("sale_ok", "=", True),
@@ -78,57 +72,26 @@ class ProductExporter:
                 ("website_description", "!=", ""),
             ]
         )
-
-        odoo_products = odoo_products.filtered(
-            lambda p: p.shopify_next_export is True
-            or (
-                p.write_date > (p.shopify_last_exported_at or datetime.min)
-                or p.product_tmpl_id.write_date > (p.shopify_last_exported_at or datetime.min)
+        if cutoff_date:
+            odoo_products = odoo_products.filtered(
+                lambda p: p.shopify_next_export is True
+                or (p.write_date > cutoff_date or p.product_tmpl_id.write_date > cutoff_date)
             )
-        )
-        return odoo_products
 
-    def _find_products_to_export_by_datetime(self, cutoff_date: datetime) -> "odoo.model.product_product":
-        odoo_products = self.env["product.product"].search(
-            [
-                ("sale_ok", "=", True),
-                ("is_ready_for_sale", "=", True),
-                ("website_description", "!=", False),
-                ("website_description", "!=", ""),
-            ]
-        )
-
-        odoo_products = odoo_products.filtered(
-            lambda p: p.shopify_next_export is True or (p.write_date > cutoff_date or p.product_tmpl_id.write_date > cutoff_date)
-        )
+        else:
+            odoo_products = odoo_products.filtered(
+                lambda p: p.shopify_next_export is True
+                or (
+                    p.write_date > (p.shopify_last_exported_at or datetime.min)
+                    or p.product_tmpl_id.write_date > (p.shopify_last_exported_at or datetime.min)
+                )
+            )
         return odoo_products
 
     def export_products(self, odoo_products: "odoo.model.product_product") -> None:
-        self.sync_record.total_count = self.sync_record.total_count if self.sync_record.total_count else len(odoo_products)
-        self.env.cr.commit()
-        for odoo_product in odoo_products:
-            _logger.debug(f"Exporting product {self.sync_record.completed_str}: {odoo_product.id} {odoo_product.name}")
-            try:
-                with self.env.cr.savepoint():
-                    self.export_product(odoo_product)
-            except (OdooDataError, ShopifyApiError) as error:
-                self.env.cr.commit()
-                raise error
-            except Exception as error:
-                self.env.cr.commit()
-                exception = ShopifyApiError("Unexpected error exporting product", odoo_record=odoo_product)
-                _logger.error(exception)
-                raise exception from error
+        self.run(odoo_products)
 
-            self.sync_record.updated_count += 1
-            if self.sync_record.updated_count % (SHOPIFY_PAGE_SIZE // 5) == 0:
-                self.env.cr.commit()
-            if (time.monotonic() - self._last_heartbeat) > 30:
-                self.sync_record.write({})
-                self.env.cr.commit()
-                self._last_heartbeat = time.monotonic()
-
-    def export_product(self, odoo_product: "odoo.model.product_product") -> None:
+    def _export_one(self, odoo_product: "odoo.model.product_product") -> None:
         client = self.service.client
         shopify_product_set_input = self._map_odoo_product_to_shopify_product_set_input(odoo_product)
 
@@ -202,9 +165,7 @@ class ProductExporter:
 
         if len(ordered_odoo_images) != len(shopify_images):
             _logger.info(
-                "Mismatch immediately after export (%s Odoo vs %s Shopify). " "Scheduling retry.",
-                len(ordered_odoo_images),
-                len(shopify_images),
+                f"Mismatch immediately after export ({len(ordered_odoo_images)} Odoo vs {len(shopify_images)} Shopify). Scheduling retry."
             )
             odoo_product.shopify_next_export = True
             odoo_product.shopify_next_export_images = True

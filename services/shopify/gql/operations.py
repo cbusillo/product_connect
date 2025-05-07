@@ -105,11 +105,12 @@ fragment CustomerFields on Customer {
   defaultAddress {
     ...AddressFields
   }
-  addressesV2 {
+  addressesV2(first: 50) {
     nodes {
       ...AddressFields
     }
   }
+  tags
 }
 """
 
@@ -152,6 +153,29 @@ fragment AddressFields on MailingAddress {
   phone
 }
 
+fragment CustomerFields on Customer {
+  id
+  firstName
+  lastName
+  defaultEmailAddress {
+    emailAddress
+  }
+  defaultPhoneNumber {
+    phoneNumber
+  }
+  createdAt
+  updatedAt
+  defaultAddress {
+    ...AddressFields
+  }
+  addressesV2(first: 50) {
+    nodes {
+      ...AddressFields
+    }
+  }
+  tags
+}
+
 fragment MetafieldFields on Metafield {
   id
   key
@@ -188,12 +212,7 @@ fragment OrderFields on Order {
     }
   }
   customer {
-    id
-    defaultEmailAddress {
-      emailAddress
-    }
-    firstName
-    lastName
+    ...CustomerFields
   }
   shippingAddress {
     ...AddressFields

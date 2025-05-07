@@ -10,7 +10,7 @@ from io import BytesIO
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError, UserError
 from pathlib import Path
-from typing import Self, Any
+from typing import Self, Any, cast, Literal
 
 from odoo.addons.product_connect.utils import constants
 
@@ -360,10 +360,9 @@ class Motor(models.Model):
                 cylinder.is_untestable = True
 
     def generate_qr_code(self) -> str:
-        # noinspection PyTypeChecker
         qr_code = qrcode.QRCode(
             version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            error_correction=cast(Literal[0, 1, 2, 3], qrcode.constants.ERROR_CORRECT_H),
             box_size=20,
         )
         qr_code.add_data(self.motor_number)

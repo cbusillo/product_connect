@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, List, Optional
 
-from odoo.addons.product_connect.utils.shopify_helpers import (
+from odoo.addons.product_connect.services.shopify.helpers import (
     format_datetime_for_shopify,
 )
 from pydantic import AnyUrl, Field, PlainSerializer

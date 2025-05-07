@@ -133,9 +133,9 @@
                     <group>
                         <field name="mode" widget="selection_badge" readonly="id"/>
                         <field name="odoo_products_to_sync" invisible="mode != 'export_batch'"/>
-                        <field name="shopify_product_id_to_sync" invisible="mode != 'import_one'"/>
+                        <field name="shopify_product_id_to_sync" invisible="'import_one' not in mode"/>
                         <field name="datetime_to_sync" string="Date from"
-                               invisible="mode not in ['export_since', 'import_since']"/>
+                               invisible="'_since' not in mode"/>=
                         <field name="create_date" readonly="1" String="Create Time"/>
                         <field name="start_time" readonly="1" invisible="not start_time" widget="date"/>
                         <field name="end_time" readonly="1" invisible="not end_time"/>

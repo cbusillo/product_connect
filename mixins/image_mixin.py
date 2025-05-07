@@ -5,7 +5,7 @@ from odoo import models, fields, api
 from odoo.tools import config
 from pathlib import Path
 
-from ..services.shopify.client_helpers import SyncMode
+from ..services.shopify.helpers import SyncMode
 
 _logger = logging.getLogger(__name__)
 

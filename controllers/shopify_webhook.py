@@ -4,13 +4,14 @@ from odoo import http
 from odoo.http import Response
 from werkzeug.exceptions import Unauthorized, BadRequest
 
-from ..services.shopify.client_helpers import SyncMode, ShopifyApiError
+from ..services.shopify.helpers import SyncMode, ShopifyApiError
 
 
 class ShopifyWebhook(http.Controller):
     PRODUCT_TOPICS = ("products/",)
     INVENTORY_TOPICS = ("inventory_items/", "inventory_levels/", "inventory/")
     ORDER_TOPICS = ("orders/",)
+    CUSTOMER_TOPICS = ("customers/",)
 
     STATE_DOMAIN = ("state", "in", ["queued", "running"])
     SHOPIFY_LOGIN = "shopify@outboardpartswarehouse.com"
@@ -39,20 +40,16 @@ class ShopifyWebhook(http.Controller):
 
         topic = http.request.httprequest.headers.get("X-Shopify-Topic")
         payload = json.loads(http.request.httprequest.data)
+        if not payload.get("id"):
+            raise BadRequest()
+
         if topic.startswith(self.PRODUCT_TOPICS + self.INVENTORY_TOPICS):
-            product_id = payload.get("id") or payload.get("odoo_product_id")
-            if not product_id:
-                raise BadRequest()
-
             env["shopify.sync"].create_and_run_async({"mode": SyncMode.IMPORT_CHANGED_PRODUCTS.value, "user": shopify_user.id})
-            return http.Response(json.dumps({"status": "ok"}), content_type="application/json")
 
-        if topic.startswith(self.ORDER_TOPICS):
-            order_id = payload.get("id")
-            if not order_id:
-                raise BadRequest()
-
+        elif topic.startswith(self.ORDER_TOPICS):
             env["shopify.sync"].create_and_run_async({"mode": SyncMode.IMPORT_CHANGED_ORDERS.value, "user": shopify_user.id})
-            return http.Response(json.dumps({"status": "ok"}), content_type="application/json")
+
+        elif topic.startswith(self.CUSTOMER_TOPICS):
+            env["shopify.sync"].create_and_run_async({"mode": SyncMode.IMPORT_CHANGED_CUSTOMERS.value, "user": shopify_user.id})
 
         return http.Response(json.dumps({"status": "ok"}), content_type="application/json")

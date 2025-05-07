@@ -13,3 +13,5 @@ pydantic-settings
 httpx[http2]
 
 ariadne-codegen[subscriptions]
+
+phonenumbers

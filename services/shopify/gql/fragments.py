@@ -5,7 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, List, Optional
 
-from odoo.addons.product_connect.utils.shopify_helpers import (
+from odoo.addons.product_connect.services.shopify.helpers import (
     parse_shopify_datetime_to_utc,
 )
 from pydantic import AnyUrl, BeforeValidator, Field
@@ -46,6 +46,7 @@ class CustomerFields(BaseModel):
         alias="defaultAddress"
     )
     addresses_v_2: "CustomerFieldsAddressesV2" = Field(alias="addressesV2")
+    tags: List[str]
 
 
 class CustomerFieldsDefaultEmailAddress(BaseModel):
@@ -207,17 +208,8 @@ class OrderFieldsTotalShippingPriceSetPresentmentMoney(MoneyFields):
     pass
 
 
-class OrderFieldsCustomer(BaseModel):
-    id: str
-    default_email_address: Optional["OrderFieldsCustomerDefaultEmailAddress"] = Field(
-        alias="defaultEmailAddress"
-    )
-    first_name: Optional[str] = Field(alias="firstName")
-    last_name: Optional[str] = Field(alias="lastName")
-
-
-class OrderFieldsCustomerDefaultEmailAddress(BaseModel):
-    email_address: str = Field(alias="emailAddress")
+class OrderFieldsCustomer(CustomerFields):
+    pass
 
 
 class OrderFieldsShippingAddress(AddressFields):

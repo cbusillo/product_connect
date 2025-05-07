@@ -2,8 +2,9 @@ import logging
 from time import sleep
 from httpx import Client, Timeout, Limits, Request, Response
 from odoo.api import Environment
-from .client_helpers import ShopifyApiError
-from .client import Client as ShopifyClient
+
+from .helpers import ShopifyApiError
+from .gql import Client as ShopifyClient
 
 THROTTLE_TRANSIENT_STATUS: set[int] = {429, 500, 502, 503, 504}
 

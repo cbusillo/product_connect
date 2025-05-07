@@ -4,7 +4,7 @@ from odoo import api, fields, models
 from odoo.exceptions import ValidationError, UserError
 from typing import Any
 
-from ..services.shopify.client_helpers import SyncMode
+from ..services.shopify.helpers import SyncMode
 
 
 class ProductTemplate(models.Model):

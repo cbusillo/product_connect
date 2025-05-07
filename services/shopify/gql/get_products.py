@@ -4,7 +4,7 @@
 from datetime import datetime
 from typing import Annotated, List, Literal, Optional, Union
 
-from odoo.addons.product_connect.utils.shopify_helpers import (
+from odoo.addons.product_connect.services.shopify.helpers import (
     parse_shopify_datetime_to_utc,
 )
 from pydantic import BeforeValidator, Field

@@ -16,6 +16,7 @@
         "mail",
         "project",
         "repair",
+        "contacts",
     ],
     "description": "Module to scrape websites for model data.",
     "data": [
@@ -48,6 +49,7 @@
         "views/product_type_views.xml",
         "views/product_manufacturer_views.xml",
         "views/repair_order_views.xml",
+        # "views/res_partner_views.xml",
         "views/res_users_views.xml",
         "views/shopify_sync_views.xml",
         "security/ir.model.access.csv",

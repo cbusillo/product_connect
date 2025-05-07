@@ -26,7 +26,7 @@ fragment OrderFields on Order {
     totalPriceSet      { presentmentMoney { ...MoneyFields } }
     subtotalPriceSet   { presentmentMoney { ...MoneyFields } }
     totalShippingPriceSet { presentmentMoney { ...MoneyFields } }
-    customer           { id defaultEmailAddress { emailAddress } firstName lastName }
+    customer           { ...CustomerFields }
     shippingAddress    { ...AddressFields }
     billingAddress     { ...AddressFields }
     lineItems(first: 250) { nodes { ...OrderLineItemFields } }
