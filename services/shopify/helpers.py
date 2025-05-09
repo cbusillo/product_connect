@@ -1,5 +1,5 @@
 import logging
- import re
+import re
 from datetime import datetime, UTC
 from enum import StrEnum
 from typing import TypeVar, Union, Self
