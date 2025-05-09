@@ -16,11 +16,13 @@ from .enums import CountryCode, CurrencyCode
 
 class AddressFields(BaseModel):
     id: str
+    company: Optional[str]
     name: Optional[str]
     address_1: Optional[str] = Field(alias="address1")
     address_2: Optional[str] = Field(alias="address2")
     city: Optional[str]
     province_code: Optional[str] = Field(alias="provinceCode")
+    province: Optional[str]
     country_code_v_2: Optional[CountryCode] = Field(alias="countryCodeV2")
     zip: Optional[str]
     phone: Optional[str]
@@ -101,6 +103,27 @@ class MoneyFields(BaseModel):
     currency_code: CurrencyCode = Field(alias="currencyCode")
 
 
+class TaxLineFields(BaseModel):
+    title: str
+    rate_percentage: Optional[float] = Field(alias="ratePercentage")
+    price_set: "TaxLineFieldsPriceSet" = Field(alias="priceSet")
+
+
+class TaxLineFieldsPriceSet(BaseModel):
+    presentment_money: "TaxLineFieldsPriceSetPresentmentMoney" = Field(
+        alias="presentmentMoney"
+    )
+    shop_money: "TaxLineFieldsPriceSetShopMoney" = Field(alias="shopMoney")
+
+
+class TaxLineFieldsPriceSetPresentmentMoney(MoneyFields):
+    pass
+
+
+class TaxLineFieldsPriceSetShopMoney(MoneyFields):
+    pass
+
+
 class OrderLineItemFields(BaseModel):
     id: str
     sku: Optional[str]
@@ -112,6 +135,9 @@ class OrderLineItemFields(BaseModel):
     )
     custom_attributes: List["OrderLineItemFieldsCustomAttributes"] = Field(
         alias="customAttributes"
+    )
+    discount_allocations: List["OrderLineItemFieldsDiscountAllocations"] = Field(
+        alias="discountAllocations"
     )
 
 
@@ -139,6 +165,78 @@ class OrderLineItemFieldsOriginalUnitPriceSetShopMoney(MoneyFields):
 class OrderLineItemFieldsCustomAttributes(BaseModel):
     key: str
     value: Optional[str]
+
+
+class OrderLineItemFieldsDiscountAllocations(BaseModel):
+    allocated_amount_set: "OrderLineItemFieldsDiscountAllocationsAllocatedAmountSet" = (
+        Field(alias="allocatedAmountSet")
+    )
+
+
+class OrderLineItemFieldsDiscountAllocationsAllocatedAmountSet(BaseModel):
+    presentment_money: (
+        "OrderLineItemFieldsDiscountAllocationsAllocatedAmountSetPresentmentMoney"
+    ) = Field(alias="presentmentMoney")
+    shop_money: "OrderLineItemFieldsDiscountAllocationsAllocatedAmountSetShopMoney" = (
+        Field(alias="shopMoney")
+    )
+
+
+class OrderLineItemFieldsDiscountAllocationsAllocatedAmountSetPresentmentMoney(
+    MoneyFields
+):
+    pass
+
+
+class OrderLineItemFieldsDiscountAllocationsAllocatedAmountSetShopMoney(MoneyFields):
+    pass
+
+
+class ShippingLineFields(BaseModel):
+    id: Optional[str]
+    title: str
+    carrier_identifier: Optional[str] = Field(alias="carrierIdentifier")
+    code: Optional[str]
+    original_price_set: "ShippingLineFieldsOriginalPriceSet" = Field(
+        alias="originalPriceSet"
+    )
+    current_discounted_price_set: "ShippingLineFieldsCurrentDiscountedPriceSet" = Field(
+        alias="currentDiscountedPriceSet"
+    )
+    delivery_category: Optional[str] = Field(alias="deliveryCategory")
+    is_removed: bool = Field(alias="isRemoved")
+
+
+class ShippingLineFieldsOriginalPriceSet(BaseModel):
+    presentment_money: "ShippingLineFieldsOriginalPriceSetPresentmentMoney" = Field(
+        alias="presentmentMoney"
+    )
+    shop_money: "ShippingLineFieldsOriginalPriceSetShopMoney" = Field(alias="shopMoney")
+
+
+class ShippingLineFieldsOriginalPriceSetPresentmentMoney(MoneyFields):
+    pass
+
+
+class ShippingLineFieldsOriginalPriceSetShopMoney(MoneyFields):
+    pass
+
+
+class ShippingLineFieldsCurrentDiscountedPriceSet(BaseModel):
+    presentment_money: "ShippingLineFieldsCurrentDiscountedPriceSetPresentmentMoney" = (
+        Field(alias="presentmentMoney")
+    )
+    shop_money: "ShippingLineFieldsCurrentDiscountedPriceSetShopMoney" = Field(
+        alias="shopMoney"
+    )
+
+
+class ShippingLineFieldsCurrentDiscountedPriceSetPresentmentMoney(MoneyFields):
+    pass
+
+
+class ShippingLineFieldsCurrentDiscountedPriceSetShopMoney(MoneyFields):
+    pass
 
 
 class OrderFields(BaseModel):
@@ -175,6 +273,11 @@ class OrderFields(BaseModel):
         alias="billingAddress"
     )
     line_items: "OrderFieldsLineItems" = Field(alias="lineItems")
+    shipping_lines: "OrderFieldsShippingLines" = Field(alias="shippingLines")
+    total_discounts_set: Optional["OrderFieldsTotalDiscountsSet"] = Field(
+        alias="totalDiscountsSet"
+    )
+    tax_lines: List["OrderFieldsTaxLines"] = Field(alias="taxLines")
     metafields: "OrderFieldsMetafields"
 
 
@@ -228,6 +331,28 @@ class OrderFieldsLineItemsNodes(OrderLineItemFields):
     pass
 
 
+class OrderFieldsShippingLines(BaseModel):
+    nodes: List["OrderFieldsShippingLinesNodes"]
+
+
+class OrderFieldsShippingLinesNodes(ShippingLineFields):
+    pass
+
+
+class OrderFieldsTotalDiscountsSet(BaseModel):
+    presentment_money: "OrderFieldsTotalDiscountsSetPresentmentMoney" = Field(
+        alias="presentmentMoney"
+    )
+
+
+class OrderFieldsTotalDiscountsSetPresentmentMoney(MoneyFields):
+    pass
+
+
+class OrderFieldsTaxLines(TaxLineFields):
+    pass
+
+
 class OrderFieldsMetafields(BaseModel):
     nodes: List["OrderFieldsMetafieldsNodes"]
 
@@ -272,7 +397,9 @@ CustomerFields.model_rebuild()
 MediaImageFields.model_rebuild()
 MetafieldFields.model_rebuild()
 MoneyFields.model_rebuild()
+TaxLineFields.model_rebuild()
 OrderLineItemFields.model_rebuild()
+ShippingLineFields.model_rebuild()
 OrderFields.model_rebuild()
 UserErrorFields.model_rebuild()
 VariantFields.model_rebuild()

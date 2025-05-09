@@ -10,8 +10,40 @@ fragment OrderLineItemFields on LineItem {
         presentmentMoney { ...MoneyFields }
         shopMoney        { ...MoneyFields }
     }
-
     customAttributes { key value }
+    discountAllocations {
+        allocatedAmountSet {
+            presentmentMoney { ...MoneyFields }
+            shopMoney        { ...MoneyFields }
+        }
+    }
+}
+
+fragment ShippingLineFields on ShippingLine {
+    id
+    title
+    carrierIdentifier
+    code
+    originalPriceSet {
+        presentmentMoney { ...MoneyFields }
+        shopMoney        { ...MoneyFields }
+    }
+    currentDiscountedPriceSet {
+        presentmentMoney { ...MoneyFields }
+        shopMoney        { ...MoneyFields }
+    }
+    deliveryCategory
+    isRemoved
+
+}
+
+fragment TaxLineFields on TaxLine {
+    title
+    ratePercentage
+    priceSet {
+        presentmentMoney { ...MoneyFields }
+        shopMoney        { ...MoneyFields }
+    }
 }
 
 fragment OrderFields on Order {
@@ -30,6 +62,9 @@ fragment OrderFields on Order {
     shippingAddress    { ...AddressFields }
     billingAddress     { ...AddressFields }
     lineItems(first: 250) { nodes { ...OrderLineItemFields } }
+    shippingLines(first: 10) { nodes { ...ShippingLineFields } }
+    totalDiscountsSet { presentmentMoney { ...MoneyFields } }
+    taxLines { ...TaxLineFields }
     metafields(first: 15, namespace: "custom") { nodes { ...MetafieldFields } }
 }
 
