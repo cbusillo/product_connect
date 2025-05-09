@@ -80,11 +80,13 @@ query GetCustomers($cursor: String, $limit: Int!, $query: String) {
 
 fragment AddressFields on MailingAddress {
   id
+  company
   name
   address1
   address2
   city
   provinceCode
+  province
   countryCodeV2
   zip
   phone
@@ -143,11 +145,13 @@ query GetOrders($cursor: String, $limit: Int!, $query: String) {
 
 fragment AddressFields on MailingAddress {
   id
+  company
   name
   address1
   address2
   city
   provinceCode
+  province
   countryCodeV2
   zip
   phone
@@ -225,6 +229,19 @@ fragment OrderFields on Order {
       ...OrderLineItemFields
     }
   }
+  shippingLines(first: 10) {
+    nodes {
+      ...ShippingLineFields
+    }
+  }
+  totalDiscountsSet {
+    presentmentMoney {
+      ...MoneyFields
+    }
+  }
+  taxLines {
+    ...TaxLineFields
+  }
   metafields(first: 15, namespace: "custom") {
     nodes {
       ...MetafieldFields
@@ -251,6 +268,54 @@ fragment OrderLineItemFields on LineItem {
   customAttributes {
     key
     value
+  }
+  discountAllocations {
+    allocatedAmountSet {
+      presentmentMoney {
+        ...MoneyFields
+      }
+      shopMoney {
+        ...MoneyFields
+      }
+    }
+  }
+}
+
+fragment ShippingLineFields on ShippingLine {
+  id
+  title
+  carrierIdentifier
+  code
+  originalPriceSet {
+    presentmentMoney {
+      ...MoneyFields
+    }
+    shopMoney {
+      ...MoneyFields
+    }
+  }
+  currentDiscountedPriceSet {
+    presentmentMoney {
+      ...MoneyFields
+    }
+    shopMoney {
+      ...MoneyFields
+    }
+  }
+  deliveryCategory
+  isRemoved
+}
+
+fragment TaxLineFields on TaxLine {
+  title
+  ratePercentage
+  priceSet {
+    presentmentMoney {
+      ...MoneyFields
+    }
+    shopMoney {
+      ...MoneyFields
+    }
   }
 }
 """
