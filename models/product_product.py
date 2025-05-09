@@ -4,6 +4,9 @@ from odoo import fields, models
 class ProductProduct(models.Model):
     _inherit = "product.product"
     _description = "Product"
+    _sql_constraints = [
+        ("shopify_product_id_uniq", "UNIQUE(shopify_product_id)", "Shopify Product ID must be unique"),
+    ]
 
     repairs = fields.One2many("repair.order", "product_id")
 

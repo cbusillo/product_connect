@@ -14,6 +14,7 @@ class ProductTemplate(models.Model):
     _order = "create_date desc"
     _sql_constraints = [
         ("default_code_uniq", "unique(default_code)", "SKU must be unique."),
+        ("shopify_product_id_uniq", "unique(shopify_product_id)", "Shopify Product ID must be unique."),
     ]
 
     source = fields.Selection(
@@ -22,6 +23,8 @@ class ProductTemplate(models.Model):
         required=True,
         index=True,
     )
+
+    SKU_PATTERN = re.compile(r"^\d{4,8}$")
 
     is_ready_for_sale = fields.Boolean(tracking=True, index=True, default=True)
     is_ready_for_sale_last_enabled_date = fields.Datetime(
@@ -142,7 +145,13 @@ class ProductTemplate(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list: list["odoo.values.product_template"]) -> "odoo.model.product_template":
+
         for vals in vals_list:
+            if "type" in vals and vals["type"] == "service":
+                vals["is_ready_for_sale"] = False
+                vals["is_ready_to_list"] = False
+                continue
+
             if "default_code" not in vals:
                 vals["default_code"] = self.get_next_sku()
 
@@ -159,9 +168,12 @@ class ProductTemplate(models.Model):
                 product.is_ready_to_list = True
                 product.is_storable = True
 
-        if not self.env.context.get("skip_shopify_sync"):
+        if self.env.context.get("skip_shopify_sync"):
+            return products
+
+        if consumable_products := products.filtered(lambda p: p.type == "consu"):
             self.env["shopify.sync"].create_and_run_async(
-                {"mode": SyncMode.EXPORT_BATCH_PRODUCTS, "odoo_products_to_sync": [(6, 0, products.ids)]}
+                {"mode": SyncMode.EXPORT_BATCH_PRODUCTS, "odoo_products_to_sync": [(6, 0, consumable_products.ids)]}
             )
 
         return products
@@ -309,7 +321,7 @@ class ProductTemplate(models.Model):
     @api.depends("product_template_image_ids")
     def _compute_image_1920(self) -> None:
         for product in self:
-            default_code = product.default_code  # Save the current default_code
+            default_code = product.default_code
             if product.product_template_image_ids:
                 product.image_1920 = product.product_template_image_ids[0].image_1920
             else:
@@ -344,11 +356,13 @@ class ProductTemplate(models.Model):
                 product.shopify_product_url = False
 
     @api.constrains("default_code")
-    def _check_sku(self) -> None:
+    def check_sku(self) -> None:
+        if self.env.context.get("skip_sku_check"):
+            return
         for product in self:
-            if not product.default_code:
+            if not product.default_code or product.type != "consu":
                 continue
-            if not re.match(r"^\d{4,8}$", str(product.default_code)):
+            if not self.SKU_PATTERN.fullmatch(product.default_code):
                 raise ValidationError(self.env._("SKU must be 4-8 digits."))
 
     def get_next_sku(self) -> str:

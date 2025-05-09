@@ -132,7 +132,7 @@ class ProductExporter(ShopifyBaseExporter["odoo.model.product_product"]):
     @staticmethod
     def _update_odoo_product(odoo_product: "odoo.model.product_product", shopify_product: ProductSetProductSetProduct) -> None:
         metafields = shopify_product.metafields.nodes
-        metafields_by_key = {mf.key: mf for mf in metafields}
+        metafields_by_key = {metafield.key: metafield for metafield in metafields}
         ebay_category_id_metafield = metafields_by_key.get("ebay_category_id")
         condition_metafield = metafields_by_key.get("condition")
         _logger.debug(

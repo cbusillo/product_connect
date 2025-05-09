@@ -1,13 +1,24 @@
 import logging
+ import re
 from datetime import datetime, UTC
 from enum import StrEnum
 from typing import TypeVar, Union, Self
 
 from dateutil.parser import parse
+from pydantic import BaseModel
+
 from odoo import models
 from odoo.exceptions import UserError
 from odoo.tools import float_compare
-from pydantic import BaseModel
+
+from .gql import (
+    OrderFieldsTotalDiscountsSet,
+    TaxLineFieldsPriceSet,
+    OrderLineItemFieldsOriginalUnitPriceSet,
+    ShippingLineFieldsOriginalPriceSet,
+    OrderLineItemFieldsDiscountAllocationsAllocatedAmountSet,
+)
+
 
 T = TypeVar("T")
 
@@ -24,6 +35,20 @@ PUBLICATION_CHANNELS: dict[str, int] = {
     "shop": 99113467957,
 }
 
+_DIGIT_PATTERN = re.compile(r"\D+")
+
+
+def normalize_str(value: str | None) -> str:
+    return (value or "").strip().casefold()
+
+
+def normalize_phone(value: str | None) -> str:
+    return _DIGIT_PATTERN.sub("", value or "")
+
+
+def normalize_email(value: str | None) -> str:
+    return (value or "").strip().casefold()
+
 
 def image_order_key(image: "odoo.model.product_image") -> tuple[int, datetime]:
     return image.sequence or 0, image.create_date or DEFAULT_DATETIME
@@ -34,6 +59,14 @@ def last_import_config_key(resource_type: str) -> str:
 
 
 SyncVals = Union[list["odoo.values.shopify_sync"], "odoo.values.shopify_sync"]
+
+PriceSet = Union[
+    OrderLineItemFieldsOriginalUnitPriceSet,
+    TaxLineFieldsPriceSet,
+    OrderFieldsTotalDiscountsSet,
+    ShippingLineFieldsOriginalPriceSet,
+    OrderLineItemFieldsDiscountAllocationsAllocatedAmountSet,
+]
 
 
 class SyncMode(StrEnum):
@@ -210,7 +243,7 @@ def write_if_changed(record: "odoo.model.product_product", vals: "odoo.values.sh
             vals.pop(key)
 
     if vals:
-        record.with_context(skip_shopify_sync=True).write(vals)
+        record.with_context(skip_shopify_sync=True, force_sku_check=True).write(vals)
 
     return bool(vals)
 

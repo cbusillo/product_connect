@@ -2,6 +2,7 @@ import logging
 import re
 
 from odoo.api import Environment
+from odoo.addons.phone_validation.tools.phone_validation import phone_format
 
 from ...gql import (
     Client,
@@ -13,9 +14,17 @@ from ..base import ShopifyBaseImporter, ShopifyPage
 from ...helpers import (
     parse_shopify_id_from_gid,
     write_if_changed,
+    normalize_str,
+    normalize_phone,
+    normalize_email,
 )
+from typing import Literal
 
 _logger = logging.getLogger(__name__)
+
+
+AddressRole = Literal["shipping", "billing"]
+AddressType = Literal["contact", "delivery", "invoice"]
 
 
 class CustomerImporter(ShopifyBaseImporter[GetCustomersCustomersNodes]):
@@ -28,26 +37,32 @@ class CustomerImporter(ShopifyBaseImporter[GetCustomersCustomersNodes]):
     def _import_one(self, shopify_customer: GetCustomersCustomersNodes) -> bool:
         return self.import_customer(shopify_customer)
 
-    def import_customers_since_last_import(self) -> int:
-        return self.run_since_last_import("customer")
-
     def _get_or_create_category(self, name: str) -> "odoo.model.res_partner_category":
         category = self.env["res.partner.category"].search([("name", "=", name)], limit=1)
         if not category:
             category = self.env["res.partner.category"].create({"name": name})
         return category
 
+    def import_customers_since_last_import(self) -> int:
+        return self.run_since_last_import("customer")
+
+    def _format_phone_number(self, phone: str) -> str:
+        country = self.env.company.country_id or self.env["res.country"].search([("code", "=", "US")], limit=1)
+        if not country:
+            return phone.strip()
+        phone_code = int(country.phone_code or 0)
+        return phone_format(phone, country.code, phone_code, force_format="E164", raise_exception=False)
+
     def import_customer(self, shopify_customer: OrderFieldsCustomer | GetCustomersCustomersNodes) -> bool:
         shopify_customer_id = parse_shopify_id_from_gid(shopify_customer.id)
-        tags = [t.strip().lower() for t in getattr(shopify_customer, "tags", [])]
+        tags = [t.strip().lower() for t in shopify_customer.tags]
         is_ebay = "ebay" in tags
 
-        shopify_email = (
-            shopify_customer.default_email_address.email_address
-            if shopify_customer.default_email_address and shopify_customer.default_email_address.email_address
-            else None
-        )
-        shopify_email = shopify_email.strip() if shopify_email else ""
+        if shopify_customer.default_email_address and shopify_customer.default_email_address.email_address:
+            shopify_email = normalize_email(shopify_customer.default_email_address.email_address)
+        else:
+            raw_email_fallback = vars(shopify_customer).get("email", "")
+            shopify_email = normalize_email(raw_email_fallback)
 
         if shopify_customer.default_phone_number and shopify_customer.default_phone_number.phone_number:
             shopify_phone = shopify_customer.default_phone_number.phone_number
@@ -57,22 +72,17 @@ class CustomerImporter(ShopifyBaseImporter[GetCustomersCustomersNodes]):
             shopify_phone = None
         shopify_phone = shopify_phone.strip() if shopify_phone else ""
 
-        # ------------------------------------------------------------------ #
-        # partner resolution – first by Shopify‑ID, then by e‑mail
-        # ------------------------------------------------------------------ #
         partner = self.env["res.partner"].search([("shopify_customer_id", "=", shopify_customer_id)], limit=1)
         if not partner and shopify_email:
-            partner = self.env["res.partner"].search([("email", "=", shopify_email)], limit=1)
+            partner = self.env["res.partner"].search([("email", "ilike", shopify_email)], limit=1)
         if not partner and shopify_phone:
-            partner = self.env["res.partner"].search([("phone", "=", shopify_phone)], limit=1)
+            digits = normalize_phone(shopify_phone)
+            wildcard_pattern = "%" + "%".join(digits) + "%"
+            partner = self.env["res.partner"].search([("phone", "=ilike", wildcard_pattern)], limit=1)
 
-        # ------------------------------------------------------------------ #
-        # fallback when Shopify omits e‑mail / phone
-        # ------------------------------------------------------------------ #
         email = shopify_email or (partner.email if partner else "")
-        phone = shopify_phone or (partner.phone if partner else "")
+        phone = self._format_phone_number(shopify_phone) or partner.phone
 
-        # extract eBay username only when the customer carries the “eBay” tag
         last_name_raw = (shopify_customer.last_name or "").strip()
         ebay_username = ""
         if is_ebay:
@@ -106,80 +116,94 @@ class CustomerImporter(ShopifyBaseImporter[GetCustomersCustomersNodes]):
             shopify_category = self._get_or_create_category("Shopify")
             partner.write({"category_id": [(4, shopify_category.id)]})
             changed = True
+        else:
+            shopify_category = self._get_or_create_category("Shopify")
+            if shopify_category not in partner.category_id:
+                partner.write({"category_id": [(4, shopify_category.id)]})
+                changed = True
 
-        # ------------------------------------------------------------------ #
-        # process addresses (default & additional)
-        # ------------------------------------------------------------------ #
         addresses_changed = False
+        processed_ids: set[str] = set()
         addresses: list[AddressFields] = []
         if shopify_customer.default_address:
             addresses.append(shopify_customer.default_address)
         if shopify_customer.addresses_v_2 and shopify_customer.addresses_v_2.nodes:
             addresses.extend(shopify_customer.addresses_v_2.nodes)
-        for addr in addresses:
-            addresses_changed |= self.process_address(addr, partner)
+        for address in addresses:
+            address_id = address.id
+            if address_id in processed_ids:
+                continue
+            processed_ids.add(address_id)
+            addresses_changed |= self.process_address(address, partner, role="shipping")
         if addresses_changed:
             changed = True
         return changed
 
-    def process_address(self, address: AddressFields, partner: "odoo.model.res_partner") -> bool:
+    def process_address(self, address: AddressFields, partner: "odoo.model.res_partner", role: AddressRole) -> bool:
         shopify_address_id = parse_shopify_id_from_gid(address.id)
 
-        # normalize country / state once
         country = (
             self.env["res.country"].search([("code", "=", address.country_code_v_2.value)], limit=1)
             if address.country_code_v_2
             else False
         )
-        state = (
-            self.env["res.country.state"].search(
-                (
-                    [("code", "=", address.province_code), ("country_id", "=", country.id)]
-                    if country
-                    else [("code", "=", address.province_code)]
-                ),
-                limit=1,
-            )
-            if address.province_code
-            else False
-        )
 
-        # see if a record already exists by Shopify‑ID
+        state = False
+        if country and (address.province_code or address.province):
+            domain: list[tuple] = [("country_id", "=", country.id)]
+            if address.province_code and address.province:
+                domain = [
+                    "|",
+                    ("code", "=", address.province_code.strip()),
+                    ("name", "ilike", address.province.strip()),
+                ] + domain
+            elif address.province_code:
+                domain.append(("code", "=", address.province_code.strip()))
+            else:
+                domain.append(("name", "ilike", address.province.strip()))
+            state = self.env["res.country.state"].search(domain, limit=1)
+
         existing_address = self.env["res.partner"].search([("shopify_address_id", "=", shopify_address_id)], limit=1)
 
-        # do we need a separate delivery address?
         is_different_address = any(
             (
-                address.address_1 != partner.street,
-                address.address_2 != partner.street2,
-                address.city != partner.city,
-                address.zip != partner.zip,
+                normalize_str(address.address_1) != normalize_str(partner.street),
+                normalize_str(address.address_2) != normalize_str(partner.street2),
+                normalize_str(address.city) != normalize_str(partner.city),
+                normalize_str(address.zip) != normalize_str(partner.zip),
                 country and country.id != partner.country_id.id,
                 state and state.id != partner.state_id.id,
+                normalize_phone(address.phone) != normalize_phone(partner.phone),
             )
         )
 
-        # second chance: identical child already linked (same data, different Shopify‑ID)
         if not existing_address and is_different_address:
-            duplicate = partner.child_ids.filtered(
-                lambda a: a.street == address.address_1
-                and a.street2 == address.address_2
-                and a.city == address.city
-                and a.zip == address.zip
+            possible_duplicates = partner.child_ids.filtered(
+                lambda a: normalize_str(a.street) == normalize_str(address.address_1)
+                and normalize_str(a.street2) == normalize_str(address.address_2)
+                and normalize_str(a.city) == normalize_str(address.city)
+                and normalize_str(a.zip) == normalize_str(address.zip)
                 and (not country or a.country_id.id == country.id)
                 and (not state or a.state_id.id == state.id)
+                and normalize_phone(a.phone) == normalize_phone(address.phone)
             )
-            if duplicate:
-                existing_address = duplicate[0]
+            for possible_duplicate in possible_duplicates:
+                if possible_duplicate.shopify_address_id and possible_duplicate.shopify_address_id != shopify_address_id:
+                    continue
+                if not possible_duplicate.shopify_address_id:
+                    write_if_changed(possible_duplicate, {"shopify_address_id": shopify_address_id})
+                existing_address = possible_duplicate
+                break
 
-        address_type = "delivery" if is_different_address else "contact"
+        if role == "billing":
+            address_type: AddressType = "invoice" if is_different_address else "contact"
+        else:
+            address_type = "delivery" if is_different_address else "contact"
 
-        # Prepare address values
-        address_values: "odoo.values.res_partner" = {
+        address_vals: "odoo.values.res_partner" = {
             "shopify_address_id": shopify_address_id,
-            "parent_id": partner.id if address_type == "delivery" else False,
+            "parent_id": partner.id if address_type in ("delivery", "invoice") else False,
             "type": address_type,
-            # keep child.name only if it differs from the parent to avoid “X, X” display names
             "name": "" if (address.name or "").strip() == (partner.name or "").strip() else (address.name or ""),
             "street": (address.address_1 or "").strip(),
             "street2": (address.address_2 or "").strip(),
@@ -188,21 +212,22 @@ class CustomerImporter(ShopifyBaseImporter[GetCustomersCustomersNodes]):
             "state_id": state.id if state else False,
             "country_id": country.id if country else False,
         }
-        if address.phone:
-            address_values["phone"] = address.phone.strip()
+        if address.company:
+            address_vals["company_name"] = address.company.strip()
 
-        # Update or create the address
+        if address.phone:
+            address_vals["phone"] = self._format_phone_number(address.phone)
+
         if existing_address:
-            changed = write_if_changed(existing_address, address_values)
+            changed = write_if_changed(existing_address, address_vals)
             return changed
         elif is_different_address:
             shopify_category = self._get_or_create_category("Shopify")
-            address_values["category_id"] = [(6, 0, list(set(partner.category_id.ids + [shopify_category.id])))]
-            self.env["res.partner"].create(address_values)
+            address_vals["category_id"] = [(6, 0, list(set(partner.category_id.ids + [shopify_category.id])))]
+            self.env["res.partner"].create(address_vals)
             return True
         else:
-            # Update the main partner with address info if not different
-            main_address_values: "odoo.values.res_partner" = {
+            main_address_vals: "odoo.values.res_partner" = {
                 "street": (address.address_1 or "").strip(),
                 "street2": (address.address_2 or "").strip(),
                 "city": (address.city or "").strip(),
@@ -211,6 +236,6 @@ class CustomerImporter(ShopifyBaseImporter[GetCustomersCustomersNodes]):
                 "country_id": country.id if country else False,
             }
             if address.phone:
-                main_address_values["phone"] = address.phone.strip()
-            changed = write_if_changed(partner, main_address_values)
+                main_address_vals["phone"] = self._format_phone_number(address.phone)
+            changed = write_if_changed(partner, main_address_vals)
             return changed
