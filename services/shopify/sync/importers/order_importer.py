@@ -238,9 +238,7 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
         return changed
 
     def _apply_shipping(self, odoo_order: "odoo.model.sale_order", shopify_order: OrderFields) -> bool:
-        shipping_lines = [
-            line for line in shopify_order.shipping_lines.nodes if line and not getattr(line, "is_removed", False)
-        ]
+        shipping_lines = [line for line in shopify_order.shipping_lines.nodes if line and not getattr(line, "is_removed", False)]
 
         # remove all existing delivery lines; we will recreate them based on the current payload
         odoo_order.order_line.filtered("is_delivery").unlink()
@@ -288,9 +286,7 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
             if delivery_product and not delivery_product.taxes_id:
                 default_sale_tax = self.env["account.tax"].search([("type_tax_use", "=", "sale")], limit=1)
                 if default_sale_tax:
-                    fiscal_position = (
-                        odoo_order.fiscal_position_id or odoo_order.partner_id.property_account_position_id
-                    )
+                    fiscal_position = odoo_order.fiscal_position_id or odoo_order.partner_id.property_account_position_id
                     mapped_tax = fiscal_position.map_tax(default_sale_tax) if fiscal_position else default_sale_tax
                     delivery_product.taxes_id = [(6, 0, mapped_tax.ids)]
 
