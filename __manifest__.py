@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 {
     "name": "Product Connect Module",
     "version": "18.0.6.0",
@@ -49,7 +48,7 @@
         "views/product_type_views.xml",
         "views/product_manufacturer_views.xml",
         "views/repair_order_views.xml",
-        # "views/res_partner_views.xml",
+        "views/res_partner_views.xml",
         "views/res_users_views.xml",
         "views/shopify_sync_views.xml",
         "security/ir.model.access.csv",

@@ -6,17 +6,9 @@ fragment OrderLineItemFields on LineItem {
     variant {
         id
     }
-    originalUnitPriceSet {
-        presentmentMoney { ...MoneyFields }
-        shopMoney        { ...MoneyFields }
-    }
+    originalUnitPriceSet { ...MoneyBagFields }
     customAttributes { key value }
-    discountAllocations {
-        allocatedAmountSet {
-            presentmentMoney { ...MoneyFields }
-            shopMoney        { ...MoneyFields }
-        }
-    }
+    discountAllocations { allocatedAmountSet { ...MoneyBagFields } }
 }
 
 fragment ShippingLineFields on ShippingLine {
@@ -24,26 +16,17 @@ fragment ShippingLineFields on ShippingLine {
     title
     carrierIdentifier
     code
-    originalPriceSet {
-        presentmentMoney { ...MoneyFields }
-        shopMoney        { ...MoneyFields }
-    }
-    currentDiscountedPriceSet {
-        presentmentMoney { ...MoneyFields }
-        shopMoney        { ...MoneyFields }
-    }
+    originalPriceSet { ...MoneyBagFields }
+    currentDiscountedPriceSet { ...MoneyBagFields }
+    discountedPriceSet { ...MoneyBagFields }
     deliveryCategory
     isRemoved
-
 }
 
 fragment TaxLineFields on TaxLine {
     title
     ratePercentage
-    priceSet {
-        presentmentMoney { ...MoneyFields }
-        shopMoney        { ...MoneyFields }
-    }
+    priceSet { ...MoneyBagFields }
 }
 
 fragment OrderFields on Order {
@@ -55,17 +38,30 @@ fragment OrderFields on Order {
     closedAt
     cancelledAt
     currencyCode
-    totalPriceSet      { presentmentMoney { ...MoneyFields } }
-    subtotalPriceSet   { presentmentMoney { ...MoneyFields } }
-    totalShippingPriceSet { presentmentMoney { ...MoneyFields } }
+    totalPriceSet      { ...MoneyBagFields }
+    subtotalPriceSet   { ...MoneyBagFields }
+    totalShippingPriceSet { ...MoneyBagFields }
     customer           { ...CustomerFields }
     shippingAddress    { ...AddressFields }
     billingAddress     { ...AddressFields }
     lineItems(first: 250) { nodes { ...OrderLineItemFields } }
     shippingLines(first: 10) { nodes { ...ShippingLineFields } }
-    totalDiscountsSet { presentmentMoney { ...MoneyFields } }
+    fulfillments { trackingInfo { ...FulfillmentTrackingInfoFields } }
+    discountApplications(first: 1) { nodes { ...DiscountApplicationFields } }
+    totalDiscountsSet { ...MoneyBagFields }
     taxLines { ...TaxLineFields }
     metafields(first: 15, namespace: "custom") { nodes { ...MetafieldFields } }
+}
+fragment FulfillmentTrackingInfoFields on FulfillmentTrackingInfo {
+    number
+    url
+    company
+}
+
+fragment DiscountApplicationFields on DiscountApplication {
+    __typename
+    ... on ManualDiscountApplication { title }
+    ... on DiscountCodeApplication { code }
 }
 
 query GetOrderIds($cursor: String, $limit: Int!, $query: String) {

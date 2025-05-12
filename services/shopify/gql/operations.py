@@ -98,9 +98,15 @@ fragment CustomerFields on Customer {
   lastName
   defaultEmailAddress {
     emailAddress
+    marketingState
+    marketingOptInLevel
+    marketingUpdatedAt
   }
   defaultPhoneNumber {
     phoneNumber
+    marketingState
+    marketingOptInLevel
+    marketingUpdatedAt
   }
   createdAt
   updatedAt
@@ -113,6 +119,7 @@ fragment CustomerFields on Customer {
     }
   }
   tags
+  taxExempt
 }
 """
 
@@ -163,9 +170,15 @@ fragment CustomerFields on Customer {
   lastName
   defaultEmailAddress {
     emailAddress
+    marketingState
+    marketingOptInLevel
+    marketingUpdatedAt
   }
   defaultPhoneNumber {
     phoneNumber
+    marketingState
+    marketingOptInLevel
+    marketingUpdatedAt
   }
   createdAt
   updatedAt
@@ -178,12 +191,38 @@ fragment CustomerFields on Customer {
     }
   }
   tags
+  taxExempt
+}
+
+fragment DiscountApplicationFields on DiscountApplication {
+  __typename
+  ... on ManualDiscountApplication {
+    title
+  }
+  ... on DiscountCodeApplication {
+    code
+  }
+}
+
+fragment FulfillmentTrackingInfoFields on FulfillmentTrackingInfo {
+  number
+  url
+  company
 }
 
 fragment MetafieldFields on Metafield {
   id
   key
   value
+}
+
+fragment MoneyBagFields on MoneyBag {
+  presentmentMoney {
+    ...MoneyFields
+  }
+  shopMoney {
+    ...MoneyFields
+  }
 }
 
 fragment MoneyFields on MoneyV2 {
@@ -201,19 +240,13 @@ fragment OrderFields on Order {
   cancelledAt
   currencyCode
   totalPriceSet {
-    presentmentMoney {
-      ...MoneyFields
-    }
+    ...MoneyBagFields
   }
   subtotalPriceSet {
-    presentmentMoney {
-      ...MoneyFields
-    }
+    ...MoneyBagFields
   }
   totalShippingPriceSet {
-    presentmentMoney {
-      ...MoneyFields
-    }
+    ...MoneyBagFields
   }
   customer {
     ...CustomerFields
@@ -234,10 +267,18 @@ fragment OrderFields on Order {
       ...ShippingLineFields
     }
   }
-  totalDiscountsSet {
-    presentmentMoney {
-      ...MoneyFields
+  fulfillments {
+    trackingInfo {
+      ...FulfillmentTrackingInfoFields
     }
+  }
+  discountApplications(first: 1) {
+    nodes {
+      ...DiscountApplicationFields
+    }
+  }
+  totalDiscountsSet {
+    ...MoneyBagFields
   }
   taxLines {
     ...TaxLineFields
@@ -258,12 +299,7 @@ fragment OrderLineItemFields on LineItem {
     id
   }
   originalUnitPriceSet {
-    presentmentMoney {
-      ...MoneyFields
-    }
-    shopMoney {
-      ...MoneyFields
-    }
+    ...MoneyBagFields
   }
   customAttributes {
     key
@@ -271,12 +307,7 @@ fragment OrderLineItemFields on LineItem {
   }
   discountAllocations {
     allocatedAmountSet {
-      presentmentMoney {
-        ...MoneyFields
-      }
-      shopMoney {
-        ...MoneyFields
-      }
+      ...MoneyBagFields
     }
   }
 }
@@ -287,20 +318,13 @@ fragment ShippingLineFields on ShippingLine {
   carrierIdentifier
   code
   originalPriceSet {
-    presentmentMoney {
-      ...MoneyFields
-    }
-    shopMoney {
-      ...MoneyFields
-    }
+    ...MoneyBagFields
   }
   currentDiscountedPriceSet {
-    presentmentMoney {
-      ...MoneyFields
-    }
-    shopMoney {
-      ...MoneyFields
-    }
+    ...MoneyBagFields
+  }
+  discountedPriceSet {
+    ...MoneyBagFields
   }
   deliveryCategory
   isRemoved
@@ -310,12 +334,7 @@ fragment TaxLineFields on TaxLine {
   title
   ratePercentage
   priceSet {
-    presentmentMoney {
-      ...MoneyFields
-    }
-    shopMoney {
-      ...MoneyFields
-    }
+    ...MoneyBagFields
   }
 }
 """
@@ -342,37 +361,13 @@ query GetProducts($cursor: String, $limit: Int!, $query: String) {
       endCursor
     }
     nodes {
-      id
-      title
-      descriptionHtml
-      vendor
-      productType
-      status
-      totalInventory
-      createdAt
-      updatedAt
-      media(first: 250, sortKey: POSITION) {
-        nodes {
-          __typename
-          status
-          ...MediaImageFields
-        }
-      }
-      variants(first: 1) {
-        nodes {
-          ...VariantFields
-        }
-      }
-      metafields(first: 15, namespace: "custom") {
-        nodes {
-          ...MetafieldFields
-        }
-      }
+      ...ProductFields
     }
   }
 }
 
 fragment MediaImageFields on MediaImage {
+  __typename
   id
   alt
   originalSource {
@@ -389,6 +384,34 @@ fragment MetafieldFields on Metafield {
   id
   key
   value
+}
+
+fragment ProductFields on Product {
+  id
+  title
+  descriptionHtml
+  vendor
+  productType
+  status
+  totalInventory
+  createdAt
+  updatedAt
+  media(first: 250, sortKey: POSITION) {
+    nodes {
+      status
+      ...MediaImageFields
+    }
+  }
+  variants(first: 1) {
+    nodes {
+      ...VariantFields
+    }
+  }
+  metafields(first: 15, namespace: "custom") {
+    nodes {
+      ...MetafieldFields
+    }
+  }
 }
 
 fragment VariantFields on ProductVariant {
@@ -459,6 +482,7 @@ mutation ProductSet($identifier: ProductSetIdentifiers, $input: ProductSetInput!
 }
 
 fragment MediaImageFields on MediaImage {
+  __typename
   id
   alt
   originalSource {

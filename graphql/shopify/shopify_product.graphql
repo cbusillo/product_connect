@@ -21,10 +21,26 @@ fragment VariantFields on ProductVariant {
 }
 
 fragment MediaImageFields on MediaImage {
+    __typename
     id
     alt
     originalSource { url }
     preview { image { url } }
+}
+
+fragment ProductFields on Product {
+    id
+    title
+    descriptionHtml
+    vendor
+    productType
+    status
+    totalInventory
+    createdAt
+    updatedAt
+    media (first: 250, sortKey: POSITION) { nodes { status ...MediaImageFields } }
+    variants(first: 1) { nodes { ...VariantFields } }
+    metafields(first: 15, namespace: "custom") { nodes { ...MetafieldFields } }
 }
 
 query GetProductIds($cursor: String, $limit: Int!, $query: String) {
@@ -37,20 +53,7 @@ query GetProductIds($cursor: String, $limit: Int!, $query: String) {
 query GetProducts($cursor: String, $limit: Int!, $query: String) {
     products(first: $limit, after: $cursor, query: $query, sortKey: UPDATED_AT) {
         pageInfo { hasNextPage endCursor }
-        nodes {
-            id
-            title
-            descriptionHtml
-            vendor
-            productType
-            status
-            totalInventory
-            createdAt
-            updatedAt
-            media (first: 250, sortKey: POSITION) { nodes { status ...MediaImageFields } }
-            variants(first: 1) { nodes { ...VariantFields } }
-            metafields(first: 15, namespace: "custom") { nodes { ...MetafieldFields } }
-        }
+        nodes { ...ProductFields }
     }
 }
 

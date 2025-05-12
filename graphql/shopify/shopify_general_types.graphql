@@ -2,3 +2,8 @@ fragment MoneyFields on MoneyV2 {
     amount
     currencyCode
 }
+
+fragment MoneyBagFields on MoneyBag {
+    presentmentMoney { ...MoneyFields }
+    shopMoney        { ...MoneyFields }
+}

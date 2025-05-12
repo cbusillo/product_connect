@@ -7,8 +7,7 @@ from odoo.addons.phone_validation.tools.phone_validation import phone_format
 from ...gql import (
     Client,
     AddressFields,
-    GetCustomersCustomersNodes,
-    OrderFieldsCustomer,
+    CustomerFields,
 )
 from ..base import ShopifyBaseImporter, ShopifyPage
 from ...helpers import (
@@ -24,17 +23,17 @@ _logger = logging.getLogger(__name__)
 
 
 AddressRole = Literal["shipping", "billing"]
-AddressType = Literal["contact", "delivery", "invoice"]
+AddressType = Literal["delivery", "invoice"]
 
 
-class CustomerImporter(ShopifyBaseImporter[GetCustomersCustomersNodes]):
+class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
     def __init__(self, env: Environment, sync_record: "odoo.model.shopify_sync") -> None:
         super().__init__(env, sync_record)
 
-    def _fetch_page(self, client: Client, query: str | None, cursor: str | None) -> ShopifyPage[GetCustomersCustomersNodes]:
+    def _fetch_page(self, client: Client, query: str | None, cursor: str | None) -> ShopifyPage[CustomerFields]:
         return client.get_customers(query=query, cursor=cursor, limit=self.page_size)
 
-    def _import_one(self, shopify_customer: GetCustomersCustomersNodes) -> bool:
+    def _import_one(self, shopify_customer: CustomerFields) -> bool:
         return self.import_customer(shopify_customer)
 
     def _get_or_create_category(self, name: str) -> "odoo.model.res_partner_category":
@@ -43,17 +42,26 @@ class CustomerImporter(ShopifyBaseImporter[GetCustomersCustomersNodes]):
             category = self.env["res.partner.category"].create({"name": name})
         return category
 
+    def _get_tax_exempt_fiscal_position(self) -> "odoo.model.account_fiscal_position":
+        fiscal_position = self.env["account.fiscal.position"].search([("name", "ilike", "tax exempt")], limit=1)
+        if not fiscal_position:
+            fiscal_position = self.env["account.fiscal.position"].create({"name": "Tax Exempt", "auto_apply": False})
+        return fiscal_position
+
     def import_customers_since_last_import(self) -> int:
         return self.run_since_last_import("customer")
 
     def _format_phone_number(self, phone: str) -> str:
+        if not phone or not phone.strip():
+            return ""
         country = self.env.company.country_id or self.env["res.country"].search([("code", "=", "US")], limit=1)
         if not country:
             return phone.strip()
         phone_code = int(country.phone_code or 0)
-        return phone_format(phone, country.code, phone_code, force_format="E164", raise_exception=False)
+        formatted = phone_format(phone, country.code, phone_code, force_format="E164", raise_exception=False)
+        return formatted or phone.strip()
 
-    def import_customer(self, shopify_customer: OrderFieldsCustomer | GetCustomersCustomersNodes) -> bool:
+    def import_customer(self, shopify_customer: CustomerFields) -> bool:
         shopify_customer_id = parse_shopify_id_from_gid(shopify_customer.id)
         tags = [t.strip().lower() for t in shopify_customer.tags]
         is_ebay = "ebay" in tags
@@ -61,8 +69,7 @@ class CustomerImporter(ShopifyBaseImporter[GetCustomersCustomersNodes]):
         if shopify_customer.default_email_address and shopify_customer.default_email_address.email_address:
             shopify_email = normalize_email(shopify_customer.default_email_address.email_address)
         else:
-            raw_email_fallback = vars(shopify_customer).get("email", "")
-            shopify_email = normalize_email(raw_email_fallback)
+            shopify_email = ""
 
         if shopify_customer.default_phone_number and shopify_customer.default_phone_number.phone_number:
             shopify_phone = shopify_customer.default_phone_number.phone_number
@@ -76,9 +83,12 @@ class CustomerImporter(ShopifyBaseImporter[GetCustomersCustomersNodes]):
         if not partner and shopify_email:
             partner = self.env["res.partner"].search([("email", "ilike", shopify_email)], limit=1)
         if not partner and shopify_phone:
-            digits = normalize_phone(shopify_phone)
-            wildcard_pattern = "%" + "%".join(digits) + "%"
-            partner = self.env["res.partner"].search([("phone", "=ilike", wildcard_pattern)], limit=1)
+            formatted_phone = self._format_phone_number(shopify_phone)
+            if formatted_phone:
+                partner = self.env["res.partner"].search(
+                    ["|", ("phone", "=", formatted_phone), ("mobile", "=", formatted_phone)],
+                    limit=1,
+                )
 
         email = shopify_email or (partner.email if partner else "")
         phone = self._format_phone_number(shopify_phone) or partner.phone
@@ -95,10 +105,24 @@ class CustomerImporter(ShopifyBaseImporter[GetCustomersCustomersNodes]):
         first_name = (shopify_customer.first_name or "").strip()
         name_parts = [first_name, last_name]
         name = re.sub(r"\s{2,}", " ", " ".join(p for p in name_parts if p)).strip() or email
+
+        tax_exempt_flag = bool(shopify_customer.tax_exempt) if shopify_customer.tax_exempt is not None else False
+        fiscal_position = self._get_tax_exempt_fiscal_position() if tax_exempt_flag else False
+
+        opt_in_states = {"SUBSCRIBED", "PENDING"}
+        email_state = shopify_customer.default_email_address.marketing_state if shopify_customer.default_email_address else None
+        sms_state = shopify_customer.default_phone_number.marketing_state if shopify_customer.default_phone_number else None
+        email_blacklisted_flag = email_state not in opt_in_states if email_state else False
+        sms_blacklisted_flag = sms_state not in opt_in_states if sms_state else False
+
         partner_vals: "odoo.values.res_partner" = {
             "shopify_customer_id": shopify_customer_id,
             "name": name,
             "ebay_username": ebay_username or False,
+            "is_blacklisted": email_blacklisted_flag,
+            "phone_blacklisted": sms_blacklisted_flag,
+            "mobile_blacklisted": sms_blacklisted_flag,
+            "property_account_position_id": fiscal_position.id if fiscal_position else False,
         }
         if email:
             partner_vals["email"] = email
@@ -123,20 +147,33 @@ class CustomerImporter(ShopifyBaseImporter[GetCustomersCustomersNodes]):
                 changed = True
 
         addresses_changed = False
-        processed_ids: set[str] = set()
-        addresses: list[AddressFields] = []
+        addresses_to_process: list[tuple[AddressFields, AddressRole]] = []
         if shopify_customer.default_address:
-            addresses.append(shopify_customer.default_address)
+            addresses_to_process.append((shopify_customer.default_address, "billing"))
         if shopify_customer.addresses_v_2 and shopify_customer.addresses_v_2.nodes:
-            addresses.extend(shopify_customer.addresses_v_2.nodes)
-        for address in addresses:
+            for addr in shopify_customer.addresses_v_2.nodes:
+                addresses_to_process.append((addr, "shipping"))
+        processed_ids: set[str] = set()
+        for address, role in addresses_to_process:
             address_id = address.id
             if address_id in processed_ids:
                 continue
             processed_ids.add(address_id)
-            addresses_changed |= self.process_address(address, partner, role="shipping")
+            addresses_changed |= self.process_address(address, partner, role=role)
         if addresses_changed:
             changed = True
+
+        if (
+            not tax_exempt_flag
+            and partner.property_account_position_id
+            and "tax exempt" in partner.property_account_position_id.name.casefold()
+        ):
+            partner.property_account_position_id = False
+
+        if not sms_blacklisted_flag and (partner.phone_blacklisted or partner.mobile_blacklisted):
+            partner.phone_blacklisted = False
+            partner.mobile_blacklisted = False
+
         return changed
 
     def process_address(self, address: AddressFields, partner: "odoo.model.res_partner", role: AddressRole) -> bool:
@@ -163,9 +200,25 @@ class CustomerImporter(ShopifyBaseImporter[GetCustomersCustomersNodes]):
                 domain.append(("name", "ilike", address.province.strip()))
             state = self.env["res.country.state"].search(domain, limit=1)
 
+        formatted_phone = self._format_phone_number(address.phone) if address.phone else ""
+        # Add back phone_mismatch calculation here
+        phone_mismatch = bool(formatted_phone) and normalize_phone(formatted_phone) not in {
+            normalize_phone(partner.phone),
+            normalize_phone(partner.mobile),
+        }
         existing_address = self.env["res.partner"].search([("shopify_address_id", "=", shopify_address_id)], limit=1)
 
-        is_different_address = any(
+        partner_has_address = any(
+            (
+                partner.street,
+                partner.street2,
+                partner.city,
+                partner.zip,
+                partner.state_id,
+                partner.country_id,
+            )
+        )
+        is_different_address = partner_has_address and any(
             (
                 normalize_str(address.address_1) != normalize_str(partner.street),
                 normalize_str(address.address_2) != normalize_str(partner.street2),
@@ -173,7 +226,8 @@ class CustomerImporter(ShopifyBaseImporter[GetCustomersCustomersNodes]):
                 normalize_str(address.zip) != normalize_str(partner.zip),
                 country and country.id != partner.country_id.id,
                 state and state.id != partner.state_id.id,
-                normalize_phone(address.phone) != normalize_phone(partner.phone),
+                phone_mismatch,
+                normalize_str(address.company) != normalize_str(partner.company_name),
             )
         )
 
@@ -185,7 +239,8 @@ class CustomerImporter(ShopifyBaseImporter[GetCustomersCustomersNodes]):
                 and normalize_str(a.zip) == normalize_str(address.zip)
                 and (not country or a.country_id.id == country.id)
                 and (not state or a.state_id.id == state.id)
-                and normalize_phone(a.phone) == normalize_phone(address.phone)
+                and normalize_phone(formatted_phone) in {normalize_phone(a.phone), normalize_phone(a.mobile)}
+                and normalize_str(a.company_name) == normalize_str(address.company)
             )
             for possible_duplicate in possible_duplicates:
                 if possible_duplicate.shopify_address_id and possible_duplicate.shopify_address_id != shopify_address_id:
@@ -195,14 +250,27 @@ class CustomerImporter(ShopifyBaseImporter[GetCustomersCustomersNodes]):
                 existing_address = possible_duplicate
                 break
 
-        if role == "billing":
-            address_type: AddressType = "invoice" if is_different_address else "contact"
-        else:
-            address_type = "delivery" if is_different_address else "contact"
+        # New address_type logic and early return for main address update
+        if not is_different_address:
+            main_address_vals: "odoo.values.res_partner" = {
+                "shopify_address_id": shopify_address_id,
+                "street": (address.address_1 or "").strip(),
+                "street2": (address.address_2 or "").strip(),
+                "city": (address.city or "").strip(),
+                "zip": (address.zip or "").strip(),
+                "state_id": state.id if state else False,
+                "country_id": country.id if country else False,
+            }
+            if formatted_phone:
+                main_address_vals["phone"] = formatted_phone
+            changed = write_if_changed(partner, main_address_vals)
+            return changed
+
+        address_type: AddressType = "invoice" if role == "billing" else "delivery"
 
         address_vals: "odoo.values.res_partner" = {
             "shopify_address_id": shopify_address_id,
-            "parent_id": partner.id if address_type in ("delivery", "invoice") else False,
+            "parent_id": partner.id,
             "type": address_type,
             "name": "" if (address.name or "").strip() == (partner.name or "").strip() else (address.name or ""),
             "street": (address.address_1 or "").strip(),
@@ -215,10 +283,18 @@ class CustomerImporter(ShopifyBaseImporter[GetCustomersCustomersNodes]):
         if address.company:
             address_vals["company_name"] = address.company.strip()
 
-        if address.phone:
-            address_vals["phone"] = self._format_phone_number(address.phone)
+        if formatted_phone:
+            address_vals["phone"] = formatted_phone
 
         if existing_address:
+            if existing_address.type != address_type:
+                existing_address.copy(
+                    default={
+                        "type": address_type,
+                        "shopify_address_id": f"{shopify_address_id}:{address_type}",
+                    }
+                )
+                return True
             changed = write_if_changed(existing_address, address_vals)
             return changed
         elif is_different_address:
@@ -226,16 +302,4 @@ class CustomerImporter(ShopifyBaseImporter[GetCustomersCustomersNodes]):
             address_vals["category_id"] = [(6, 0, list(set(partner.category_id.ids + [shopify_category.id])))]
             self.env["res.partner"].create(address_vals)
             return True
-        else:
-            main_address_vals: "odoo.values.res_partner" = {
-                "street": (address.address_1 or "").strip(),
-                "street2": (address.address_2 or "").strip(),
-                "city": (address.city or "").strip(),
-                "zip": (address.zip or "").strip(),
-                "state_id": state.id if state else False,
-                "country_id": country.id if country else False,
-            }
-            if address.phone:
-                main_address_vals["phone"] = self._format_phone_number(address.phone)
-            changed = write_if_changed(partner, main_address_vals)
-            return changed
+        return False

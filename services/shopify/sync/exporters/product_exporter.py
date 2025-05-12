@@ -70,6 +70,7 @@ class ProductExporter(ShopifyBaseExporter["odoo.model.product_product"]):
                 ("is_ready_for_sale", "=", True),
                 ("website_description", "!=", False),
                 ("website_description", "!=", ""),
+                ("type", "=", "consu"),
             ]
         )
         if cutoff_date:
@@ -244,7 +245,7 @@ class ProductExporter(ShopifyBaseExporter["odoo.model.product_product"]):
 
         shopify_product_set_input = ProductSetInput(
             title=odoo_product.name,
-            descriptionHtml=odoo_product.website_description,
+            descriptionHtml=(odoo_product.website_description or "").strip(),
             vendor=odoo_product.manufacturer.name if odoo_product.manufacturer else None,
             productType=odoo_product.part_type.name if odoo_product.part_type else None,
             status=ProductStatus.ACTIVE if odoo_product.qty_available > 0 else ProductStatus.DRAFT,

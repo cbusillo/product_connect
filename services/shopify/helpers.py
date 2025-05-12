@@ -2,7 +2,7 @@ import logging
 import re
 from datetime import datetime, UTC
 from enum import StrEnum
-from typing import TypeVar, Union, Self
+from typing import TypeVar, Self, Union, Any
 
 from dateutil.parser import parse
 from pydantic import BaseModel
@@ -10,14 +10,6 @@ from pydantic import BaseModel
 from odoo import models
 from odoo.exceptions import UserError
 from odoo.tools import float_compare
-
-from .gql import (
-    OrderFieldsTotalDiscountsSet,
-    TaxLineFieldsPriceSet,
-    OrderLineItemFieldsOriginalUnitPriceSet,
-    ShippingLineFieldsOriginalPriceSet,
-    OrderLineItemFieldsDiscountAllocationsAllocatedAmountSet,
-)
 
 
 T = TypeVar("T")
@@ -59,14 +51,6 @@ def last_import_config_key(resource_type: str) -> str:
 
 
 SyncVals = Union[list["odoo.values.shopify_sync"], "odoo.values.shopify_sync"]
-
-PriceSet = Union[
-    OrderLineItemFieldsOriginalUnitPriceSet,
-    TaxLineFieldsPriceSet,
-    OrderFieldsTotalDiscountsSet,
-    ShippingLineFieldsOriginalPriceSet,
-    OrderLineItemFieldsDiscountAllocationsAllocatedAmountSet,
-]
 
 
 class SyncMode(StrEnum):
@@ -215,37 +199,41 @@ class ShopifyStaleRunTimeout(Exception):
     pass
 
 
-def write_if_changed(record: "odoo.model.product_product", vals: "odoo.values.shopify_sync") -> bool:
-    for key, new_val in list(vals.items()):
-        old_val = record[key]
-        field = record._fields[key]
+def write_if_changed(record: models.BaseModel, vals: dict[str, Any]) -> bool:
+    remaining_values = vals.copy()
 
-        if isinstance(new_val, (list, tuple)):
-            raise UserError(f"write_if_changed(): unsupported value for field '{key}'. lists and tuples are not supported.")
-        if isinstance(old_val, models.BaseModel) and len(old_val) > 1:
-            raise UserError(f"write_if_changed(): field '{key}' contains a multi‑record recordset " "which is not supported.")
-        if isinstance(old_val, float):
-            digits_attr = getattr(field, "digits", None)
-            if callable(digits_attr):
-                raw_digits = digits_attr(record.env)
-            else:
-                raw_digits = digits_attr
+    for field_name, new_value in list(remaining_values.items()):
+        current_value = record[field_name]
+        field = record._fields[field_name]
 
-            precision_digits = raw_digits[1] if raw_digits else 2
-            if float_compare(old_val, new_val, precision_digits=precision_digits) == 0:
-                vals.pop(key)
-        elif isinstance(old_val, models.BaseModel):
-            old_id = old_val.id if old_val else False
-            new_id = new_val.id if isinstance(new_val, models.BaseModel) else new_val
-            if old_id == new_id:
-                vals.pop(key)
-        elif old_val == new_val:
-            vals.pop(key)
+        if isinstance(new_value, (list, tuple)):
+            raise UserError(
+                f"write_if_changed(): unsupported value for field '{field_name}'. lists and tuples are not supported."
+            )
+        if isinstance(current_value, models.BaseModel):
+            if len(current_value) > 1:
+                raise UserError(
+                    f"write_if_changed(): field '{field_name}' contains a multi‑record recordset " "which is not supported."
+                )
+            current_id = current_value.id if current_value else False
+            new_id = new_value.id if isinstance(new_value, models.BaseModel) else new_value
+            if current_id == new_id:
+                remaining_values.pop(field_name)
+            continue
+        if isinstance(current_value, float):
+            digits_specification = getattr(field, "digits", None)
+            raw_digits = digits_specification(record.env) if callable(digits_specification) else digits_specification
+            precision_digits = raw_digits[1] if isinstance(raw_digits, (list, tuple)) and len(raw_digits) > 1 else 2
+            if float_compare(current_value, new_value, precision_digits=precision_digits) == 0:
+                remaining_values.pop(field_name)
+            continue
+        if current_value == new_value:
+            remaining_values.pop(field_name)
 
-    if vals:
-        record.with_context(skip_shopify_sync=True, force_sku_check=True).write(vals)
+    if remaining_values:
+        record.with_context(skip_shopify_sync=True, force_sku_check=True).write(remaining_values)
 
-    return bool(vals)
+    return bool(remaining_values)
 
 
 def parse_shopify_datetime_to_utc(value: datetime | str) -> datetime:

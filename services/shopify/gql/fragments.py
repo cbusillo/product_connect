@@ -3,7 +3,7 @@
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated, List, Optional
+from typing import Annotated, List, Literal, Optional, Union
 
 from odoo.addons.product_connect.services.shopify.helpers import (
     parse_shopify_datetime_to_utc,
@@ -11,7 +11,15 @@ from odoo.addons.product_connect.services.shopify.helpers import (
 from pydantic import AnyUrl, BeforeValidator, Field
 
 from .base_model import BaseModel
-from .enums import CountryCode, CurrencyCode
+from .enums import (
+    CountryCode,
+    CurrencyCode,
+    CustomerEmailAddressMarketingState,
+    CustomerMarketingOptInLevel,
+    CustomerSmsMarketingState,
+    MediaStatus,
+    ProductStatus,
+)
 
 
 class AddressFields(BaseModel):
@@ -49,14 +57,29 @@ class CustomerFields(BaseModel):
     )
     addresses_v_2: "CustomerFieldsAddressesV2" = Field(alias="addressesV2")
     tags: List[str]
+    tax_exempt: bool = Field(alias="taxExempt")
 
 
 class CustomerFieldsDefaultEmailAddress(BaseModel):
     email_address: str = Field(alias="emailAddress")
+    marketing_state: CustomerEmailAddressMarketingState = Field(alias="marketingState")
+    marketing_opt_in_level: Optional[CustomerMarketingOptInLevel] = Field(
+        alias="marketingOptInLevel"
+    )
+    marketing_updated_at: Optional[
+        Annotated[datetime, BeforeValidator(parse_shopify_datetime_to_utc)]
+    ] = Field(alias="marketingUpdatedAt")
 
 
 class CustomerFieldsDefaultPhoneNumber(BaseModel):
     phone_number: str = Field(alias="phoneNumber")
+    marketing_state: CustomerSmsMarketingState = Field(alias="marketingState")
+    marketing_opt_in_level: Optional[CustomerMarketingOptInLevel] = Field(
+        alias="marketingOptInLevel"
+    )
+    marketing_updated_at: Optional[
+        Annotated[datetime, BeforeValidator(parse_shopify_datetime_to_utc)]
+    ] = Field(alias="marketingUpdatedAt")
 
 
 class CustomerFieldsDefaultAddress(AddressFields):
@@ -71,7 +94,14 @@ class CustomerFieldsAddressesV2Nodes(AddressFields):
     pass
 
 
+class FulfillmentTrackingInfoFields(BaseModel):
+    number: Optional[str]
+    url: Optional[AnyUrl]
+    company: Optional[str]
+
+
 class MediaImageFields(BaseModel):
+    typename__: str = Field(alias="__typename")
     id: str
     alt: Optional[str]
     original_source: Optional["MediaImageFieldsOriginalSource"] = Field(
@@ -103,24 +133,58 @@ class MoneyFields(BaseModel):
     currency_code: CurrencyCode = Field(alias="currencyCode")
 
 
+class MoneyBagFields(BaseModel):
+    presentment_money: "MoneyBagFieldsPresentmentMoney" = Field(
+        alias="presentmentMoney"
+    )
+    shop_money: "MoneyBagFieldsShopMoney" = Field(alias="shopMoney")
+
+
+class MoneyBagFieldsPresentmentMoney(MoneyFields):
+    pass
+
+
+class MoneyBagFieldsShopMoney(MoneyFields):
+    pass
+
+
 class TaxLineFields(BaseModel):
     title: str
     rate_percentage: Optional[float] = Field(alias="ratePercentage")
     price_set: "TaxLineFieldsPriceSet" = Field(alias="priceSet")
 
 
-class TaxLineFieldsPriceSet(BaseModel):
-    presentment_money: "TaxLineFieldsPriceSetPresentmentMoney" = Field(
-        alias="presentmentMoney"
-    )
-    shop_money: "TaxLineFieldsPriceSetShopMoney" = Field(alias="shopMoney")
-
-
-class TaxLineFieldsPriceSetPresentmentMoney(MoneyFields):
+class TaxLineFieldsPriceSet(MoneyBagFields):
     pass
 
 
-class TaxLineFieldsPriceSetShopMoney(MoneyFields):
+class ShippingLineFields(BaseModel):
+    id: Optional[str]
+    title: str
+    carrier_identifier: Optional[str] = Field(alias="carrierIdentifier")
+    code: Optional[str]
+    original_price_set: "ShippingLineFieldsOriginalPriceSet" = Field(
+        alias="originalPriceSet"
+    )
+    current_discounted_price_set: "ShippingLineFieldsCurrentDiscountedPriceSet" = Field(
+        alias="currentDiscountedPriceSet"
+    )
+    discounted_price_set: "ShippingLineFieldsDiscountedPriceSet" = Field(
+        alias="discountedPriceSet"
+    )
+    delivery_category: Optional[str] = Field(alias="deliveryCategory")
+    is_removed: bool = Field(alias="isRemoved")
+
+
+class ShippingLineFieldsOriginalPriceSet(MoneyBagFields):
+    pass
+
+
+class ShippingLineFieldsCurrentDiscountedPriceSet(MoneyBagFields):
+    pass
+
+
+class ShippingLineFieldsDiscountedPriceSet(MoneyBagFields):
     pass
 
 
@@ -145,20 +209,7 @@ class OrderLineItemFieldsVariant(BaseModel):
     id: str
 
 
-class OrderLineItemFieldsOriginalUnitPriceSet(BaseModel):
-    presentment_money: "OrderLineItemFieldsOriginalUnitPriceSetPresentmentMoney" = (
-        Field(alias="presentmentMoney")
-    )
-    shop_money: "OrderLineItemFieldsOriginalUnitPriceSetShopMoney" = Field(
-        alias="shopMoney"
-    )
-
-
-class OrderLineItemFieldsOriginalUnitPriceSetPresentmentMoney(MoneyFields):
-    pass
-
-
-class OrderLineItemFieldsOriginalUnitPriceSetShopMoney(MoneyFields):
+class OrderLineItemFieldsOriginalUnitPriceSet(MoneyBagFields):
     pass
 
 
@@ -173,69 +224,7 @@ class OrderLineItemFieldsDiscountAllocations(BaseModel):
     )
 
 
-class OrderLineItemFieldsDiscountAllocationsAllocatedAmountSet(BaseModel):
-    presentment_money: (
-        "OrderLineItemFieldsDiscountAllocationsAllocatedAmountSetPresentmentMoney"
-    ) = Field(alias="presentmentMoney")
-    shop_money: "OrderLineItemFieldsDiscountAllocationsAllocatedAmountSetShopMoney" = (
-        Field(alias="shopMoney")
-    )
-
-
-class OrderLineItemFieldsDiscountAllocationsAllocatedAmountSetPresentmentMoney(
-    MoneyFields
-):
-    pass
-
-
-class OrderLineItemFieldsDiscountAllocationsAllocatedAmountSetShopMoney(MoneyFields):
-    pass
-
-
-class ShippingLineFields(BaseModel):
-    id: Optional[str]
-    title: str
-    carrier_identifier: Optional[str] = Field(alias="carrierIdentifier")
-    code: Optional[str]
-    original_price_set: "ShippingLineFieldsOriginalPriceSet" = Field(
-        alias="originalPriceSet"
-    )
-    current_discounted_price_set: "ShippingLineFieldsCurrentDiscountedPriceSet" = Field(
-        alias="currentDiscountedPriceSet"
-    )
-    delivery_category: Optional[str] = Field(alias="deliveryCategory")
-    is_removed: bool = Field(alias="isRemoved")
-
-
-class ShippingLineFieldsOriginalPriceSet(BaseModel):
-    presentment_money: "ShippingLineFieldsOriginalPriceSetPresentmentMoney" = Field(
-        alias="presentmentMoney"
-    )
-    shop_money: "ShippingLineFieldsOriginalPriceSetShopMoney" = Field(alias="shopMoney")
-
-
-class ShippingLineFieldsOriginalPriceSetPresentmentMoney(MoneyFields):
-    pass
-
-
-class ShippingLineFieldsOriginalPriceSetShopMoney(MoneyFields):
-    pass
-
-
-class ShippingLineFieldsCurrentDiscountedPriceSet(BaseModel):
-    presentment_money: "ShippingLineFieldsCurrentDiscountedPriceSetPresentmentMoney" = (
-        Field(alias="presentmentMoney")
-    )
-    shop_money: "ShippingLineFieldsCurrentDiscountedPriceSetShopMoney" = Field(
-        alias="shopMoney"
-    )
-
-
-class ShippingLineFieldsCurrentDiscountedPriceSetPresentmentMoney(MoneyFields):
-    pass
-
-
-class ShippingLineFieldsCurrentDiscountedPriceSetShopMoney(MoneyFields):
+class OrderLineItemFieldsDiscountAllocationsAllocatedAmountSet(MoneyBagFields):
     pass
 
 
@@ -274,6 +263,10 @@ class OrderFields(BaseModel):
     )
     line_items: "OrderFieldsLineItems" = Field(alias="lineItems")
     shipping_lines: "OrderFieldsShippingLines" = Field(alias="shippingLines")
+    fulfillments: List["OrderFieldsFulfillments"]
+    discount_applications: "OrderFieldsDiscountApplications" = Field(
+        alias="discountApplications"
+    )
     total_discounts_set: Optional["OrderFieldsTotalDiscountsSet"] = Field(
         alias="totalDiscountsSet"
     )
@@ -281,33 +274,15 @@ class OrderFields(BaseModel):
     metafields: "OrderFieldsMetafields"
 
 
-class OrderFieldsTotalPriceSet(BaseModel):
-    presentment_money: "OrderFieldsTotalPriceSetPresentmentMoney" = Field(
-        alias="presentmentMoney"
-    )
-
-
-class OrderFieldsTotalPriceSetPresentmentMoney(MoneyFields):
+class OrderFieldsTotalPriceSet(MoneyBagFields):
     pass
 
 
-class OrderFieldsSubtotalPriceSet(BaseModel):
-    presentment_money: "OrderFieldsSubtotalPriceSetPresentmentMoney" = Field(
-        alias="presentmentMoney"
-    )
-
-
-class OrderFieldsSubtotalPriceSetPresentmentMoney(MoneyFields):
+class OrderFieldsSubtotalPriceSet(MoneyBagFields):
     pass
 
 
-class OrderFieldsTotalShippingPriceSet(BaseModel):
-    presentment_money: "OrderFieldsTotalShippingPriceSetPresentmentMoney" = Field(
-        alias="presentmentMoney"
-    )
-
-
-class OrderFieldsTotalShippingPriceSetPresentmentMoney(MoneyFields):
+class OrderFieldsTotalShippingPriceSet(MoneyBagFields):
     pass
 
 
@@ -339,13 +314,48 @@ class OrderFieldsShippingLinesNodes(ShippingLineFields):
     pass
 
 
-class OrderFieldsTotalDiscountsSet(BaseModel):
-    presentment_money: "OrderFieldsTotalDiscountsSetPresentmentMoney" = Field(
-        alias="presentmentMoney"
+class OrderFieldsFulfillments(BaseModel):
+    tracking_info: List["OrderFieldsFulfillmentsTrackingInfo"] = Field(
+        alias="trackingInfo"
     )
 
 
-class OrderFieldsTotalDiscountsSetPresentmentMoney(MoneyFields):
+class OrderFieldsFulfillmentsTrackingInfo(FulfillmentTrackingInfoFields):
+    pass
+
+
+class OrderFieldsDiscountApplications(BaseModel):
+    nodes: List[
+        Annotated[
+            Union[
+                "OrderFieldsDiscountApplicationsNodesDiscountApplication",
+                "OrderFieldsDiscountApplicationsNodesDiscountCodeApplication",
+                "OrderFieldsDiscountApplicationsNodesManualDiscountApplication",
+            ],
+            Field(discriminator="typename__"),
+        ]
+    ]
+
+
+class OrderFieldsDiscountApplicationsNodesDiscountApplication(BaseModel):
+    typename__: Literal[
+        "AutomaticDiscountApplication",
+        "DiscountApplication",
+        "ScriptDiscountApplication",
+    ] = Field(alias="__typename")
+
+
+class OrderFieldsDiscountApplicationsNodesDiscountCodeApplication(BaseModel):
+    typename__: Literal["DiscountCodeApplication"] = Field(alias="__typename")
+    code: str
+
+
+class OrderFieldsDiscountApplicationsNodesManualDiscountApplication(BaseModel):
+    typename__: Literal["ManualDiscountApplication"] = Field(alias="__typename")
+    title: str
+
+
+class OrderFieldsTotalDiscountsSet(MoneyBagFields):
     pass
 
 
@@ -359,11 +369,6 @@ class OrderFieldsMetafields(BaseModel):
 
 class OrderFieldsMetafieldsNodes(MetafieldFields):
     pass
-
-
-class UserErrorFields(BaseModel):
-    field: Optional[List[str]]
-    message: str
 
 
 class VariantFields(BaseModel):
@@ -392,14 +397,78 @@ class VariantFieldsInventoryItemMeasurementWeight(BaseModel):
     value: float
 
 
+class ProductFields(BaseModel):
+    id: str
+    title: str
+    description_html: str = Field(alias="descriptionHtml")
+    vendor: str
+    product_type: str = Field(alias="productType")
+    status: ProductStatus
+    total_inventory: int = Field(alias="totalInventory")
+    created_at: Annotated[datetime, BeforeValidator(parse_shopify_datetime_to_utc)] = (
+        Field(alias="createdAt")
+    )
+    updated_at: Annotated[datetime, BeforeValidator(parse_shopify_datetime_to_utc)] = (
+        Field(alias="updatedAt")
+    )
+    media: "ProductFieldsMedia"
+    variants: "ProductFieldsVariants"
+    metafields: "ProductFieldsMetafields"
+
+
+class ProductFieldsMedia(BaseModel):
+    nodes: List[
+        Annotated[
+            Union["ProductFieldsMediaNodesMedia", "ProductFieldsMediaNodesMediaImage"],
+            Field(discriminator="typename__"),
+        ]
+    ]
+
+
+class ProductFieldsMediaNodesMedia(BaseModel):
+    typename__: Literal["ExternalVideo", "Media", "Model3d", "Video"] = Field(
+        alias="__typename"
+    )
+    status: MediaStatus
+
+
+class ProductFieldsMediaNodesMediaImage(MediaImageFields):
+    typename__: Literal["MediaImage"] = Field(alias="__typename")
+    status: MediaStatus
+
+
+class ProductFieldsVariants(BaseModel):
+    nodes: List["ProductFieldsVariantsNodes"]
+
+
+class ProductFieldsVariantsNodes(VariantFields):
+    pass
+
+
+class ProductFieldsMetafields(BaseModel):
+    nodes: List["ProductFieldsMetafieldsNodes"]
+
+
+class ProductFieldsMetafieldsNodes(MetafieldFields):
+    pass
+
+
+class UserErrorFields(BaseModel):
+    field: Optional[List[str]]
+    message: str
+
+
 AddressFields.model_rebuild()
 CustomerFields.model_rebuild()
+FulfillmentTrackingInfoFields.model_rebuild()
 MediaImageFields.model_rebuild()
 MetafieldFields.model_rebuild()
 MoneyFields.model_rebuild()
+MoneyBagFields.model_rebuild()
 TaxLineFields.model_rebuild()
-OrderLineItemFields.model_rebuild()
 ShippingLineFields.model_rebuild()
+OrderLineItemFields.model_rebuild()
 OrderFields.model_rebuild()
-UserErrorFields.model_rebuild()
 VariantFields.model_rebuild()
+ProductFields.model_rebuild()
+UserErrorFields.model_rebuild()

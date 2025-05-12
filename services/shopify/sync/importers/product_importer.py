@@ -11,8 +11,8 @@ from ...gql import (
     Client,
     MediaStatus,
     GetProductsProducts,
-    GetProductsProductsNodes,
-    GetProductsProductsNodesMediaNodesMediaImage,
+    ProductFields,
+    ProductFieldsMediaNodesMediaImage,
 )
 from ..base import ShopifyBaseImporter
 from ...helpers import (
@@ -29,7 +29,7 @@ from ...helpers import (
 _logger = logging.getLogger(__name__)
 
 
-class ProductImporter(ShopifyBaseImporter[GetProductsProductsNodes]):
+class ProductImporter(ShopifyBaseImporter[ProductFields]):
     def __init__(self, env: Environment, sync_record: "odoo.model.shopify_sync") -> None:
         super().__init__(env, sync_record)
 
@@ -39,7 +39,7 @@ class ProductImporter(ShopifyBaseImporter[GetProductsProductsNodes]):
     def import_products_since_last_import(self) -> int:
         return self.run_since_last_import("product")
 
-    def _import_one(self, shopify_product: GetProductsProductsNodes) -> bool:
+    def _import_one(self, shopify_product: ProductFields) -> bool:
         if not shopify_product.variants or not shopify_product.variants.nodes:
             raise ShopifyDataError(f"No variants found", shopify_record=shopify_product)
 
@@ -102,7 +102,7 @@ class ProductImporter(ShopifyBaseImporter[GetProductsProductsNodes]):
             ) from error
 
     def _images_are_in_sync(
-        self, odoo_product: "odoo.model.product_product", shopify_images: list[GetProductsProductsNodesMediaNodesMediaImage]
+        self, odoo_product: "odoo.model.product_product", shopify_images: list[ProductFieldsMediaNodesMediaImage]
     ) -> bool:
         if len(odoo_product.images) != len(shopify_images):
             _logger.debug(
@@ -138,9 +138,7 @@ class ProductImporter(ShopifyBaseImporter[GetProductsProductsNodes]):
 
         return part_type
 
-    def import_images_from_shopify(
-        self, odoo_product: "odoo.model.product_product", shopify_product: GetProductsProductsNodes
-    ) -> None:
+    def import_images_from_shopify(self, odoo_product: "odoo.model.product_product", shopify_product: ProductFields) -> None:
         shopify_images = [image for image in shopify_product.media.nodes if image.status == MediaStatus.READY]
         if not shopify_images:
             _logger.debug(f"No images to import for product {shopify_product.id} {shopify_product.title}")
@@ -203,16 +201,14 @@ class ProductImporter(ShopifyBaseImporter[GetProductsProductsNodes]):
         return [image.shopify_media_id for image in ordered_images if image.shopify_media_id]
 
     @staticmethod
-    def _ordered_shopify_media_ids(shopify_images: list[GetProductsProductsNodesMediaNodesMediaImage]) -> list[str]:
+    def _ordered_shopify_media_ids(shopify_images: list[ProductFieldsMediaNodesMediaImage]) -> list[str]:
         return [parse_shopify_id_from_gid(image.id) for image in shopify_images]
 
-    def _sync_images_bidirectional(
-        self, odoo_product: "odoo.model.product_product", shopify_product: GetProductsProductsNodes
-    ) -> None:
+    def _sync_images_bidirectional(self, odoo_product: "odoo.model.product_product", shopify_product: ProductFields) -> None:
         self.import_images_from_shopify(odoo_product, shopify_product)
 
     def save_odoo_product(
-        self, odoo_product: Optional["odoo.model.product_product"], shopify_product: GetProductsProductsNodes
+        self, odoo_product: Optional["odoo.model.product_product"], shopify_product: ProductFields
     ) -> "odoo.model.product_product":
         try:
             variant = shopify_product.variants.nodes[0]

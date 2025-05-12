@@ -102,7 +102,7 @@
                 </div>
             </xpath>
             <xpath expr="//notebook" position="inside">
-                <page string="Test Details">
+                <page string="Test Details" invisible="not motor">
                     <field name="motor_tests" string="">
                         <list>
                             <field name="name"/>

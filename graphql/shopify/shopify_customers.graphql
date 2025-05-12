@@ -16,13 +16,24 @@ fragment CustomerFields on Customer {
     id
     firstName
     lastName
-    defaultEmailAddress { emailAddress }
-    defaultPhoneNumber { phoneNumber }
+    defaultEmailAddress {
+        emailAddress
+        marketingState
+        marketingOptInLevel
+        marketingUpdatedAt
+    }
+    defaultPhoneNumber {
+        phoneNumber
+        marketingState
+        marketingOptInLevel
+        marketingUpdatedAt
+    }
     createdAt
     updatedAt
     defaultAddress { ...AddressFields }
     addressesV2(first: 50) { nodes { ...AddressFields } }
     tags
+    taxExempt
 }
 
 

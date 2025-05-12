@@ -7,9 +7,9 @@ from odoo.api import Environment
 
 from ...gql import (
     Client,
-    GetOrdersOrdersNodes,
-    OrderFieldsShippingAddress,
-    OrderFieldsBillingAddress,
+    MoneyBagFields,
+    AddressFields,
+    OrderFields,
     CurrencyCode,
     OrderLineItemFields,
 )
@@ -19,7 +19,6 @@ from ...helpers import (
     parse_shopify_id_from_gid,
     write_if_changed,
     parse_shopify_sku_field_to_sku_and_bin,
-    PriceSet,
 )
 
 from .customer_importer import CustomerImporter, AddressRole
@@ -27,17 +26,11 @@ from .customer_importer import CustomerImporter, AddressRole
 _logger = logging.getLogger(__name__)
 
 
-class OrderImporter(ShopifyBaseImporter[GetOrdersOrdersNodes]):
-    PROVIDER_PREFIXES = [
-        "royal mail",
-        "fedex",
-        "ups",
-        "usps",
-        "dhl",
-        "freight",
-    ]
-
+class OrderImporter(ShopifyBaseImporter[OrderFields]):
     _CARRIER_PUNCTUATION_PATTERN = re.compile(r"[^\w\s\-]")
+
+    def __init__(self, env: Environment, sync_record: "odoo.model.shopify_sync") -> None:
+        super().__init__(env, sync_record)
 
     @classmethod
     def _normalise_carrier_name(cls, name: str) -> str:
@@ -46,7 +39,7 @@ class OrderImporter(ShopifyBaseImporter[GetOrdersOrdersNodes]):
         return unicodedata.normalize("NFKD", cleaned).strip().casefold()
 
     @staticmethod
-    def _get_amount_for_order_currency(price_set: PriceSet, order_currency: CurrencyCode) -> Decimal:
+    def _get_amount_for_order_currency(price_set: MoneyBagFields, order_currency: CurrencyCode) -> Decimal:
         if not price_set:
             return Decimal("0")
         if (
@@ -70,16 +63,13 @@ class OrderImporter(ShopifyBaseImporter[GetOrdersOrdersNodes]):
             Decimal("0"),
         )
 
-    def __init__(self, env: Environment, sync_record: "odoo.model.shopify_sync") -> None:
-        super().__init__(env, sync_record)
-
-    def _fetch_page(self, client: Client, query: str | None, cursor: str | None) -> ShopifyPage[GetOrdersOrdersNodes]:
+    def _fetch_page(self, client: Client, query: str | None, cursor: str | None) -> ShopifyPage[OrderFields]:
         return client.get_orders(query=query, cursor=cursor, limit=self.page_size)
 
     def import_orders_since_last_import(self) -> int:
         return self.run_since_last_import("order")
 
-    def _import_one(self, shopify_order: GetOrdersOrdersNodes) -> bool:
+    def _import_one(self, shopify_order: OrderFields) -> bool:
         if not shopify_order.customer:
             _logger.warning(f"Order {shopify_order.name} has no customer; skipping order")
             return False
@@ -91,8 +81,15 @@ class OrderImporter(ShopifyBaseImporter[GetOrdersOrdersNodes]):
             _logger.warning(f"Customer {shopify_customer_id} not found for order {shopify_order.name}; skipping order")
             return False
 
-        shipping_partner = self._resolve_address(shopify_order.shipping_address, partner, role="shipping")
-        billing_partner = self._resolve_address(shopify_order.billing_address, partner, role="billing")
+        if shopify_order.shipping_address:
+            shipping_partner = self._resolve_address(shopify_order.shipping_address, partner, role="shipping")
+        else:
+            shipping_partner = partner
+
+        if shopify_order.billing_address:
+            billing_partner = self._resolve_address(shopify_order.billing_address, partner, role="billing")
+        else:
+            billing_partner = partner
 
         currency = self.env["res.currency"].search([("name", "=", shopify_order.currency_code.value)], limit=1)
         if not currency:
@@ -118,18 +115,26 @@ class OrderImporter(ShopifyBaseImporter[GetOrdersOrdersNodes]):
         if existing_order:
             changed = write_if_changed(existing_order, order_values)
             changed |= self._sync_order_lines(existing_order, shopify_order)
+
+            if existing_order.state == "draft":
+                existing_order.with_context(skip_shopify_sync=True).action_confirm()
+
             return changed
         new_order = self.env["sale.order"].with_context(skip_shopify_sync=True).create(order_values)
         self._sync_order_lines(new_order, shopify_order)
+
+        new_order.with_context(skip_shopify_sync=True).action_confirm()
+
         return True
 
-    def _sync_order_lines(self, odoo_order: "odoo.model.sale_order", shopify_order: GetOrdersOrdersNodes) -> bool:
+    def _sync_order_lines(self, odoo_order: "odoo.model.sale_order", shopify_order: OrderFields) -> bool:
         changed = False
         line_items = shopify_order.line_items.nodes
 
         existing_by_line_id: dict[str, "odoo.model.sale_order_line"] = {
             line.shopify_order_line_id: line for line in odoo_order.order_line
         }
+        processed_keys: set[str] = set()
 
         # bulk product pre‑fetch
         sku_list: list[str] = []
@@ -158,6 +163,7 @@ class OrderImporter(ShopifyBaseImporter[GetOrdersOrdersNodes]):
 
         for shopify_line in line_items:
             shopify_line_item_id = parse_shopify_id_from_gid(shopify_line.id)
+            processed_keys.add(shopify_line_item_id)
 
             try:
                 sku, _ = parse_shopify_sku_field_to_sku_and_bin(shopify_line.sku or "")
@@ -196,7 +202,8 @@ class OrderImporter(ShopifyBaseImporter[GetOrdersOrdersNodes]):
 
         shipping_changed = self._apply_shipping(odoo_order, shopify_order)
         discount_changed = self._apply_global_discount(odoo_order, shopify_order)
-        changed |= shipping_changed or discount_changed
+        tracking_changed = self._apply_tracking(odoo_order, shopify_order)
+        changed |= shipping_changed or discount_changed or tracking_changed
 
         for tax_line in shopify_order.tax_lines:
             if not tax_line or not tax_line.price_set:
@@ -206,6 +213,7 @@ class OrderImporter(ShopifyBaseImporter[GetOrdersOrdersNodes]):
                 continue
             tax_product = self._get_special_product("TAX", tax_line.title or "Tax")
             tax_key = f"tax:{parse_shopify_id_from_gid(shopify_order.id)}:{tax_line.title or tax_line.rate_percentage}"
+            processed_keys.add(tax_key)
             tax_vals: "odoo.values.sale_order_line" = {
                 "order_id": odoo_order.id,
                 "product_id": tax_product.id,
@@ -221,62 +229,102 @@ class OrderImporter(ShopifyBaseImporter[GetOrdersOrdersNodes]):
                 self.env["sale.order.line"].with_context(skip_shopify_sync=True).create(tax_vals)
                 changed = True
 
-        if existing_by_line_id:
-            self.env["sale.order.line"].browse([l.id for l in existing_by_line_id.values()]).unlink()
+        current_by_line_id = {line.shopify_order_line_id: line for line in odoo_order.order_line if line.shopify_order_line_id}
+        stale_ids = [line.id for key, line in current_by_line_id.items() if key not in processed_keys]
+        if stale_ids:
+            self.env["sale.order.line"].browse(stale_ids).unlink()
             changed = True
 
         return changed
 
-    def _apply_shipping(self, odoo_order: "odoo.model.sale_order", shopify_order: GetOrdersOrdersNodes) -> bool:
-        shipping_lines = shopify_order.shipping_lines.nodes
-        if not shipping_lines:
-            delivery_lines = odoo_order.order_line.filtered("is_delivery")
-            if delivery_lines:
-                delivery_lines.unlink()
-                return True
-            return False
+    def _apply_shipping(self, odoo_order: "odoo.model.sale_order", shopify_order: OrderFields) -> bool:
+        shipping_lines = [
+            line for line in shopify_order.shipping_lines.nodes if line and not getattr(line, "is_removed", False)
+        ]
 
-        shipping_total_dec = sum(
-            self._get_amount_for_order_currency(
-                (shipping_line.current_discounted_price_set or shipping_line.original_price_set),
-                shopify_order.currency_code.value,
-            )
-            for shipping_line in shipping_lines
-            if shipping_line
-        )
-        if shipping_total_dec == 0:
-            return False
-
-        raw_name = shipping_lines[0].title or "Shopify Shipping"
-        carrier_name = raw_name.strip()
-        normalised = self._normalise_carrier_name(carrier_name)
-        carrier = self.env["delivery.carrier"].search([("name", "ilike", normalised)], limit=1)
-        if not carrier:
-            provider, _ = self._parse_provider_and_service(carrier_name)
-            product_code = provider.upper()[:4] or "SHIP"
-            shipping_product = self._get_special_product(product_code, carrier_name)
-            carrier = self.env["delivery.carrier"].create(
-                {
-                    "name": carrier_name,
-                    "delivery_type": "fixed",
-                    "product_id": shipping_product.id,
-                    "company_id": self.env.company.id,
-                    "fixed_price": 0.0,
-                    "margin": 0.0,
-                }
-            )
-        if not carrier.tax_ids:
-            default_sale_tax = self.env["account.tax"].search([("type_tax_use", "=", "sale")], limit=1)
-            if default_sale_tax:
-                fiscal_position = odoo_order.fiscal_position_id or odoo_order.partner_id.property_account_position_id
-                mapped_tax = fiscal_position.map_tax(default_sale_tax) if fiscal_position else default_sale_tax
-                carrier.tax_ids = [(6, 0, mapped_tax.ids)]
-
+        # remove all existing delivery lines; we will recreate them based on the current payload
         odoo_order.order_line.filtered("is_delivery").unlink()
-        odoo_order.set_delivery_line(carrier, float(shipping_total_dec))
-        return True
 
-    def _apply_global_discount(self, odoo_order: "odoo.model.sale_order", shopify_order: GetOrdersOrdersNodes) -> bool:
+        if not shipping_lines:
+            return True  # nothing to import but we still removed old lines
+
+        # group Shopify shipping lines by normalised service name
+        grouped: dict[str, list] = {}
+        for line in shipping_lines:
+            normalised = self._normalise_carrier_name(line.title or "")
+            grouped.setdefault(normalised, []).append(line)
+
+        is_first_group = True
+        changed = False
+
+        for normalised_name, lines in grouped.items():
+            # total cost for this service level
+            total_dec = sum(
+                self._get_amount_for_order_currency(
+                    (l.discounted_price_set or l.current_discounted_price_set or l.original_price_set),
+                    shopify_order.currency_code.value,
+                )
+                for l in lines
+            )
+            if total_dec == 0:
+                continue
+
+            # resolve carrier through the mapping table
+            mapping = self.env["delivery.carrier.service.map"].search(
+                [("platform", "=", "shopify"), ("external_name", "=", normalised_name)],
+                limit=1,
+            )
+            if not mapping:
+                raise ShopifyDataError(
+                    f"Unknown delivery service '{lines[0].title}'. "
+                    "Create a delivery carrier and add a mapping, then re‑run the import.",
+                    shopify_record=shopify_order,
+                )
+
+            carrier = mapping.carrier_id
+            delivery_product = carrier.product_id
+
+            # ensure the delivery product carries default sale tax if none set
+            if delivery_product and not delivery_product.taxes_id:
+                default_sale_tax = self.env["account.tax"].search([("type_tax_use", "=", "sale")], limit=1)
+                if default_sale_tax:
+                    fiscal_position = (
+                        odoo_order.fiscal_position_id or odoo_order.partner_id.property_account_position_id
+                    )
+                    mapped_tax = fiscal_position.map_tax(default_sale_tax) if fiscal_position else default_sale_tax
+                    delivery_product.taxes_id = [(6, 0, mapped_tax.ids)]
+
+            if is_first_group:
+                # Odoo needs one carrier on the order header; use the first group found
+                odoo_order.set_delivery_line(carrier, float(total_dec))
+                is_first_group = False
+            else:
+                # additional package/service lines become regular delivery order lines
+                self.env["sale.order.line"].with_context(skip_shopify_sync=True).create(
+                    {
+                        "order_id": odoo_order.id,
+                        "product_id": delivery_product.id,
+                        "product_uom_qty": 1,
+                        "price_unit": float(total_dec),
+                        "name": lines[0].title or carrier.name,
+                        "is_delivery": True,
+                    }
+                )
+            changed = True
+
+        return changed
+
+    def _apply_global_discount(self, odoo_order: "odoo.model.sale_order", shopify_order: OrderFields) -> bool:
+        discount_reason = "Discount"
+        if shopify_order.discount_applications and shopify_order.discount_applications.nodes:
+            parts: list[str] = []
+            for app in shopify_order.discount_applications.nodes:
+                title_or_code = getattr(app, "title", "") or getattr(app, "code", "")
+                if title_or_code:
+                    parts.append(title_or_code.strip())
+            if parts:
+                discount_reason = ", ".join(dict.fromkeys(parts))
+
         discount_amount = self._get_amount_for_order_currency(
             shopify_order.total_discounts_set, shopify_order.currency_code.value
         )
@@ -298,8 +346,13 @@ class OrderImporter(ShopifyBaseImporter[GetOrdersOrdersNodes]):
             "product_id": discount_product.id,
             "product_uom_qty": 1,
             "price_unit": -float(discount_amount),
-            "name": "Discount",
+            "name": discount_reason,
         }
+
+        # Propagate tax from a product line with tax, if present
+        product_line_with_tax = odoo_order.order_line.filtered(lambda l: l.tax_id)[:1]
+        if product_line_with_tax:
+            discount_vals["tax_id"] = [(6, 0, product_line_with_tax.tax_id.ids)]
 
         if discount_lines:
             return write_if_changed(discount_lines[0], discount_vals)
@@ -307,21 +360,29 @@ class OrderImporter(ShopifyBaseImporter[GetOrdersOrdersNodes]):
         self.env["sale.order.line"].with_context(skip_shopify_sync=True).create(discount_vals)
         return True
 
-    def _parse_provider_and_service(self, title: str) -> tuple[str, str]:
-        cleaned_title = re.sub(r"\s+", " ", title or "").strip()
-        cleaned_title = re.sub(r"[®™]", "", cleaned_title)
-        lowered_title = cleaned_title.lower()
-        for prefix in self.PROVIDER_PREFIXES:
-            if lowered_title.startswith(prefix):
-                provider = cleaned_title[: len(prefix)].strip()
-                service = cleaned_title[len(prefix) :].strip(" -")
-                return provider, service
-        if "free" in lowered_title:
-            return "Free Shipping", cleaned_title
-        if any(word in lowered_title for word in ("economy", "standard")):
-            return "Generic", cleaned_title
-        first, *rest = cleaned_title.split(" ", 1)
-        return first, rest[0] if rest else ""
+    def _apply_tracking(self, odoo_order: "odoo.model.sale_order", shopify_order: OrderFields) -> bool:
+        numbers = self._extract_tracking_numbers(shopify_order)
+        if not numbers:
+            return False
+        tracking_ref = ", ".join(numbers)
+        picking = odoo_order.picking_ids.sorted("id", reverse=True)[:1]
+        if not picking:
+            return False
+        if picking.carrier_tracking_ref != tracking_ref:
+            picking.carrier_tracking_ref = tracking_ref
+            return True
+        return False
+
+    @staticmethod
+    def _extract_tracking_numbers(shopify_order: OrderFields) -> list[str]:
+        numbers: list[str] = []
+        if shopify_order.fulfillments:
+            for fulfillment in shopify_order.fulfillments:
+                if fulfillment and fulfillment.tracking_info:
+                    for info in fulfillment.tracking_info:
+                        if info and info.number:
+                            numbers.append(info.number.strip())
+        return list(dict.fromkeys(filter(None, numbers)))
 
     def _get_special_product(self, default_code: str, name: str) -> "odoo.model.product_product":
         product = self.env["product.product"].search([("default_code", "=", default_code)], limit=1)
@@ -339,18 +400,15 @@ class OrderImporter(ShopifyBaseImporter[GetOrdersOrdersNodes]):
         )
 
     def _resolve_address(
-        self,
-        shopify_address: OrderFieldsShippingAddress | OrderFieldsBillingAddress,
-        partner: "odoo.model.res_partner",
-        role: AddressRole,
+        self, shopify_address: AddressFields, partner: "odoo.model.res_partner", role: AddressRole
     ) -> "odoo.model.res_partner":
         if not shopify_address:
             return partner
 
         def _find_partner() -> "odoo.model.res_partner":
-            return self.env["res.partner"].search(
-                [("shopify_address_id", "=", parse_shopify_id_from_gid(shopify_address.id))], limit=1
-            )
+            sid = parse_shopify_id_from_gid(shopify_address.id)
+            variants = [sid, f"{sid}:delivery", f"{sid}:invoice"]
+            return self.env["res.partner"].search([("shopify_address_id", "in", variants)], limit=1)
 
         address_partner = _find_partner()
         if address_partner:
