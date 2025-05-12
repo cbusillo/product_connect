@@ -1,4 +1,4 @@
-from odoo import fields, models
+from odoo import api, fields, models
 
 
 class ResPartner(models.Model):
@@ -10,6 +10,7 @@ class ResPartner(models.Model):
     shopify_address_id = fields.Char(string="Shopify Address ID", copy=False)
     ebay_profile_url = fields.Char(string="eBay Profile Link", compute="_compute_ebay_profile_url", store=True)
 
+    @api.depends("shopify_customer_id")
     def _compute_shopify_urls(self) -> None:
         for partner in self:
             if partner.shopify_customer_id:
@@ -20,6 +21,7 @@ class ResPartner(models.Model):
             else:
                 partner.shopify_customer_admin_url = False
 
+    @api.depends("ebay_username")
     def _compute_ebay_profile_url(self) -> None:
         for partner in self:
             partner.ebay_profile_url = f"https://www.ebay.com/usr/{partner.ebay_username}" if partner.ebay_username else False

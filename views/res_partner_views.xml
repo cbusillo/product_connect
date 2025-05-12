@@ -11,6 +11,31 @@
         </field>
     </record>
 
+    <record id="view_partner_form_inherit_connect" model="ir.ui.view">
+        <field name="name">res.partner.form.inherit.connect</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <notebook>
+                    <page string="External Integrations">
+                        <group col="2">
+                            <group>
+                                <separator string="Shopify"/>
+                                <field name="shopify_customer_id" widget="CopyClipboardChar"/>
+                                <field name="shopify_customer_admin_url" widget="CopyClipboardURL"/>
+                            </group>
+                            <group>
+                                <separator string="eBay"/>
+                                <field name="ebay_username"/>
+                                <field name="ebay_profile_url" widget="CopyClipboardURL"/>
+                            </group>
+                        </group>
+                    </page>
+                </notebook>
+            </xpath>
+        </field>
+    </record>
 
     <record id="view_partner_search_inherit_connect" model="ir.ui.view">
         <field name="name">res.partner.search.inherit.connect</field>
