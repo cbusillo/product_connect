@@ -112,11 +112,10 @@ class ProductInventoryWizard(models.TransientModel):
         self._load_bin_products()
 
     def _load_bin_products(self) -> None:
-        self.products = [(5, 0, 0)]
         products_with_bin_and_quantity = self.env["product.template"].search(
             [("bin", "=", self.current_bin), ("qty_available", ">", 0)]
         )
-        self.products = self.env["product.inventory.wizard.line"].create(
+        lines_created = self.env["product.inventory.wizard.line"].create(
             [
                 {
                     "wizard": self.id,
@@ -127,6 +126,8 @@ class ProductInventoryWizard(models.TransientModel):
                 for product in products_with_bin_and_quantity
             ]
         )
+        commands = [(5, 0, 0)] + [(4, line.id) for line in lines_created]
+        self.write({"products": commands})
 
     @api.onchange("scan_box")
     def _onchange_scan_box(self) -> None | dict[str, dict[str, str]]:
