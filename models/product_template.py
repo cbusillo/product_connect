@@ -193,14 +193,17 @@ class ProductTemplate(models.Model):
             "weight",
         }
 
+        write_results: list[bool] = []
+
         for product in self:
+            vals_to_write = vals.copy()
 
             for field in qc_reset_fields:
-                if field in vals and not vals[field]:
-                    vals[f"{field}_qc"] = False
+                if field in vals_to_write and not vals_to_write[field]:
+                    vals_to_write[f"{field}_qc"] = False
 
-            if "is_pictured" in vals and vals["is_pictured"] and not product.images:
-                vals["is_pictured"] = False
+            if "is_pictured" in vals_to_write and vals_to_write["is_pictured"] and not product.images:
+                vals_to_write["is_pictured"] = False
                 self.env["bus.bus"]._sendone(
                     self.env.user.partner_id,
                     "simple_notification",
@@ -211,26 +214,25 @@ class ProductTemplate(models.Model):
                     },
                 )
 
-            if "is_pictured" in vals and vals["is_pictured"]:
-                vals["is_picture_taken"] = True
+            if "is_pictured" in vals_to_write and vals_to_write["is_pictured"]:
+                vals_to_write["is_picture_taken"] = True
 
-            if "is_dismantled" in vals and vals["is_dismantled"]:
+            if "is_dismantled" in vals_to_write and vals_to_write["is_dismantled"]:
                 message_text = f"Product '{product.motor_product_template_name}' dismantled"
                 product.motor.message_post(body=message_text, message_type="comment", subtype_xmlid="mail.mt_note")
 
-            if "tech_result" in vals:
-                tech_result = self.env["motor.dismantle.result"].browse(vals["tech_result"]).name
+            if "tech_result" in vals_to_write:
+                tech_result = self.env["motor.dismantle.result"].browse(vals_to_write["tech_result"]).name
                 message_text = f"Product '{product.motor_product_template_name}' tech result: {tech_result}"
                 product.motor.message_post(body=message_text, message_type="comment", subtype_xmlid="mail.mt_note")
 
-        result = super().write(vals)
+            write_results.append(super(ProductTemplate, product).write(vals_to_write))
 
-        for product in self:
             if product.image_count < 1 and (product.is_pictured or product.is_pictured_qc):
                 product.is_pictured = False
                 product.is_pictured_qc = False
 
-            if product.motor and any(f in vals for f in ui_refresh_fields):
+            if product.motor and any(f in vals_to_write for f in ui_refresh_fields):
                 product.motor.notify_changes()
 
         if not self.env.context.get("skip_shopify_sync"):
@@ -239,7 +241,8 @@ class ProductTemplate(models.Model):
             self.env["shopify.sync"].create_and_run_async(
                 {"mode": SyncMode.EXPORT_BATCH_PRODUCTS, "odoo_products_to_sync": commands}
             )
-        return result
+
+        return all(write_results)
 
     def _track_template(self, changes: set[str]) -> dict[str, tuple[str, dict]]:
         self.ensure_one()
