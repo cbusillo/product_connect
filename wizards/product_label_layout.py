@@ -58,6 +58,7 @@ class ProductLabelLayout(models.TransientModel):
 
     def process(self) -> dict[str, Any]:
         custom_formats = ["2x1", "2x1bin", "4x2motor"]
+        # TODO: test if this is still needed.  Will need to be onsite and test motor and product labels
         if self.print_format not in custom_formats or True:
             return super().process()
 

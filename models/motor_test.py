@@ -142,7 +142,6 @@ class MotorTest(models.Model):
         related="template.conditional_tests",
     )
 
-    @api.model
     def write(self, vals: "odoo.values.motor_test") -> bool:
         result = super().write(vals)
         if self.motor and not self.env.context.get("tracking_motor_test"):
