@@ -8,7 +8,7 @@
         <field name="view_mode">list,kanban,form,graph</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
-                No sync has been executed yet.
+                Run a sync to get started.
             </p>
         </field>
     </record>

@@ -46,7 +46,6 @@
                     <t t-foreach="range(product['initial_quantity'])" t-as="i">
                         <div class="page"
                              style="padding-top: 1mm; height:29mm; width:57mm; font-family: Arial, sans-serif; page-break-before: always;">
-                            <!-- QR Code and Product Info Side-by-Side -->
                             <div>
                                 <div t-out="product['default_code']"
                                      style="display: inline-block; width: 20mm; height: 20mm; vertical-align: top;"
@@ -85,13 +84,11 @@
                 <t t-foreach="products_data" t-as="product">
                     <div class="page"
                          style="padding-top: 1mm; height:29mm; width:57mm; font-family: Arial, sans-serif; page-break-before: always; display: flex; align-items: center; justify-content: center;">
-                        <!-- Flex container for QR Code and Bin Info -->
                         <div style="display: flex; align-items: center;">
                             <!-- QR Code -->
                             <div t-out="product['bin']" style="flex: 0 0 auto; width: 20mm; height: 20mm;"
                                  t-options="{'widget': 'barcode', 'symbology': 'QR', 'img_style': 'width:20mm;height:20mm;'}">
                             </div>
-                            <!-- Bin Info -->
                             <div style="padding-left: 4mm; text-align: center;">
                                 <p style="margin: 0; font-size: 2mm;">
                                     <span t-out="product['current_date']"/>
