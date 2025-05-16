@@ -238,74 +238,68 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
         return changed
 
     def _apply_shipping(self, odoo_order: "odoo.model.sale_order", shopify_order: OrderFields) -> bool:
-        shipping_lines = [line for line in shopify_order.shipping_lines.nodes if line and not getattr(line, "is_removed", False)]
+        shipping_lines = [line for line in shopify_order.shipping_lines.nodes if line and line.is_removed is not True]
 
-        # remove all existing delivery lines; we will recreate them based on the current payload
-        odoo_order.order_line.filtered("is_delivery").unlink()
-
-        if not shipping_lines:
-            return True  # nothing to import but we still removed old lines
-
-        # group Shopify shipping lines by normalised service name
         grouped: dict[str, list] = {}
         for line in shipping_lines:
-            normalised = self._normalise_carrier_name(line.title or "")
-            grouped.setdefault(normalised, []).append(line)
+            grouped.setdefault(self._normalise_carrier_name(line.title or ""), []).append(line)
 
-        is_first_group = True
+        existing_delivery_lines = odoo_order.order_line.filtered("is_delivery")
+        existing_by_product_id = {line.product_id.id: line for line in existing_delivery_lines}
+        processed_product_ids: set[int] = set()
+
+        first_group = True
         changed = False
 
         for normalised_name, lines in grouped.items():
-            # total cost for this service level
-            total_dec = sum(
+            total_amount = sum(
                 self._get_amount_for_order_currency(
                     (l.discounted_price_set or l.current_discounted_price_set or l.original_price_set),
                     shopify_order.currency_code.value,
                 )
                 for l in lines
             )
-            if total_dec == 0:
+            if total_amount == 0:
                 continue
 
-            # resolve carrier through the mapping table
             mapping = self.env["delivery.carrier.service.map"].search(
                 [("platform", "=", "shopify"), ("external_name", "=", normalised_name)],
                 limit=1,
             )
             if not mapping:
-                raise ShopifyDataError(
-                    f"Unknown delivery service '{lines[0].title}'. "
-                    "Create a delivery carrier and add a mapping, then re‑run the import.",
-                    shopify_record=shopify_order,
-                )
+                raise ShopifyDataError(f"Unknown delivery service '{lines[0].title}'", shopify_record=shopify_order)
 
-            carrier = mapping.carrier_id
+            carrier = mapping.carrier
             delivery_product = carrier.product_id
+            product_id = delivery_product.id
+            processed_product_ids.add(product_id)
 
-            # ensure the delivery product carries default sale tax if none set
-            if delivery_product and not delivery_product.taxes_id:
-                default_sale_tax = self.env["account.tax"].search([("type_tax_use", "=", "sale")], limit=1)
-                if default_sale_tax:
-                    fiscal_position = odoo_order.fiscal_position_id or odoo_order.partner_id.property_account_position_id
-                    mapped_tax = fiscal_position.map_tax(default_sale_tax) if fiscal_position else default_sale_tax
-                    delivery_product.taxes_id = [(6, 0, mapped_tax.ids)]
+            line_values: "odoo.values.sale_order_line" = {
+                "product_id": product_id,
+                "product_uom_qty": 1,
+                "price_unit": float(total_amount),
+                "name": lines[0].title or carrier.name,
+                "is_delivery": True,
+            }
 
-            if is_first_group:
-                # Odoo needs one carrier on the order header; use the first group found
-                odoo_order.set_delivery_line(carrier, float(total_dec))
-                is_first_group = False
+            existing_line = existing_by_product_id.get(product_id)
+            if existing_line:
+                changed |= write_if_changed(existing_line, line_values)
             else:
-                # additional package/service lines become regular delivery order lines
                 self.env["sale.order.line"].with_context(skip_shopify_sync=True).create(
-                    {
-                        "order_id": odoo_order.id,
-                        "product_id": delivery_product.id,
-                        "product_uom_qty": 1,
-                        "price_unit": float(total_dec),
-                        "name": lines[0].title or carrier.name,
-                        "is_delivery": True,
-                    }
+                    {"order_id": odoo_order.id, **line_values}
                 )
+                changed = True
+
+            if first_group:
+                if odoo_order.delivery_method_id != carrier.id:
+                    odoo_order.delivery_method_id = carrier.id
+                    changed = True
+                first_group = False
+
+        stale_lines = existing_delivery_lines.filtered(lambda line: line.product_id.id not in processed_product_ids)
+        if stale_lines:
+            stale_lines.unlink()
             changed = True
 
         return changed

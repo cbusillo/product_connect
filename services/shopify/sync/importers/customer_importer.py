@@ -140,11 +140,6 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
             shopify_category = self._get_or_create_category("Shopify")
             partner.write({"category_id": [(4, shopify_category.id)]})
             changed = True
-        else:
-            shopify_category = self._get_or_create_category("Shopify")
-            if shopify_category not in partner.category_id:
-                partner.write({"category_id": [(4, shopify_category.id)]})
-                changed = True
 
         addresses_changed = False
         addresses_to_process: list[tuple[AddressFields, AddressRole]] = []
@@ -201,11 +196,8 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
             state = self.env["res.country.state"].search(domain, limit=1)
 
         formatted_phone = self._format_phone_number(address.phone) if address.phone else ""
-        # Add back phone_mismatch calculation here
-        phone_mismatch = bool(formatted_phone) and normalize_phone(formatted_phone) not in {
-            normalize_phone(partner.phone),
-            normalize_phone(partner.mobile),
-        }
+        existing_numbers = {normalize_phone(p) for p in (partner.phone, partner.mobile) if p}
+        phone_mismatch = bool(formatted_phone and existing_numbers and normalize_phone(formatted_phone) not in existing_numbers)
         existing_address = self.env["res.partner"].search([("shopify_address_id", "=", shopify_address_id)], limit=1)
 
         partner_has_address = any(
@@ -292,14 +284,14 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
                     default={
                         "type": address_type,
                         "shopify_address_id": f"{shopify_address_id}:{address_type}",
+                        "name": address_vals.get("name"),
                     }
                 )
                 return True
             changed = write_if_changed(existing_address, address_vals)
             return changed
         elif is_different_address:
-            shopify_category = self._get_or_create_category("Shopify")
-            address_vals["category_id"] = [(6, 0, list(set(partner.category_id.ids + [shopify_category.id])))]
+            address_vals["category_id"] = [(6, 0, partner.category_id.ids)]
             self.env["res.partner"].create(address_vals)
             return True
         return False

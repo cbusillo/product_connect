@@ -16,6 +16,8 @@
         "project",
         "repair",
         "contacts",
+        "sale_management",
+        "purchase",
     ],
     "description": "Module to scrape websites for model data.",
     "data": [
@@ -30,6 +32,7 @@
         "report/motor_product_reports.xml",
         "report/motor_reports.xml",
         "report/product_reports.xml",
+        "views/delivery_carrier_views.xml",
         "views/motor_views.xml",  # motor_views needs to be loaded first (menu parent)
         "views/motor_part_template_views.xml",
         "views/motor_product_template_views.xml",

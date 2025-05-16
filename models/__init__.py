@@ -1,4 +1,5 @@
 from . import (
+    delivery_carrier,
     motor,
     motor_part,
     product_base,

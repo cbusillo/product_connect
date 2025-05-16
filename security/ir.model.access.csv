@@ -1,4 +1,5 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_delivery_carrier_service_map,delivery.carrier.service.map,model_delivery_carrier_service_map,base.group_user,1,1,1,1
 access_product_type,model_product_type,model_product_type,base.group_user,1,1,1,0
 access_product_manufacturer,model_product_manufacturer,model_product_manufacturer,base.group_user,1,1,1,1
 access_shopify_sync,access.shopify_sync,model_shopify_sync,base.group_user,1,1,1,1
