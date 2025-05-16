@@ -429,7 +429,7 @@ class ShopifySync(models.TransientModel):
         return f"{self.updated_count} of {self.total_count} product(s)"
 
     def _run_reset_shopify(self) -> None:
-        from ..services.shopify.sync.deleters.product_deleter import ProductDeleter
+        from ..services.shopify import ProductDeleter
 
         deleter = ProductDeleter(self.env, self)
         deleter.delete_all_products()
@@ -450,7 +450,7 @@ class ShopifySync(models.TransientModel):
 
     def _run_import_all_products(self) -> None:
         _logger.info("Importing all products from Shopify")
-        from ..services.shopify.sync.importers.product_importer import ProductImporter
+        from ..services.shopify import ProductImporter
 
         self.last_import_start_time = fields.Datetime.now()
         importer = ProductImporter(self.env, self)
@@ -458,7 +458,7 @@ class ShopifySync(models.TransientModel):
 
     def _run_export_all_products(self) -> None:
         _logger.info("Exporting all products to Shopify")
-        from ..services.shopify.sync.exporters.product_exporter import ProductExporter
+        from ..services.shopify import ProductExporter
 
         exporter = ProductExporter(self.env, self)
         exporter.export_products_since_datetime(DEFAULT_DATETIME)
@@ -470,7 +470,7 @@ class ShopifySync(models.TransientModel):
 
     def _run_import_changed_products(self) -> None:
         _logger.info("Importing changed products from Shopify")
-        from ..services.shopify.sync.importers.product_importer import ProductImporter
+        from ..services.shopify import ProductImporter
 
         self.last_import_start_time = fields.Datetime.now()
         importer = ProductImporter(self.env, self)
@@ -478,28 +478,28 @@ class ShopifySync(models.TransientModel):
 
     def _run_export_changed_products(self) -> None:
         _logger.info("Exporting changed products to Shopify")
-        from ..services.shopify.sync.exporters.product_exporter import ProductExporter
+        from ..services.shopify import ProductExporter
 
         exporter = ProductExporter(self.env, self)
         exporter.export_products_since_last_export()
 
     def _run_import_one_product(self) -> None:
         _logger.info("Importing one product from Shopify")
-        from ..services.shopify.sync.importers.product_importer import ProductImporter
+        from ..services.shopify import ProductImporter
 
         importer = ProductImporter(self.env, self)
         importer.run_by_id(self.shopify_product_id_to_sync)
 
     def _run_export_batch_products(self) -> None:
         _logger.info("Exporting batch of products to Shopify")
-        from ..services.shopify.sync.exporters.product_exporter import ProductExporter
+        from ..services.shopify import ProductExporter
 
         exporter = ProductExporter(self.env, self)
         exporter.export_products(self.odoo_products_to_sync)
 
     def _run_import_products_since_date(self) -> None:
         _logger.info("Importing products from Shopify since a specific date")
-        from ..services.shopify.sync.importers.product_importer import ProductImporter
+        from ..services.shopify import ProductImporter
 
         importer = ProductImporter(self.env, self)
         if not self.datetime_to_sync:
@@ -509,7 +509,7 @@ class ShopifySync(models.TransientModel):
 
     def _run_export_products_since_date(self) -> None:
         _logger.info("Exporting products to Shopify since a specific date")
-        from ..services.shopify.sync.exporters.product_exporter import ProductExporter
+        from ..services.shopify import ProductExporter
 
         if not self.datetime_to_sync:
             raise ValueError("Datetime to sync is not set.")
@@ -519,7 +519,7 @@ class ShopifySync(models.TransientModel):
 
     def _run_import_all_orders(self) -> None:
         _logger.info("Importing all orders from Shopify")
-        from ..services.shopify.sync.importers.order_importer import OrderImporter
+        from ..services.shopify import OrderImporter
 
         self.last_import_start_time = fields.Datetime.now()
         importer = OrderImporter(self.env, self)
@@ -527,7 +527,7 @@ class ShopifySync(models.TransientModel):
 
     def _run_import_changed_orders(self) -> None:
         _logger.info("Importing changed orders from Shopify")
-        from ..services.shopify.sync.importers.order_importer import OrderImporter
+        from ..services.shopify import OrderImporter
 
         self.last_import_start_time = fields.Datetime.now()
         importer = OrderImporter(self.env, self)
@@ -535,14 +535,14 @@ class ShopifySync(models.TransientModel):
 
     def _run_import_one_order(self) -> None:
         _logger.info("Importing one order from Shopify")
-        from ..services.shopify.sync.importers.order_importer import OrderImporter
+        from ..services.shopify import OrderImporter
 
         importer = OrderImporter(self.env, self)
         importer.run_by_id(self.shopify_product_id_to_sync)
 
     def _run_import_all_customers(self) -> None:
         _logger.info("Importing all customers from Shopify")
-        from ..services.shopify.sync.importers.customer_importer import CustomerImporter
+        from ..services.shopify import CustomerImporter
 
         self.last_import_start_time = fields.Datetime.now()
         importer = CustomerImporter(self.env, self)
@@ -550,7 +550,7 @@ class ShopifySync(models.TransientModel):
 
     def _run_import_changed_customers(self) -> None:
         _logger.info("Importing changed customers from Shopify")
-        from ..services.shopify.sync.importers.customer_importer import CustomerImporter
+        from ..services.shopify import CustomerImporter
 
         self.last_import_start_time = fields.Datetime.now()
         importer = CustomerImporter(self.env, self)
@@ -558,7 +558,7 @@ class ShopifySync(models.TransientModel):
 
     def _run_import_one_customer(self) -> None:
         _logger.info("Importing one customer from Shopify")
-        from ..services.shopify.sync.importers.customer_importer import CustomerImporter
+        from ..services.shopify import CustomerImporter
 
         importer = CustomerImporter(self.env, self)
         importer.run_by_id(self.shopify_product_id_to_sync)
