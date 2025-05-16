@@ -382,9 +382,9 @@ class ProductTemplate(models.Model):
     @api.constrains("length", "width", "height")
     def _check_dimension_values(self) -> None:
         for product in self:
-            fields_to_check = [product.length, product.width, product.height]
-            for field_value in fields_to_check:
-                if field_value and len(str(abs(field_value))) > 2:
+            dimension_values = [product.length, product.width, product.height]
+            for dimension in dimension_values:
+                if dimension and len(str(abs(int(dimension)))) > 2:
                     raise ValidationError("Dimensions cannot exceed 2 digits.")
 
     @api.depends("mpn")
