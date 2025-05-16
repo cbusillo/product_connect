@@ -19,7 +19,7 @@
         "sale_management",
         "purchase",
     ],
-    "description": "Module to scrape websites for model data.",
+    "description": "Module to connect to various product sources and manage product data for motor parts.",
     "data": [
         "data/motor_test_section_data.xml",  # motor data order is important (relations)
         "data/motor_test_selection_data.xml",

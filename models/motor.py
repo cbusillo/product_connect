@@ -158,7 +158,7 @@ class Motor(models.Model):
         currency_field="currency_id",
         help="Total price of all products of a motor.  Adds the price multiplied by quantity of all products that are \
         listable.  This is recomputed when a product's listable status, initial_quantity, or price is changed.  It \
-        will also be recomputed when the motor cost is changed..",
+        will also be recomputed when the motor cost is changed.",
     )
 
     # from tests
