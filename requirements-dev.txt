@@ -13,3 +13,8 @@ mypy
 pydantic[mypy]
 
 rich
+
+pytest
+pytest-odoo @ git+https://github.com/camptocamp/pytest-odoo@master
+pytest-cov
+pytest-xdist
