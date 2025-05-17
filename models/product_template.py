@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import timedelta
 from odoo import api, fields, models
@@ -5,6 +6,8 @@ from odoo.exceptions import ValidationError, UserError
 from typing import Any
 
 from ..services.shopify.helpers import SyncMode
+
+_logger = logging.getLogger(__name__)
 
 
 class ProductTemplate(models.Model):
@@ -246,10 +249,21 @@ class ProductTemplate(models.Model):
 
     def _track_template(self, changes: set[str]) -> dict[str, tuple[str, dict]]:
         self.ensure_one()
-        res = super()._track_template(changes)
-        if "repair_state" in changes:
-            res["repair_state"] = ("product_connect.mail_template_repair_state_change", {})
-        return res
+        result = super()._track_template(changes)
+        if "repair_state" not in changes:
+            return result
+        template = self.env.ref(
+            "product_connect.mail_template_repair_state_change",
+            raise_if_not_found=False,
+        )
+        if not template:
+            _logger.warning("Missing mail template product_connect.mail_template_repair_state_change")
+            return result
+        result["repair_state"] = (
+            "product_connect.mail_template_repair_state_change",
+            {},
+        )
+        return result
 
     @api.depends("initial_quantity", "list_price")
     def _compute_initial_price_total(self) -> None:
