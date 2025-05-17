@@ -6,6 +6,7 @@ code should instead be descriptive. Both function and variable names should be f
 Code should be beautiful and easy to read and maintain. Use existing codebase patterns. Avoid use of attrs when possible
 in Python. We want everything to be type checked with mypy and PyCharm. All functions return and parameters should be
 type hinted as accurately as possible. When type hinting Odoo objects, use the "magic types" available from the Odoo
-Plugin for Jetbrains. For example "odoo.model.product_template" or "odoo.values.product_template"
+Plugin for Jetbrains. For example, "odoo.model.product_template" or "odoo.values.product_template"
 
-Run Odoo tests before returning code.
+pytest is installed in your environment and you can use it to run tests. You can also use odoo-bin --test-enable to run
+odoo tests. 
