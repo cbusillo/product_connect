@@ -94,7 +94,6 @@ class ImageMixin(models.AbstractModel):
 
     @staticmethod
     def _reset_image_details(image: "odoo.model.image_mixin") -> None:
-        image.image_1920_file_size = None
         image.image_1920_file_size_kb = None
         image.image_1920_width = None
         image.image_1920_height = None
