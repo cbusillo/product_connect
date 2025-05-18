@@ -9,8 +9,7 @@ in Python. We want everything to be type-checked with mypy and PyCharm. All func
 type hinted as accurately as possible. When type hinting Odoo objects, use the "magic types" available from the Odoo
 Plugin for Jetbrains. For example, "odoo.model.product_template" or "odoo.values.product_template"
 
-pytest is installed in your environment, and you can use it to run tests. You can also use odoo-bin --test-enable to run
-odoo tests.
+pytest is installed in your environment, and you can use it to run tests.
 
 ---
 
@@ -18,27 +17,21 @@ odoo tests.
 
 Codex, follow the exact sequence below to validate this project:
 
-1. Make sure PostgresSQL is running locally on port 5432 and that the role **odoo** owns the database **odoo-test**.  
-   If it is not online, start it and wait until
-   ```bash
-   service postgresql start
-   until pg_isready -q; do sleep 1; done
-   ```
-2. Export the environment variables Odoo expects:
-   ```bash
-   export PGHOST=localhost
-   export PGPORT=5432
-   export ODOO_DATABASE=odoo-test
-   export ODOO_ADDONS_PATH=/workspace/odoo/addons,/workspace/enterprise,/workspace/odoo-opw/addons
-   ```
-3. Run the fast unit layer:
-   ```bash
-   pytest -q -s --odoo-database=$ODOO_DATABASE
-   ```
-4. Run the full integration suite:
-   ```bash
-   odoo-bin --test-enable -d $ODOO_DATABASE --stop-after-init
-   ```
+1. Export the environment variables Odoo expects:
+    ```bash
+    export ODOO_DATABASE=odoo-test
+    export ODOO_ADDONS_PATH=/odoo/addons,/odoo/odoo/addons,/enterprise,/workspace
+    export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+    export PYTEST_ADDOPTS='--cov=/odoo --cov=/workspace --cov-report=term-missing -q -s'
+    ```
+2. Run the fast unit layer:
+    ```bash
+   pytest --odoo-log-level=info
+    ```
+3. Run the full integration suite:
+    ```bash
+    /odoo/odoo-bin -d $ODOO_DATABASE -i base,product_connect,disable_odoo_onlne --addons-path=$ODOO_ADDONS_PATH --stop-after-init --test-enable --log-level=info 
+    ```
 
 Both commands must exit with code **0**.
 
@@ -46,6 +39,5 @@ Both commands must exit with code **0**.
 
 Use the JetBrains magic types to keep static analysis clean:
 
-* "odoo.model.res_partner" – recordset
+* "odoo.model.res_partner" – recordset or colleection of recordsets
 * "odoo.values.res_partner" – dictionary of values for create/write
-* "Iterable[odoo.model.account_move]" – collection of recordsets
