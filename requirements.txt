@@ -2,7 +2,7 @@ printnodeapi @ git+https://github.com/cbusillo/PrintNode-Python@master
 shopifyapi
 pdfminer.six
 # upgrade_util @ git+https://github.com/odoo/upgrade-util@master#egg=upgrade_util
-simple_zpl2 @ git+https://github.com/cbusillo/simple_zpl2@master
+simple_zpl2 @ git+https://github.com/sacherjj/simple_zpl2@master
 
 pillow
 qrcode
