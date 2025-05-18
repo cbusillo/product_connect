@@ -19,10 +19,8 @@ pytest is installed in your environment, and you can use it to run tests.
     export ODOO_DATABASE=odoo-test
     export ODOO_ADDONS_PATH=/odoo/addons,/enterprise,/opt/project/addons
     export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
-    export PYTEST_ADDOPTS='--cov=/odoo --cov=/opt/project/addons --cov-report=term-missing -q -s -o python_files=test_*.py --odoo-addons-path=/odoo/addons,/enterprise,/opt/project/addons'
+    export PYTEST_ADDOPTS='--cov=/odoo --cov=/opt/project/addons --cov-report=term-missing -q -s -o python_files=test_*.py --odoo-addons-path=/odoo/addons,/enterprise,/opt/project/addons --odoo-init base,product_connect'
     . /venv/bin/activate
-    /odoo/odoo-bin -d $ODOO_DATABASE -i base,product_connect,disable_odoo_onlne --addons-path=$ODOO_ADDONS_PATH --stop-after-init --log-level=warn
-
 ```
 
 ## Running the tests
@@ -35,7 +33,7 @@ pytest is installed in your environment, and you can use it to run tests.
 
 - Full integration suite:
     ```bash
-    /odoo/odoo-bin -d $ODOO_DATABASE -i base,product_connect,disable_odoo_onlne --addons-path=$ODOO_ADDONS_PATH --stop-after-init --test-enable --log-level=warn
+    /odoo/odoo-bin -d $ODOO_DATABASE -i base,product_connect --addons-path=$ODOO_ADDONS_PATH --stop-after-init --test-enable --log-level=warn
     ```
 
 - Both commands must exit with code **0**.
