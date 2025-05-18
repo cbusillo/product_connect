@@ -12,7 +12,7 @@ from odoo.exceptions import ValidationError, UserError
 from pathlib import Path
 from typing import Self, Any, cast, Literal
 
-from odoo.addons.product_connect.utils import constants
+from ..utils import constants
 
 
 class MotorStage(models.Model):
