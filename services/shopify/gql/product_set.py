@@ -4,11 +4,9 @@
 from datetime import datetime
 from typing import Annotated, List, Literal, Optional, Union
 
-from odoo.addons.product_connect.services.shopify.helpers import (
-    parse_shopify_datetime_to_utc,
-)
 from pydantic import BeforeValidator, Field
 
+from ..helpers import parse_shopify_datetime_to_utc
 from .base_model import BaseModel
 from .enums import MediaStatus
 from .fragments import MediaImageFields, MetafieldFields, VariantFields

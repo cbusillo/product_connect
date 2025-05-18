@@ -5,11 +5,9 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, List, Literal, Optional, Union
 
-from odoo.addons.product_connect.services.shopify.helpers import (
-    parse_shopify_datetime_to_utc,
-)
 from pydantic import AnyUrl, BeforeValidator, Field
 
+from ..helpers import parse_shopify_datetime_to_utc
 from .base_model import BaseModel
 from .enums import (
     CountryCode,
@@ -158,36 +156,6 @@ class TaxLineFieldsPriceSet(MoneyBagFields):
     pass
 
 
-class ShippingLineFields(BaseModel):
-    id: Optional[str]
-    title: str
-    carrier_identifier: Optional[str] = Field(alias="carrierIdentifier")
-    code: Optional[str]
-    original_price_set: "ShippingLineFieldsOriginalPriceSet" = Field(
-        alias="originalPriceSet"
-    )
-    current_discounted_price_set: "ShippingLineFieldsCurrentDiscountedPriceSet" = Field(
-        alias="currentDiscountedPriceSet"
-    )
-    discounted_price_set: "ShippingLineFieldsDiscountedPriceSet" = Field(
-        alias="discountedPriceSet"
-    )
-    delivery_category: Optional[str] = Field(alias="deliveryCategory")
-    is_removed: bool = Field(alias="isRemoved")
-
-
-class ShippingLineFieldsOriginalPriceSet(MoneyBagFields):
-    pass
-
-
-class ShippingLineFieldsCurrentDiscountedPriceSet(MoneyBagFields):
-    pass
-
-
-class ShippingLineFieldsDiscountedPriceSet(MoneyBagFields):
-    pass
-
-
 class OrderLineItemFields(BaseModel):
     id: str
     sku: Optional[str]
@@ -225,6 +193,36 @@ class OrderLineItemFieldsDiscountAllocations(BaseModel):
 
 
 class OrderLineItemFieldsDiscountAllocationsAllocatedAmountSet(MoneyBagFields):
+    pass
+
+
+class ShippingLineFields(BaseModel):
+    id: Optional[str]
+    title: str
+    carrier_identifier: Optional[str] = Field(alias="carrierIdentifier")
+    code: Optional[str]
+    original_price_set: "ShippingLineFieldsOriginalPriceSet" = Field(
+        alias="originalPriceSet"
+    )
+    current_discounted_price_set: "ShippingLineFieldsCurrentDiscountedPriceSet" = Field(
+        alias="currentDiscountedPriceSet"
+    )
+    discounted_price_set: "ShippingLineFieldsDiscountedPriceSet" = Field(
+        alias="discountedPriceSet"
+    )
+    delivery_category: Optional[str] = Field(alias="deliveryCategory")
+    is_removed: bool = Field(alias="isRemoved")
+
+
+class ShippingLineFieldsOriginalPriceSet(MoneyBagFields):
+    pass
+
+
+class ShippingLineFieldsCurrentDiscountedPriceSet(MoneyBagFields):
+    pass
+
+
+class ShippingLineFieldsDiscountedPriceSet(MoneyBagFields):
     pass
 
 
@@ -466,8 +464,8 @@ MetafieldFields.model_rebuild()
 MoneyFields.model_rebuild()
 MoneyBagFields.model_rebuild()
 TaxLineFields.model_rebuild()
-ShippingLineFields.model_rebuild()
 OrderLineItemFields.model_rebuild()
+ShippingLineFields.model_rebuild()
 OrderFields.model_rebuild()
 VariantFields.model_rebuild()
 ProductFields.model_rebuild()
