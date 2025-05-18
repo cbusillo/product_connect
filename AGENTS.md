@@ -20,13 +20,13 @@ Codex, follow the exact sequence below to validate this project:
 1. Export the environment variables Odoo expects:
     ```bash
     export ODOO_DATABASE=odoo-test
-    export ODOO_ADDONS_PATH=/odoo/addons,/enterprise,/workspace
+    export ODOO_ADDONS_PATH=/odoo/addons,/enterprise,/opt/project/addons
     export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
-    export PYTEST_ADDOPTS='--cov=/odoo --cov=/workspace --cov-report=term-missing -q -s -o python_files=test_*.py --odoo-addons-path=/odoo/addons,/enterprise,/workspace'
+    export PYTEST_ADDOPTS='--cov=/odoo --cov=/opt/project/addons --cov-report=term-missing -q -s -o python_files=test_*.py --odoo-addons-path=/odoo/addons,/enterprise,/opt/project/addons'
     ```
 2. Run the fast unit layer:
     ```bash
-    cd /workspace
+    cd /opt/project/addons
     pytest --odoo-log-level=warning
     ```
 3. Run the full integration suite:
@@ -52,7 +52,7 @@ Use the JetBrains magic types to keep static analysis clean:
 
 ## Repository layout
 
-- Addon root is **/workspace**
+- Addon root is **/opt/project/addons**
 - Ignore these paths when searching for implementation targets:
-    - /workspace/product_connect/services/shopify/gql/* # generated from Ariadne Codegen
-    - /workspace/product_connect/graphql/schema/* # generated from Ariadne Codegen
+    - /opt/project/addons/product_connect/services/shopify/gql/* # generated from Ariadne Codegen
+    - /opt/project/addons/product_connect/graphql/schema/* # generated from Ariadne Codegen
