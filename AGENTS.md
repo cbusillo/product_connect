@@ -11,7 +11,7 @@ Plugin for Jetbrains. For example, "odoo.model.product_template" or "odoo.values
 
 pytest is installed in your environment, and you can use it to run tests.
 
----
+***
 
 ## Running the tests
 
@@ -20,12 +20,13 @@ Codex, follow the exact sequence below to validate this project:
 1. Export the environment variables Odoo expects:
     ```bash
     export ODOO_DATABASE=odoo-test
-    export ODOO_ADDONS_PATH=/odoo/addons,/odoo/odoo/addons,/enterprise,/workspace
+    export ODOO_ADDONS_PATH=/odoo/addons,/enterprise,/workspace
     export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
-    export PYTEST_ADDOPTS='--cov=/odoo --cov=/workspace --cov-report=term-missing -q -s'
+    export PYTEST_ADDOPTS='--cov=/odoo --cov=/workspace --cov-report=term-missing -q -s -o python_files=test_*.py --odoo-addons-path=/odoo/addons,/enterprise,/workspace'
     ```
 2. Run the fast unit layer:
     ```bash
+   cd /workspace
    pytest --odoo-log-level=info
     ```
 3. Run the full integration suite:
