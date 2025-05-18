@@ -34,11 +34,25 @@ Codex, follow the exact sequence below to validate this project:
     /odoo/odoo-bin -d $ODOO_DATABASE -i base,product_connect,disable_odoo_onlne --addons-path=$ODOO_ADDONS_PATH --stop-after-init --test-enable --log-level=info 
     ```
 
-Both commands must exit with code **0**.
+4. Both commands must exit with code **0**.
 
 ### Odoo type‑hint patterns
 
 Use the JetBrains magic types to keep static analysis clean:
 
-* "odoo.model.res_partner" – recordset or colleection of recordsets
+* "odoo.model.res_partner" – recordset or collection of recordsets
 * "odoo.values.res_partner" – dictionary of values for create/write
+
+## Quality gates
+
+```bash
+   black --check product_connect
+   mypy -p product_connect
+```
+
+## Repository layout
+
+- Addon root is **/workspace**
+- Ignore these paths when searching for implementation targets:
+    - /workspace/product_connect/services/shopify/gql/* # generated from Ariadne Codegen
+    - /workspace/product_connect/graphql/schema/* # generated from Ariadne Codegen
