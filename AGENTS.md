@@ -13,28 +13,30 @@ pytest is installed in your environment, and you can use it to run tests.
 
 ***
 
-## Running the tests
+## Setting up the environment
 
-Codex, follow the exact sequence below to validate this project:
-
-1. Export the environment variables Odoo expects:
-    ```bash
+```bash
     export ODOO_DATABASE=odoo-test
     export ODOO_ADDONS_PATH=/odoo/addons,/enterprise,/opt/project/addons
     export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
     export PYTEST_ADDOPTS='--cov=/odoo --cov=/opt/project/addons --cov-report=term-missing -q -s -o python_files=test_*.py --odoo-addons-path=/odoo/addons,/enterprise,/opt/project/addons'
-    ```
-2. Run the fast unit layer:
-    ```bash
-    cd /opt/project/addons
-    pytest --odoo-log-level=warning
-    ```
-3. Run the full integration suite:
+    . /venv/bin/activate
+```
+
+## Running the tests
+
+- Fast unit layer:
+   ```bash
+   cd /opt/project/addons
+   pytest --odoo-log-level=warning
+   ```
+
+- Full integration suite:
     ```bash
     /odoo/odoo-bin -d $ODOO_DATABASE -i base,product_connect,disable_odoo_onlne --addons-path=$ODOO_ADDONS_PATH --stop-after-init --test-enable --log-level=warning 
     ```
 
-4. Both commands must exit with code **0**.
+- Both commands must exit with code **0**.
 
 ### Odoo type‑hint patterns
 
@@ -42,13 +44,6 @@ Use the JetBrains magic types to keep static analysis clean:
 
 * "odoo.model.res_partner" – recordset or collection of recordsets
 * "odoo.values.res_partner" – dictionary of values for create/write
-
-## Quality gates
-
-```bash
-   black --check product_connect
-   mypy -p product_connect
-```
 
 ## Repository layout
 
