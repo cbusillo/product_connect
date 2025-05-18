@@ -19,7 +19,7 @@ pytest is installed in your environment, and you can use it to run tests.
 export ODOO_DATABASE=odoo-test
 export ODOO_ADDONS_PATH=/odoo/addons,/enterprise,/opt/project/addons
 export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
-export PYTEST_ADDOPTS="--cov=/odoo --cov=/opt/project/addons --cov-report=term-missing -q -s -o python_files=test_*.py -n auto"
+export PYTEST_ADDOPTS="--cov=/odoo --cov=/opt/project/addons --cov-report=term-missing -q -s -o python_files=test_*.py -n auto --dist=loadfile"
 . /venv/bin/activate
 ```
 
@@ -30,6 +30,8 @@ export PYTEST_ADDOPTS="--cov=/odoo --cov=/opt/project/addons --cov-report=term-m
    cd /opt/project/addons
    pytest --odoo-log-level=warn
    ```
+
+For iterative local runs you can use: pytest --lf -q
 
 - Full integration suite:
     ```bash
