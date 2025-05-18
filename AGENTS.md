@@ -35,7 +35,7 @@ For iterative local runs you can use: pytest --lf -q
 
 - Full integration suite:
     ```bash
-    /odoo/odoo-bin -d $ODOO_DATABASE -i base,product_connect --addons-path=$ODOO_ADDONS_PATH --stop-after-init --test-enable --log-level=warn
+    /odoo/odoo-bin -d $ODOO_DATABASE -i base,product_connect --addons-path=$ODOO_ADDONS_PATH --stop-after-init --test-enable --log-level=warn 
     ```
 
 - Both commands must exit with code **0**.
