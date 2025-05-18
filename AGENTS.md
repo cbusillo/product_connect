@@ -26,8 +26,8 @@ Codex, follow the exact sequence below to validate this project:
     ```
 2. Run the fast unit layer:
     ```bash
-   cd /workspace
-   pytest --odoo-log-level=info
+    cd /workspace
+    pytest --odoo-log-level=info
     ```
 3. Run the full integration suite:
     ```bash
