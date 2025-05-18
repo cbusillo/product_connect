@@ -18,6 +18,7 @@
         "contacts",
         "sale_management",
         "purchase",
+        "phone_validation",
     ],
     "description": "Module to connect to various product sources and manage product data for motor parts.",
     "data": [

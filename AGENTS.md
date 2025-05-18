@@ -27,11 +27,11 @@ Codex, follow the exact sequence below to validate this project:
 2. Run the fast unit layer:
     ```bash
     cd /workspace
-    pytest --odoo-log-level=info
+    pytest --odoo-log-level=warning
     ```
 3. Run the full integration suite:
     ```bash
-    /odoo/odoo-bin -d $ODOO_DATABASE -i base,product_connect,disable_odoo_onlne --addons-path=$ODOO_ADDONS_PATH --stop-after-init --test-enable --log-level=info 
+    /odoo/odoo-bin -d $ODOO_DATABASE -i base,product_connect,disable_odoo_onlne --addons-path=$ODOO_ADDONS_PATH --stop-after-init --test-enable --log-level=warning 
     ```
 
 4. Both commands must exit with code **0**.
