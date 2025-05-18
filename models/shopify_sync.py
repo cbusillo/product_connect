@@ -9,6 +9,7 @@ from babel.dates import format_timedelta
 from httpx import RequestError
 from odoo import api, models, fields
 from odoo.sql_db import Cursor
+from odoo.tools import config
 from psycopg2 import OperationalError, InterfaceError
 from psycopg2.errors import TransactionRollbackError
 from pydantic import BaseModel
@@ -291,6 +292,9 @@ class ShopifySync(models.TransientModel):
             cr.execute("SELECT pg_advisory_unlock(%s)", [lock_id])
 
     def run_async(self) -> None:
+        if config["stop_after_init"]:
+            _logger.debug("Skipping async sync in stop_after_init mode")
+            return
         _logger.debug(f"Running async sync for {self}")
 
         def run_in_thread() -> None:
