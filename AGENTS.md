@@ -4,10 +4,11 @@ Code must be compatible with Odoo 18 and Owl.JS 2.0. We are using Python 3.12+ N
 code should instead be descriptive. Both function and variable names should be full words and understandable.
 
 Code should be beautiful and easy to read and maintain. Use existing codebase patterns. Avoid the use of attrs when
-possible
-in Python. We want everything to be type-checkable with mypy and PyCharm. All functions return and parameters should be
-type hinted as accurately as possible. When type hinting Odoo objects, use the "magic types" available from the Odoo
-Plugin for Jetbrains. For example, "odoo.model.product_template" or "odoo.values.product_template"
+possible in Python. We want everything to be type-checkable with mypy and PyCharm. All functions return and parameters
+should be type hinted as accurately as possible. When type hinting Odoo objects, use the "magic types" available from
+the Odoo Plugin for Jetbrains. For example, "odoo.model.product_template" or "odoo.values.product_template". Use
+relative imports when possible. Use absolute imports only when necessary. Avoid using wildcard imports. Use the `isort`
+tool to sort your imports when done.
 
 pytest is installed in your environment, and you can use it to run tests.
 
@@ -84,7 +85,7 @@ to be imported by your suite. The command must finish with exit code **0**.
 
 ### 2. Core‑inclusive test run
 
-If you need to execute the large Odoo upstream suites as well, keep the same PYTEST_ADDOPTS but add an extra
+Before submitting code run the full odoo test suite, keep the same PYTEST_ADDOPTS but add an extra
 `--cov=/odoo` entry:
 
 ```bash
@@ -120,6 +121,7 @@ If you only care about this addon’s integration tests, you can limit the scope
 step must also exit **0**.
 
 All flags are written in their long form, so you can adjust them easily when new needs arise.
+
 ### Running Odoo server for manual testing
 
 After loading the environment you can launch the server with your addon:
@@ -129,8 +131,9 @@ After loading the environment you can launch the server with your addon:
   --database="$ODOO_DATABASE" \
   --addons-path="$ODOO_ADDONS_PATH" \
   --update=product_connect \
-  --log-level=info
-  --log-handler=odoo.tools.convert:DEBUG
+  --log-level=warn
 ```
 
+Use `--log-handler=odoo.tools.convert:DEBUG` to see XML debug logs.
+Use `--log-handler=odoo.addons.product_connect:DEBUG` to see product_connect debug logs.
 Use `--dev=all` when you need live template reloads.

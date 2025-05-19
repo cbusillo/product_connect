@@ -50,6 +50,7 @@ uv pip install -r "$ODOO_BASE_DIR/requirements.txt"
 site_pkgs=$(python -c "import site, pathlib; print(next(p for p in site.getsitepackages() if 'site-packages' in p))")
 printf '%s\n' "$ODOO_BASE_DIR"       > "${site_pkgs}/odoo18_src.pth"
 printf '%s\n' "$ODOO_ENTERPRISE_DIR" > "${site_pkgs}/odoo18_ent.pth"
+printf '%s\n' /workspace              > "${site_pkgs}/workspace.pth"
 
 
 cat >/etc/profile.d/odoo_env.sh <<EOF
