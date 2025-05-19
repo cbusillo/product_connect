@@ -15,8 +15,10 @@ pytest is installed in your environment, and you can use it to run tests.
 
 ## Setting up the environment
 
+Use the environment script to load Odoo variables and activate the virtual environment:
+
 ```bash
-. /venv/bin/activate
+. /etc/profile.d/odoo_env.sh
 ```
 
 ## Running the tests
