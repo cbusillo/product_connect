@@ -503,12 +503,15 @@
     </record>
 
     <!-- Menu -->
-    <menuitem id="menu_subheader_motor" name="Motors" parent="stock.menu_stock_inventory_control"/>
-    <menuitem id="menu_subheader_config_motor" name="Motors" parent="stock.menu_stock_config_settings"/>
+    <menuitem id="menu_subheader_motor" name="Motors" parent="stock.menu_stock_inventory_control"
+              groups="base.group_user"/>
+    <menuitem id="menu_subheader_config_motor" name="Motors" parent="stock.menu_stock_config_settings"
+              groups="base.group_user"/>
     <menuitem id="menu_motor_stages" name="Motor Stages" parent="menu_subheader_motor" action="action_motor_stages"
-              sequence="10"/>
-    <menuitem id="menu_motor" name="Motor List" parent="menu_subheader_motor" action="action_motor_form" sequence="20"/>
+              sequence="10" groups="base.group_user"/>
+    <menuitem id="menu_motor" name="Motor List" parent="menu_subheader_motor" action="action_motor_form" sequence="20"
+              groups="base.group_user"/>
     <menuitem id="menu_motor_analysis" name="Motors Analysis" parent="menu_subheader_motor"
-              action="action_motor_analysis" sequence="30"/>
+              action="action_motor_analysis" sequence="30" groups="base.group_user"/>
 
 </odoo>
