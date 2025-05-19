@@ -116,7 +116,8 @@ class NotificationManagerMixin(models.AbstractModel):
         shopify_record: BaseModel | None = None,
         error: Exception | None = None,
     ) -> None:
-        self.env.cr.rollback()
+        if not self.env.registry.in_test_mode():
+            self.env.cr.rollback()
         error_traceback = "".join(traceback.format_exception(type(error), error, error.__traceback__)) if error else ""
 
         new_cr = self.env.registry.cursor()
