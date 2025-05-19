@@ -140,7 +140,6 @@
             </xpath>
         </field>
     </record>
-    prettier-plugin-xml
 
     <record id="product_template_list_edit" model="ir.ui.view">
         <field name="name">product.template.list.edit</field>
