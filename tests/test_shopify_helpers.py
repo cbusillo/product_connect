@@ -2,8 +2,6 @@ from datetime import datetime, UTC
 from dataclasses import dataclass
 from pydantic import BaseModel
 
-import pytest
-
 from ..services.shopify import helpers
 
 
