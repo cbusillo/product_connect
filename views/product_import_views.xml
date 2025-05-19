@@ -5,7 +5,7 @@
         <field name="model">product.template</field>
         <field name="groups_id" eval="[(6, 0, [ref('base.group_user')])]"/>
         <field name="arch" type="xml">
-            <list class="product_import_list_view" groups="base.group_user" string="Product Import" editable="top" multi_edit="1"
+            <list class="product_import_list_view" string="Product Import" editable="top" multi_edit="1"
                   open_form_view="1"
                   decoration-warning="not name or not list_price or list_price == 0 or not standard_price or standard_price == 0"
                   decoration-danger="has_recent_messages">

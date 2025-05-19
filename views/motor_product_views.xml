@@ -39,7 +39,7 @@
         <field name="model">product.template</field>
         <field name="groups_id" eval="[(6, 0, [ref('base.group_user')])]"/>
         <field name="arch" type="xml">
-            <list string="Motor Products" groups="base.group_user" editable="bottom" open_form_view="1" create="0" limit="200" multi_edit="1"
+            <list string="Motor Products" editable="bottom" open_form_view="1" create="0" limit="200" multi_edit="1"
                   decoration-muted="repair_state == 'in_repair'"
                   decoration-warning="(not name or not list_price or list_price == 0 or not standard_price or standard_price == 0) and repair_state != 'in_repair'"
                   decoration-danger="has_recent_messages"
