@@ -74,7 +74,8 @@ export PYTEST_ADDOPTS="--cov=/workspace/product_connect \
 --capture=no \
 --numprocesses=auto \
 --dist=loadfile \
---odoo-addons-path=$ODOO_ADDONS_PATH"
+--odoo-addons-path=$ODOO_ADDONS_PATH \
+-o python_files=test_*.py"
 cd /workspace
 pytest --odoo-log-level=warn
 ```
@@ -95,7 +96,8 @@ export PYTEST_ADDOPTS="--cov=/odoo \
 --capture=no \
 --numprocesses=auto \
 --dist=loadfile \
---odoo-addons-path=$ODOO_ADDONS_PATH"
+--odoo-addons-path=$ODOO_ADDONS_PATH \
+-o python_files=test_*.py"
 cd /workspace
 pytest --odoo-log-level=warn
 ```
