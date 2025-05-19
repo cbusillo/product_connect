@@ -155,7 +155,7 @@ class ProductTemplate(models.Model):
                 vals["is_ready_to_list"] = False
                 continue
 
-            if "default_code" not in vals:
+            if "default_code" not in vals and vals.get("type") == "consu":
                 vals["default_code"] = self.get_next_sku()
 
             source = self._context.get("default_source")
@@ -383,18 +383,28 @@ class ProductTemplate(models.Model):
                 raise ValidationError(self.env._("SKU must be 4-8 digits."))
 
     def get_next_sku(self) -> str:
-        sequence = self.env.ref("product_connect.sequence_product_template_default_code")
+        sequence_model: "odoo.model.ir_sequence" = self.env["ir.sequence"]
+        sequence = sequence_model.search([("code", "=", "product.template.default_code")], limit=1)
+        if not sequence:
+            raise ValidationError("SKU sequence missing.")
+
         padding = sequence.padding
         max_sku = "9" * padding
-        while (new_sku := self.env["ir.sequence"].next_by_code("product.template.default_code")) <= max_sku:
-            if (
-                not self.env["product.template"]
+
+        while True:
+            new_sku = sequence_model.next_by_code("product.template.default_code")
+            if not new_sku:
+                raise ValidationError("SKU sequence missing.")
+            if new_sku > max_sku:
+                raise ValidationError("SKU limit reached.")
+
+            if not (
+                self.env["product.template"]
                 .with_context(active_test=False)
                 .sudo()
                 .search([("default_code", "=", new_sku)], limit=1)
             ):
                 return new_sku
-        raise ValidationError("SKU limit reached.")
 
     @api.constrains("length", "width", "height")
     def _check_dimension_values(self) -> None:
@@ -448,7 +458,6 @@ class ProductTemplate(models.Model):
 
         for product in self:
             product.has_recent_messages = product.id in product_ids_with_recent_messages
-
 
     @api.constrains("mpn", "bin")
     def _check_mpn_bin(self) -> None:
@@ -653,11 +662,7 @@ class ProductTemplate(models.Model):
             if isinstance(product.id, models.NewId):
                 super()._compute_display_name()
                 continue
-            name = (
-                product.motor_product_computed_name
-                if product.source == "motor"
-                else product.name
-            )
+            name = product.motor_product_computed_name if product.source == "motor" else product.name
             placeholder = "New Product"
             if name:
                 product.display_name = f"[{product.default_code}] {name}"
