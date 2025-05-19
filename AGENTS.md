@@ -123,7 +123,7 @@ All flags are written in their long form, so you can adjust them easily when new
 
 ### Running Odoo server for manual testing
 
-After loading the environment you can launch the server with your addon:
+After loading the environment, you can launch the server with your addon:
 
 ```bash
 /odoo/odoo-bin \
