@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, UTC
 
-from odoo.tests.common import TransactionCase
+from unittest import TestCase
 from ..services.shopify.helpers import (
     parse_shopify_datetime_to_utc,
     format_datetime_for_shopify,
@@ -22,7 +22,7 @@ class DummyImage:
         self.create_date = create_date
 
 
-class TestShopifyHelpers(TransactionCase):
+class TestShopifyHelpers(TestCase):
     def test_parse_and_format_datetime_round_trip(self) -> None:
         original = datetime(2025, 5, 17, 12, 45, 30, tzinfo=UTC)
         formatted = format_datetime_for_shopify(original)
