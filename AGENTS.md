@@ -130,6 +130,7 @@ After loading the environment you can launch the server with your addon:
   --addons-path="$ODOO_ADDONS_PATH" \
   --update=product_connect \
   --log-level=info
+  --log-handler=odoo.tools.convert:DEBUG
 ```
 
 Use `--dev=all` when you need live template reloads.
