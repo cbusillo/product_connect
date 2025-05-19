@@ -51,3 +51,9 @@ Use the JetBrains magic types to keep static analysis clean:
 - Ignore these paths when searching for implementation targets:
     - /opt/project/addons/product_connect/services/shopify/gql/* # generated from Ariadne Codegen
     - /opt/project/addons/product_connect/graphql/schema/* # generated from Ariadne Codegen
+
+## Environment layout
+
+- Odoo base files are in **/odoo**
+- Odoo addons are in **/odoo/addons**
+- Odoo Enterprise files are in **/enterprise**
