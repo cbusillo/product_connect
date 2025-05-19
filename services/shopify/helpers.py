@@ -152,6 +152,9 @@ class ShopifyApiError(OdooDataError):
 
     def __str__(self) -> str:
         text = super().__str__()
+        if not self.odoo_record and self.sku:
+            text = text.replace(f" [Odoo SKU {self.sku}]", "")
+
         if self.__cause__:
             text += f"\nShopify error: {self.__cause__}"
 
@@ -162,7 +165,7 @@ class ShopifyApiError(OdooDataError):
             text += f" [{self.name}]"
         if self.shopify_product_id:
             text += f" [Shopify ID {self.shopify_product_id}]"
-        if self.sku and self.sku not in text:
+        if self.sku and f"[Shopify SKU {self.sku}]" not in text:
             text += f" [Shopify SKU {self.sku}]"
         return text
 
