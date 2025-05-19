@@ -120,3 +120,16 @@ If you only care about this addon’s integration tests, you can limit the scope
 step must also exit **0**.
 
 All flags are written in their long form, so you can adjust them easily when new needs arise.
+### Running Odoo server for manual testing
+
+After loading the environment you can launch the server with your addon:
+
+```bash
+/odoo/odoo-bin \
+  --database="$ODOO_DATABASE" \
+  --addons-path="$ODOO_ADDONS_PATH" \
+  --update=product_connect \
+  --log-level=info
+```
+
+Use `--dev=all` when you need live template reloads.
