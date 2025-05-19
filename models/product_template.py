@@ -388,16 +388,9 @@ class ProductTemplate(models.Model):
         if not sequence:
             raise ValidationError("SKU sequence missing.")
 
-        padding = sequence.padding
-        max_sku = "9" * padding
-
-        while True:
-            new_sku = sequence_model.next_by_code("product.template.default_code")
-            if not new_sku:
-                raise ValidationError("SKU sequence missing.")
-            if new_sku > max_sku:
-                raise ValidationError("SKU limit reached.")
-
+        max_sku = "9" * sequence.padding
+        new_sku = sequence_model.next_by_code("product.template.default_code")
+        while new_sku and new_sku <= max_sku:
             if not (
                 self.env["product.template"]
                 .with_context(active_test=False)
@@ -405,6 +398,9 @@ class ProductTemplate(models.Model):
                 .search([("default_code", "=", new_sku)], limit=1)
             ):
                 return new_sku
+            new_sku = sequence_model.next_by_code("product.template.default_code")
+
+        raise ValidationError("SKU limit reached.")
 
     @api.constrains("length", "width", "height")
     def _check_dimension_values(self) -> None:
