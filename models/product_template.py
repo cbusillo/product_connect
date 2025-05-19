@@ -449,12 +449,6 @@ class ProductTemplate(models.Model):
         for product in self:
             product.has_recent_messages = product.id in product_ids_with_recent_messages
 
-    def name_get(self) -> list[tuple[int, str]]:
-        result = []
-        for product in self:
-            name = f"[{product.default_code}] {product.name or 'No Name Yet'}"
-            result.append((product.id, name))
-        return result
 
     @api.constrains("mpn", "bin")
     def _check_mpn_bin(self) -> None:
@@ -658,8 +652,16 @@ class ProductTemplate(models.Model):
             if isinstance(product.id, models.NewId):
                 super()._compute_display_name()
                 continue
-            name = product.motor_product_computed_name if product.source == "motor" else product.name
-            product.display_name = f"{product.default_code} - {name}"
+            name = (
+                product.motor_product_computed_name
+                if product.source == "motor"
+                else product.name
+            )
+            placeholder = "New Product"
+            if name:
+                product.display_name = f"[{product.default_code}] {name}"
+            else:
+                product.display_name = f"[{product.default_code}] {placeholder}"
 
     @api.depends(
         "motor.manufacturer.name",

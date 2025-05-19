@@ -37,6 +37,7 @@
     <record id="view_motor_product_list" model="ir.ui.view">
         <field name="name">motor.product.list</field>
         <field name="model">product.template</field>
+        <field name="groups_id" eval="[(6, 0, [ref('base.group_user')])]"/>
         <field name="arch" type="xml">
             <list string="Motor Products" editable="bottom" open_form_view="1" create="0" limit="200" multi_edit="1"
                   decoration-muted="repair_state == 'in_repair'"
@@ -293,6 +294,7 @@
         <field name="type">ir.actions.act_window</field>
         <field name="res_model">product.template</field>
         <field name="view_mode">list,kanban,form</field>
+        <field name="groups_id" eval="[(6,0,[ref('base.group_user')])]"/>
         <field name="view_ids" eval="[(5, 0, 0),
         (0, 0, {'view_mode': 'list', 'view_id': ref('view_motor_product_list')}),
         (0, 0, {'view_mode': 'kanban', 'view_id': ref('view_motor_product_kanban')}),
@@ -322,9 +324,11 @@
     </record>
 
     <menuitem id="menu_motor_product" name="Motor Products" parent="menu_subheader_motor"
-              action="action_motor_product_list" sequence="20"/>
+              action="action_motor_product_list" sequence="20"
+              groups="base.group_user"/>
     <menuitem id="menu_product_motor_product_dismantle_result_selection" name="Motor Product Dismantle Results"
               parent="menu_subheader_config_motor"
-              action="action_motor_product_dismantle_result_selection" sequence="20"/>
+              action="action_motor_product_dismantle_result_selection" sequence="20"
+              groups="base.group_user"/>
 
 </odoo>
