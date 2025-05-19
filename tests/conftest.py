@@ -1,3 +1,8 @@
+import os
+import odoo
+
+odoo.tools.config["addons_path"] = os.getenv("ODOO_ADDONS_PATH", "")
+odoo.tools.config["db_name"] = os.getenv("ODOO_DATABASE", "odoo-test")
 from types import MethodType
 from typing import Any
 
