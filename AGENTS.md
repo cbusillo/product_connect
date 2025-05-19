@@ -7,8 +7,7 @@ Code should be beautiful and easy to read and maintain. Use existing codebase pa
 possible in Python. We want everything to be type-checkable with mypy and PyCharm. All functions return and parameters
 should be type hinted as accurately as possible. When type hinting Odoo objects, use the "magic types" available from
 the Odoo Plugin for Jetbrains. For example, "odoo.model.product_template" or "odoo.values.product_template". Use
-relative imports when possible. Use absolute imports only when necessary. Avoid using wildcard imports. Use the `isort`
-tool to sort your imports when done.
+relative imports when possible. Use absolute imports only when necessary.
 
 pytest is installed in your environment, and you can use it to run tests.
 
