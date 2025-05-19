@@ -539,7 +539,8 @@ class ProductTemplate(models.Model):
                     partner_ids=[self.env.user.partner_id.id],
                 )
 
-        self.env.cr.commit()
+        if not self.env.registry.in_test_mode():
+            self.env.cr.commit()
 
     def print_bin_labels(self) -> None:
         unique_bins = [

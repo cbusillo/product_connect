@@ -135,14 +135,16 @@ class ShopifySync(models.TransientModel):
                     continue
 
                 vals_to_create.append(vals)
-        self.env.cr.commit()
+        if not self.env.registry.in_test_mode():
+            self.env.cr.commit()
 
         if not vals_to_create:
             return self.browse()
 
         syncs = super().create(vals_to_create)
         syncs.state = "queued"
-        self.env.cr.commit()
+        if not self.env.registry.in_test_mode():
+            self.env.cr.commit()
         return syncs
 
     def unlink(self) -> models.BaseModel:
@@ -247,7 +249,8 @@ class ShopifySync(models.TransientModel):
                             "start_time": fields.Datetime.now(),
                         }
                     )
-            self.env.cr.commit()
+            if not self.env.registry.in_test_mode():
+                self.env.cr.commit()
 
             if not next_sync:
                 _logger.debug("No queued syncs found; exiting dispatcher.")
@@ -256,10 +259,12 @@ class ShopifySync(models.TransientModel):
             try:
                 next_sync._execute_mode()
             except (ShopifyApiError, OdooDataError, ShopifySyncRunFailed):
-                self.env.cr.commit()
+                if not self.env.registry.in_test_mode():
+                    self.env.cr.commit()
                 continue
             except Exception:
-                self.env.cr.commit()
+                if not self.env.registry.in_test_mode():
+                    self.env.cr.commit()
                 raise
 
         if self.search([("state", "in", ["running", "queued"])], limit=1):
@@ -311,14 +316,16 @@ class ShopifySync(models.TransientModel):
             vals_list = [vals_list]
 
         sync_jobs = self.create(vals_list)
-        self.env.cr.commit()
+        if not self.env.registry.in_test_mode():
+            self.env.cr.commit()
         if sync_jobs:
             sync_jobs.run_async()
         return sync_jobs
 
     def duplicate_and_run_async(self) -> "odoo.model.shopify_sync":
         new_syncs = self.duplicate()
-        self.env.cr.commit()
+        if not self.env.registry.in_test_mode():
+            self.env.cr.commit()
         new_syncs.run_async()
         return new_syncs
 
@@ -405,13 +412,15 @@ class ShopifySync(models.TransientModel):
             vals["error_shopify_record"] = _truncate_text(f"{vals.get('error_shopify_record', '')}\n{combined}".strip())
 
         self.write(vals)
-        self.env.cr.commit()
+        if not self.env.registry.in_test_mode():
+            self.env.cr.commit()
         _logger.error(f"Shopify sync failed:\n{vals['error_traceback']}")
 
     @contextmanager
     def _run_guard(self) -> Generator[None, None, None]:
         self.write({"state": "running"})
-        self.env.cr.commit()
+        if not self.env.registry.in_test_mode():
+            self.env.cr.commit()
         try:
             yield
             self.state = "success"
@@ -419,14 +428,17 @@ class ShopifySync(models.TransientModel):
             if resource_type and self.last_import_start_time:
                 config_key = last_import_config_key(resource_type)
                 self.env["ir.config_parameter"].set_param(config_key, format_datetime_for_shopify(self.last_import_start_time))
-            self.env.cr.commit()
+            if not self.env.registry.in_test_mode():
+                self.env.cr.commit()
         except Exception as error:
             self._mark_failed(error)
-            self.env.cr.commit()
+            if not self.env.registry.in_test_mode():
+                self.env.cr.commit()
             raise ShopifySyncRunFailed()
         finally:
             self.end_time = fields.Datetime.now()
-            self.env.cr.commit()
+            if not self.env.registry.in_test_mode():
+                self.env.cr.commit()
 
     @property
     def completed_str(self) -> str:
@@ -450,7 +462,8 @@ class ShopifySync(models.TransientModel):
         products.shopify_ebay_category_id = False
 
         self.total_count = max(len(products), self.total_count)
-        self.env.cr.commit()
+        if not self.env.registry.in_test_mode():
+            self.env.cr.commit()
 
     def _run_import_all_products(self) -> None:
         _logger.info("Importing all products from Shopify")
