@@ -72,7 +72,8 @@ sudo -u postgres createuser --superuser root || true
 sudo -u postgres createdb --owner=root "$ODOO_DATABASE"
 sudo -u postgres psql -c "ALTER SYSTEM SET synchronous_commit TO off;"
 sudo -u postgres psql -c "ALTER SYSTEM SET full_page_writes TO off;"
-sudo -u postgres pg_ctlcluster "$(pg_lsclusters -h | awk 'NR==1{print $1,$2}')" restart
+read -r pg_version pg_cluster <<< "$(pg_lsclusters -h | awk 'NR==1{print $1, $2}')"
+sudo -u postgres pg_ctlcluster "$pg_version" "$pg_cluster" restart
 
 uv cache prune --ci
 
