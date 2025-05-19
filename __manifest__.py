@@ -16,6 +16,7 @@
         "project",
         "repair",
         "contacts",
+        "account",
         "sale_management",
         "purchase",
         "phone_validation",
