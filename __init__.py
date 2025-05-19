@@ -1,7 +1,6 @@
 # noinspection PyUnresolvedReferences
-import os
 import odoo
-import odoo.tests
+import os
 
 from odoo.tools import config as odoo_config
 from odoo.modules.module import initialize_sys_path
