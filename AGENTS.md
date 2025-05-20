@@ -34,10 +34,20 @@ Use the environment script to load Odoo variables and activate the virtual envir
 
 - Run tests with odoo-bin:
     ```bash
-    /odoo/odoo-bin -d $ODOO_DATABASE -i base,product_connect --addons-path=$ODOO_ADDONS_PATH --stop-after-init --test-enable --log-level=warn 
+    /odoo/odoo-bin -d $ODOO_DATABASE -i base,product_connect --addons-path=$ODOO_ADDONS_PATH --stop-after-init --test-enable --log-level=warn  
     ```
 
-- Both commands must exit with code **0**.
+- All commands in this section *and* in **Programmatic checks** must exit with code 0.
+
+### Programmatic checks
+
+The following static‑analysis and formatting commands **must** succeed (exit code) before Codex considers the task
+complete:
+
+```bash
+black --line-length 130 .
+mypy --config-file=mypy.ini --follow-imports=silent --exclude '\.pyi$' .
+```
 
 ### Odoo type‑hint patterns
 
