@@ -47,6 +47,7 @@ class ProductTemplate(models.Model):
     initial_cost_total = fields.Float(compute="_compute_initial_cost_total", store=True)
     list_price = fields.Float(string="Price", tracking=True, default=0)
     initial_price_total = fields.Float(compute="_compute_initial_price_total", store=True)
+    is_price_or_cost_missing = fields.Boolean(compute="_compute_is_price_or_cost_missing", store=True, index=True)
 
     create_date = fields.Datetime(index=True)
 
@@ -274,6 +275,11 @@ class ProductTemplate(models.Model):
     def _compute_initial_cost_total(self) -> None:
         for product in self:
             product.initial_cost_total = product.initial_quantity * product.standard_price
+
+    @api.depends("list_price", "standard_price")
+    def _compute_is_price_or_cost_missing(self) -> None:
+        for product in self:
+            product.is_price_or_cost_missing = not product.list_price or not product.standard_price
 
     @api.depends("is_ready_for_sale")
     def _compute_is_ready_for_sale_last_enabled_date(self) -> None:

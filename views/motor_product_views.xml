@@ -41,7 +41,7 @@
         <field name="arch" type="xml">
             <list string="Motor Products" editable="bottom" open_form_view="1" create="0" limit="200" multi_edit="1"
                   decoration-muted="repair_state == 'in_repair'"
-                  decoration-warning="(not name or not list_price or list_price == 0 or not standard_price or standard_price == 0) and repair_state != 'in_repair'"
+                  decoration-warning="(not name or is_price_or_cost_missing) and repair_state != 'in_repair'"
                   decoration-danger="has_recent_messages"
                   default_order="motor, open_repair_count, is_listable desc, sequence, part_type_name, id">
                 <field name="sequence" column_invisible="1"/>

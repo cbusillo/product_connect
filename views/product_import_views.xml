@@ -7,7 +7,7 @@
         <field name="arch" type="xml">
             <list class="product_import_list_view" string="Product Import" editable="top" multi_edit="1"
                   open_form_view="1"
-                  decoration-warning="not name or not list_price or list_price == 0 or not standard_price or standard_price == 0"
+                  decoration-warning="not name or is_price_or_cost_missing"
                   decoration-danger="has_recent_messages">
                 <header>
                     <button string="Enable" type="object" name="enable_ready_for_sale" icon="fa-upload"/>
