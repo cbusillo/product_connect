@@ -1,6 +1,5 @@
-from typing import Any
 from odoo.tests import TransactionCase
-from ..services.shopify.service import ShopifyService
+from ..shopify.service import ShopifyService
 
 
 class DummySync:
@@ -11,6 +10,7 @@ class DummySync:
 
 class TestShopifyService(TransactionCase):
     test_tags = {"-at_install", "-post_install"}
+
     def _service(self) -> ShopifyService:
         return ShopifyService(self.env, DummySync())
 
@@ -20,20 +20,14 @@ class TestShopifyService(TransactionCase):
 
     def test_compute_throttle_delay_zero(self) -> None:
         service = self._service()
-        data = {
-            "extensions": {"cost": {"throttleStatus": {"currentlyAvailable": service.MIN_API_POINTS}}}
-        }
+        data = {"extensions": {"cost": {"throttleStatus": {"currentlyAvailable": service.MIN_API_POINTS}}}}
         self.assertEqual(service._compute_throttle_delay(data), 0.0)
 
     def test_compute_throttle_delay_bounds(self) -> None:
         service = self._service()
-        data = {
-            "extensions": {"cost": {"throttleStatus": {"currentlyAvailable": 100, "restoreRate": 25}}}
-        }
+        data = {"extensions": {"cost": {"throttleStatus": {"currentlyAvailable": 100, "restoreRate": 25}}}}
         self.assertEqual(service._compute_throttle_delay(data), 16.0)
-        data = {
-            "extensions": {"cost": {"throttleStatus": {"currentlyAvailable": 0, "restoreRate": 0}}}
-        }
+        data = {"extensions": {"cost": {"throttleStatus": {"currentlyAvailable": 0, "restoreRate": 0}}}}
         self.assertEqual(service._compute_throttle_delay(data), 60.0)
         data = {
             "extensions": {"cost": {"throttleStatus": {"currentlyAvailable": service.MIN_API_POINTS - 1, "restoreRate": 1000}}}
@@ -50,7 +44,5 @@ class TestShopifyService(TransactionCase):
 
     def test_throttle_info_without_error(self) -> None:
         service = self._service()
-        data = {
-            "extensions": {"cost": {"throttleStatus": {"currentlyAvailable": 499, "restoreRate": 1000}}}
-        }
+        data = {"extensions": {"cost": {"throttleStatus": {"currentlyAvailable": 499, "restoreRate": 1000}}}}
         self.assertEqual(service._throttle_info(data), (False, 1.0))

@@ -1,9 +1,12 @@
-from datetime import datetime, UTC, timedelta
+from datetime import timedelta
+from unittest.mock import MagicMock, patch
 
+from odoo.api import Environment
 from odoo.tests import TransactionCase
 
-from ..services.shopify.sync.base import ShopifyBaseImporter, ShopifyBaseExporter, ShopifyBaseDeleter
-from ..services.shopify.helpers import format_datetime_for_shopify, parse_shopify_datetime_to_utc
+from ..shopify.sync.base import ShopifyBaseImporter, ShopifyBaseExporter, ShopifyBaseDeleter
+from ..shopify.helpers import format_datetime_for_shopify, parse_shopify_datetime_to_utc
+from ..shopify.gql import Client
 
 
 class DummySync:
@@ -27,14 +30,14 @@ class DummyPage:
 
 
 class DummyImporter(ShopifyBaseImporter[int]):
-    def __init__(self, env, sync_record, pages: list[DummyPage]) -> None:
+    def __init__(self, env: Environment, sync_record: DummySync, pages: list[DummyPage]) -> None:
         super().__init__(env, sync_record)
         self.pages = pages
         self.fetch_calls: list[tuple[str | None, str | None]] = []
         self.imported: list[int] = []
         self.run_query: str | None = None
 
-    def _fetch_page(self, client, query, cursor):
+    def _fetch_page(self, client: Client, query: str | None, cursor: str | None) -> DummyPage:
         index = len(self.fetch_calls)
         self.fetch_calls.append((query, cursor))
         return self.pages[index] if index < len(self.pages) else DummyPage([])
@@ -49,7 +52,7 @@ class DummyImporter(ShopifyBaseImporter[int]):
 
 
 class DummyExporter(ShopifyBaseExporter[int]):
-    def __init__(self, env, sync_record) -> None:
+    def __init__(self, env: Environment, sync_record: DummySync) -> None:
         super().__init__(env, sync_record)
         self.exported: list[int] = []
 
@@ -58,7 +61,7 @@ class DummyExporter(ShopifyBaseExporter[int]):
 
 
 class DummyDeleter(ShopifyBaseDeleter[int]):
-    def __init__(self, env, sync_record) -> None:
+    def __init__(self, env: Environment, sync_record: DummySync) -> None:
         super().__init__(env, sync_record)
         self.deleted: list[int] = []
 
@@ -73,7 +76,28 @@ def make_pages() -> list[DummyPage]:
 class TestShopifySyncItems(TransactionCase):
     test_tags = {"-at_install", "-post_install"}
 
-    def _sync(self) -> DummySync:
+    def setUp(self) -> None:
+        super().setUp()
+
+        config = self.env["ir.config_parameter"].sudo()
+        config.set_param("shopify.shop_url_key", "dummy.example.com")
+        config.set_param("shopify.api_token", "dummy_token")
+
+        # noinspection PyShadowingNames
+        def _fake_create_client(self) -> None:    # type: ignore 
+            
+            self._client = MagicMock()
+            self.first_location_gid = ""
+
+        patcher = patch(
+            "odoo.addons.product_connect.services.shopify.service.ShopifyService._create_client",
+            new=_fake_create_client,
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    @staticmethod
+    def _sync() -> DummySync:
         return DummySync()
 
     def test_importer_iterates_pages(self) -> None:
@@ -123,7 +147,7 @@ class TestShopifySyncItems(TransactionCase):
 
         pages = [DummyPage([1], "c1", True), DummyPage([2])]
 
-        def fetch_page(query, cursor):
+        def fetch_page(_query: str, cursor: str) -> DummyPage:
             return pages[0] if cursor is None else pages[1]
 
         nodes = deleter.collect_nodes(fetch_page, query="test")
@@ -139,4 +163,3 @@ class TestShopifySyncItems(TransactionCase):
         deleter.run([])
         self.assertEqual(deleter.deleted, [])
         self.assertEqual(sync.total_count, 0)
-
