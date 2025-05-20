@@ -23,16 +23,16 @@ Use the environment script to load Odoo variables and activate the virtual envir
 
 ## Running the tests
 
-- Fast unit layer:
+- Run pytest:
    ```bash
-   cd /workspace
+   cd /workspace 
    pytest --odoo-log-level=warn
    ```
+    - Add --last-failed to run only the tests that failed in the last run
+    - Add `/odoo` to the end of the pytest command to run the full test suite before committing
+    - Examine the PYTEST_ADDOPTS to adjust options. Sane defaults are already set.
 
-For iterative local runs you can use: pytest --lf -q. You can also adjust the environmental variable PYTEST_ADDOPTS to
-change what the tests cover.
-
-- Full integration suite:
+- Run tests with odoo-bin:
     ```bash
     /odoo/odoo-bin -d $ODOO_DATABASE -i base,product_connect --addons-path=$ODOO_ADDONS_PATH --stop-after-init --test-enable --log-level=warn 
     ```
