@@ -52,7 +52,7 @@ export ODOO_ADDONS_PATH=$ODOO_ADDONS_PATH
 export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 export GITHUB_TOKEN=$GITHUB_TOKEN
 export VENV_DIR=$VENV_DIR
-export PYTEST_ADDOPTS="--cov=/odoo --cov=/workspace --cov-report=term-missing -q -s -o python_files=test_*.py -n auto --dist=loadfile --odoo-addons-path=$ODOO_ADDONS_PATH"
+export PYTEST_ADDOPTS="--cov=/workspace --cov-report=term-missing -q -s -o python_files=test_*.py -n auto --dist=loadfile --odoo-addons-path=$ODOO_ADDONS_PATH"
 . /venv/bin/activate
 EOF
 chmod +x /etc/profile.d/odoo_env.sh

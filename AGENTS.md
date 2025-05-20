@@ -21,6 +21,23 @@ Use the environment script to load Odoo variables and activate the virtual envir
 . /etc/profile.d/odoo_env.sh
 ```
 
+## Running the tests
+
+- Fast unit layer:
+   ```bash
+   cd /workspace
+   pytest --odoo-log-level=warn
+   ```
+
+For iterative local runs you can use: pytest --lf -q
+
+- Full integration suite:
+    ```bash
+    /odoo/odoo-bin -d $ODOO_DATABASE -i base,product_connect --addons-path=$ODOO_ADDONS_PATH --stop-after-init --test-enable --log-level=warn 
+    ```
+
+- Both commands must exit with code **0**.
+
 ### Odoo type‑hint patterns
 
 Use the JetBrains magic types to keep static analysis clean:
