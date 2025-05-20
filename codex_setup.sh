@@ -57,7 +57,7 @@ export ODOO_ADDONS_PATH=$ODOO_ADDONS_PATH
 export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 export GITHUB_TOKEN=$GITHUB_TOKEN
 export VENV_DIR=$VENV_DIR
-export PYTEST_ADDOPTS="--cov=/workspace --cov-report=term-missing -q -s -o python_files=test_*.py -n auto --dist=loadfile --odoo-addons-path=$ODOO_ADDONS_PATH"
+export PYTEST_ADDOPTS="--cov=/workspace --cov-report=term-missing -o python_files=test_*.py -n auto --dist=loadfile --odoo-addons-path=$ODOO_ADDONS_PATH"
 . /venv/bin/activate
 EOF
 chmod +x /etc/profile.d/odoo_env.sh
@@ -78,4 +78,6 @@ sudo -u postgres pg_ctlcluster "$pg_version" "$pg_cluster" restart
 uv cache prune --ci
 
 /odoo/odoo-bin -d "$ODOO_DATABASE" --init base,product_connect --addons-path="$ODOO_ADDONS_PATH" --without-demo=all --load-language=en_US --workers=0 --max-cron-threads=0 --log-level=warn --stop-after-init
-curl -Ls "https://raw.githubusercontent.com/cbusillo/odoo-opw/main/mypy.ini" -o "/workspace/mypy.ini"
+cd /workspace
+wget https://raw.githubusercontent.com/cbusillo/odoo-opw/main/mypy.ini
+wget https://raw.githubusercontent.com/cbusillo/odoo-opw/main/addons/conftest.py
