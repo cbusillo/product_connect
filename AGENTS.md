@@ -37,6 +37,7 @@ Use the environment script to load Odoo variables and activate the virtual envir
     ```bash
     /odoo/odoo-bin -d $ODOO_DATABASE -i base,product_connect --addons-path=$ODOO_ADDONS_PATH --stop-after-init --test-enable --log-level=warn  
     ```
+    - Use --test-tags[-][tag][/module][:class][.method] to run specific tests
 
 - All commands in this section *and* in **Programmatic checks** must exit with code 0.
 
