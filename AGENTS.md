@@ -29,7 +29,8 @@ Use the environment script to load Odoo variables and activate the virtual envir
    pytest --odoo-log-level=warn
    ```
 
-For iterative local runs you can use: pytest --lf -q
+For iterative local runs you can use: pytest --lf -q. You can also adjust the environmental variable PYTEST_ADDOPTS to
+change what the tests cover.
 
 - Full integration suite:
     ```bash
