@@ -33,7 +33,7 @@ class ImageMixin(models.AbstractModel):
     @api.model_create_multi
     def create(self, vals_list: list[dict]) -> "odoo.model.image_mixin":
         records = super().create(vals_list)
-        if not self.env.context.get("skip_shopify_sync"):
+        if records._name == "product.image" and not self.env.context.get("skip_shopify_sync"):
             records._mark_for_shopify_product_export()
         return records
 
