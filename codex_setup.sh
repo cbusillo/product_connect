@@ -47,12 +47,6 @@ if [ -d /workspace ]; then
 fi
 uv pip install -r "$ODOO_BASE_DIR/requirements.txt"
 
-site_pkgs=$(python -c "import site, pathlib; print(next(p for p in site.getsitepackages() if 'site-packages' in p))")
-printf '%s\n' "$ODOO_BASE_DIR"       > "${site_pkgs}/odoo18_src.pth"
-printf '%s\n' "$ODOO_ENTERPRISE_DIR" > "${site_pkgs}/odoo18_ent.pth"
-printf '%s\n' /workspace              > "${site_pkgs}/workspace.pth"
-
-
 cat >/etc/profile.d/odoo_env.sh <<EOF
 export ODOO_DATABASE=$ODOO_DATABASE
 export ODOO_ADDONS_PATH=$ODOO_ADDONS_PATH
@@ -66,6 +60,7 @@ chmod +x /etc/profile.d/odoo_env.sh
 . /etc/profile.d/odoo_env.sh
 
 ln -sf /etc/ssl/certs/ca-certificates.crt /usr/lib/ssl/cert.pem
+
 service postgresql start
 for _ in {1..60}; do pg_isready -q && break; sleep 1; done || exit 1
 
@@ -78,4 +73,4 @@ sudo -u postgres pg_ctlcluster "$pg_version" "$pg_cluster" restart
 
 uv cache prune --ci
 
-/odoo/odoo-bin -d "$ODOO_DATABASE" --init base,phone_validation,product_connect --addons-path="$ODOO_ADDONS_PATH" --without-demo=all --load-language=en_US --workers=0 --max-cron-threads=0 --log-level=warn --stop-after-init
+/odoo/odoo-bin -d "$ODOO_DATABASE" --init base,product_connect --addons-path="$ODOO_ADDONS_PATH" --without-demo=all --load-language=en_US --workers=0 --max-cron-threads=0 --log-level=warn --stop-after-init

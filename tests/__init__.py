@@ -1,2 +1,1 @@
-# noinspection PyUnresolvedReferences
-import odoo.tests
+from . import test_shopify_helpers
