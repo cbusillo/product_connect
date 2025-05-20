@@ -1,1 +1,1 @@
-from . import test_shopify_helpers, test_shopify_service
+from . import test_shopify_helpers, test_shopify_service, test_shopify_sync
