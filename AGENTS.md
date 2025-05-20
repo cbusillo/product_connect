@@ -5,7 +5,8 @@ code should instead be descriptive. Both function and variable names should be f
 
 Code should be beautiful and easy to read and maintain. Use existing codebase patterns. Avoid the use of attrs when
 possible in Python. We want everything to be type-checkable with mypy and PyCharm. All functions return and parameters
-should be type hinted as accurately as possible. When type hinting Odoo objects, use the "magic types" available from
+should be type hinted as accurately as possible. Avoid the use of Any when typing. When type hinting Odoo objects, use
+the "magic types" available from
 the Odoo Plugin for Jetbrains. For example, "odoo.model.product_template" or "odoo.values.product_template". Use
 relative imports when possible. Use absolute imports only when necessary.
 
@@ -30,7 +31,7 @@ Use the environment script to load Odoo variables and activate the virtual envir
    ```
     - Add --last-failed to run only the tests that failed in the last run
     - Add `/odoo` to the end of the pytest command to run the full test suite before committing
-    - Examine the PYTEST_ADDOPTS to adjust options. Sane defaults are already set.
+    - Examine the PYTEST_ADDOPTS to adjust options. Reasonable defaults are already set.
 
 - Run tests with odoo-bin:
     ```bash
