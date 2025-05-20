@@ -4,14 +4,14 @@ set -euo pipefail
 #cp /workspace/product_connect/AGENTS.md /workspace
 
 : "${PYTHON_VERSION:=3.12}"
-: "${ODOO_VERSION:=18.0}"
+#: "${ODOO_VERSION:=18.0}"
 : "${ODOO_BASE_DIR:=/odoo}"
-: "${ODOO_ENTERPRISE_DIR:=/enterprise}"
+#: "${ODOO_ENTERPRISE_DIR:=/enterprise}"
 : "${ODOO_BASE_REPOSITORY:=odoo/odoo}"
 : "${ODOO_ENTERPRISE_REPOSITORY:=codebykyle/odoo-enterprise-mirror}"
 : "${ODOO_DATABASE:=odoo-test}"
 : "${ODOO_ADDONS_PATH:=/odoo/addons,/enterprise,/workspace}"
-: "${GITHUB_TOKEN:?Must be set}"
+#: "${GITHUB_TOKEN:?Must be set}"
 : "${WKHTML_VERSION:=0.12.6.1-3.jammy}"
 : "${VENV_DIR:=/venv}"
 
@@ -51,7 +51,6 @@ cat >/etc/profile.d/odoo_env.sh <<EOF
 export ODOO_DATABASE=$ODOO_DATABASE
 export ODOO_ADDONS_PATH=$ODOO_ADDONS_PATH
 export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
-export GITHUB_TOKEN=$GITHUB_TOKEN
 export VENV_DIR=$VENV_DIR
 export PYTEST_ADDOPTS="--cov=/odoo --cov=/workspace --cov-report=term-missing -q -s -o python_files=test_*.py -n auto --dist=loadfile --odoo-addons-path=$ODOO_ADDONS_PATH"
 . /venv/bin/activate
