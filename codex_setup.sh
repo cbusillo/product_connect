@@ -22,7 +22,8 @@ apt-get install -y --no-install-recommends \
   libldap2-dev libsasl2-dev postgresql xxd fontconfig libpng16-16 \
   libxrender1 libxtst6 xfonts-75dpi xfonts-base libssl-dev \
   python3.12 python3.12-venv python3.12-dev python3.12-full \
-  libx11-6 libxcb1 libxext6 gettext libcairo2-dev libcairo2 && \
+  libx11-6 libxcb1 libxext6 gettext libcairo2-dev libcairo2 \
+  nano && \
 apt-get clean && rm -rf /var/lib/apt/lists/*
 
 tmp_deb=$(mktemp --suffix=.deb)
