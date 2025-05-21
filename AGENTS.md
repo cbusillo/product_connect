@@ -47,9 +47,15 @@ The following static‑analysis and formatting commands **must** succeed (exit c
 complete:
 
 ```bash
-black --line-length 130 .
-mypy --config-file=mypy.ini --follow-imports=silent --exclude '\.pyi$' .
+# format only hand‑written code
+black --line-length 130 --extend-exclude 'services/shopify/gql|graphql/schema' .
+
+# type‑check only hand‑written code (skip pyi stubs and generated folders)
+mypy --config-file=mypy.ini --follow-imports=silent --exclude '(\.pyi$|services/shopify/gql/|graphql/schema/)' .
 ```
+
+> **Generated folders** (`services/shopify/gql/*`, `graphql/schema/*`) are produced by Ariadne Codegen.  
+> Codex **must not** modify or format these files; treat them as read‑only artifacts.
 
 ### Odoo type‑hint patterns
 
@@ -60,7 +66,7 @@ Use the JetBrains magic types to keep static analysis clean:
 
 ## Repository layout
 
-- Addon and project root is **/workspace**
+- Addon and project root is **/workspace/product_connect**
 - Ignore these paths when searching for implementation targets:
     - /workspace/product_connect/services/shopify/gql/* # generated from Ariadne Codegen
     - /workspace/product_connect/graphql/schema/* # generated from Ariadne Codegen
