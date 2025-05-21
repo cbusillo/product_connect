@@ -1,5 +1,6 @@
 from datetime import datetime, UTC
 from typing import Any, Callable, List, Tuple, cast
+from unittest.mock import patch
 
 from pydantic import BaseModel
 
@@ -220,3 +221,112 @@ class TestShopifyHelpers(TransactionCase):
         err = helpers.ShopifyApiError("msg", shopify_record=prod)
         err.__cause__ = ValueError("boom")
         self.assertIn("Shopify error: boom", str(err))
+
+    def test_parse_shopify_id_from_gid(self) -> None:
+        self.assertEqual(helpers.parse_shopify_id_from_gid("gid://shopify/product/123"), "123")
+
+    def test_parse_datetime_and_format_with_naive(self) -> None:
+        dt_str = "2024-05-20T07:34:56-05:00"
+        parsed = helpers.parse_shopify_datetime_to_utc(dt_str)
+        self.assertEqual(parsed, datetime(2024, 5, 20, 12, 34, 56))
+        naive = datetime(2024, 5, 20, 12, 34, 56)
+        self.assertEqual(helpers.format_datetime_for_shopify(naive), "2024-05-20T12:34:56Z")
+
+    def test_image_order_key_defaults(self) -> None:
+        class MockImage:
+            def __init__(self) -> None:
+                self.sequence = None
+                self.create_date = None
+
+        self.assertEqual(helpers.image_order_key(MockImage()), (0, helpers.DEFAULT_DATETIME))
+
+    def test_normalise_none(self) -> None:
+        funcs: list[Callable[[str | None], str]] = [helpers.normalize_str, helpers.normalize_phone, helpers.normalize_email]
+        for func in funcs:
+            with self.subTest(func=func.__name__):
+                self.assertEqual(func(None), "")
+
+    def test_parse_shopify_sku_field_simple(self) -> None:
+        self.assertEqual(helpers.parse_shopify_sku_field_to_sku_and_bin("SKU1 Bin"), ("SKU1", "Bin"))
+
+    def test_determine_latest_modification_none(self) -> None:
+        class Tmpl:
+            write_date = None
+
+        class Prod:
+            write_date = None
+            product_tmpl_id = Tmpl()
+            shopify_last_exported_at = None
+
+        self.assertEqual(helpers.determine_latest_odoo_product_modification_time(Prod()), helpers.DEFAULT_DATETIME)
+
+    def test_write_if_changed_single_record_and_callable_digits(self) -> None:
+        class Base:
+            def __len__(self) -> int:
+                return 1
+
+            def __init__(self, rec_id: int) -> None:
+                self.id = rec_id
+
+        helpers.models.BaseModel = Base  # type: ignore
+
+        class FloatField:
+            def __init__(self) -> None:
+                self.count = 0
+
+            def digits(self, _env: object) -> tuple[int, int]:
+                self.count += 1
+                return 16, 2
+
+        class Rec:
+            def __init__(self) -> None:
+                self.m2o = Base(1)
+                self.price = 1.0
+                self.env = object()
+                self._fields = {"m2o": object(), "price": FloatField()}
+                self._written: list[dict[str, object]] = []
+
+            def __getitem__(self, name: str) -> object:
+                return getattr(self, name)
+
+            def with_context(self, **_kw: object) -> "Rec":
+                return self
+
+            def write(self, vals: dict[str, object]) -> None:
+                self._written.append(vals)
+                for k, v in vals.items():
+                    setattr(self, k, v)
+
+        rec = Rec()
+        new_vals = {"m2o": Base(1), "price": 1.0}
+        changed = helpers.write_if_changed(cast(Any, rec), new_vals)
+        self.assertFalse(changed)
+        self.assertEqual(rec._written, [])
+        self.assertEqual(rec._fields["price"].count, 1)
+
+    def test_shopify_api_error_sku_missing(self) -> None:
+        class Prod(BaseModel):
+            id: str
+
+        prod = Prod(id="gid/1")
+        err = helpers.ShopifyApiError("msg", shopify_record=prod)
+        self.assertEqual(err.sku, "")
+
+    def test_shopify_api_error_name_missing_then_present(self) -> None:
+        class Prod(BaseModel):
+            id: str = "gid/1"
+            title: str = "foo"
+            variants: list = []
+
+        err = helpers.ShopifyApiError("msg", shopify_record=Prod())
+        with patch.object(helpers.OdooDataError, "__str__", lambda self: "err"):
+            txt = str(err)
+            self.assertIn("[foo]", txt)
+
+    def test_shopify_product_id_no_record(self) -> None:
+        err = helpers.ShopifyApiError("msg")
+        self.assertEqual(err.shopify_product_id, "")
+
+    def test_parse_sku_no_value_error(self) -> None:
+        with self.assertRaises(helpers.ShopifyMissingSkuFieldError):
+            helpers.parse_shopify_sku_field_to_sku_and_bin(" - Bin")
