@@ -41,6 +41,21 @@ Use the environment script to load Odoo variables and activate the virtual envir
     ```
     - Use `--test-tags[-][tag][/module][:class][.method]` to run specific tests
 
+- Front-end (tour) tests:
+  Odoo tours are headless‐Chrome integration tests that live under the `/web` module.  
+  Codex must run them just like unit tests and exit **0** only when they pass:
+
+    ```bash
+    /odoo/odoo-bin \
+    -d "$ODOO_DATABASE" \
+    --addons-path="$ODOO_ADDONS_PATH" \
+    --init base,product_connect \
+    --stop-after-init \
+    --test-enable \
+    --test-tags="/web_tour,/web" \
+    --log-level=warn
+    ```
+
 - All commands in this section *and* in **Programmatic checks** must exit with code 0.
 
 ### Programmatic checks

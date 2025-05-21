@@ -22,7 +22,8 @@ apt-get install -y --no-install-recommends \
   libldap2-dev libsasl2-dev postgresql xxd fontconfig libpng16-16 \
   libxrender1 libxtst6 xfonts-75dpi xfonts-base libssl-dev \
   python3.12 python3.12-venv python3.12-dev python3.12-full \
-  libx11-6 libxcb1 libxext6 gettext libcairo2-dev libcairo2 && \
+  libx11-6 libxcb1 libxext6 gettext libcairo2-dev libcairo2 \
+  chromium chromium-driver xvfb  && \
 apt-get clean && rm -rf /var/lib/apt/lists/*
 
 tmp_deb=$(mktemp --suffix=.deb)
@@ -57,6 +58,7 @@ export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 export GITHUB_TOKEN=$GITHUB_TOKEN
 export VENV_DIR=$VENV_DIR
 export PYTEST_ADDOPTS="--cov=/workspace --cov-report=term-missing:skip-covered -ra -o python_files=test_*.py -n auto --dist=loadfile --odoo-addons-path=$ODOO_ADDONS_PATH"
+export CHROME_BIN=$(command -v chromium-browser || command -v chromium || command -v google-chrome || true)
 . /venv/bin/activate
 EOF
 chmod +x /etc/profile.d/odoo_env.sh
