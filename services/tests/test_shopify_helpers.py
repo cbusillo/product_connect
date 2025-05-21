@@ -171,3 +171,52 @@ class TestShopifyHelpers(TransactionCase):
 
         t1, t2, t3 = datetime(2024, 1, 1), datetime(2024, 1, 2), datetime(2024, 1, 3)
         self.assertEqual(helpers.determine_latest_odoo_product_modification_time(Prod(t1, t2, t3)), t3)
+
+    def test_parse_datetime_and_gid_and_sku_errors(self) -> None:
+        naive_dt = datetime(2024, 5, 20, 12, 34, 56)
+        self.assertEqual(helpers.parse_shopify_datetime_to_utc(naive_dt), naive_dt)
+        self.assertEqual(helpers.parse_shopify_id_from_gid(5), "5")
+        self.assertEqual(helpers.format_shopify_gid_from_id("product", 5), "gid://shopify/product/5")
+        with self.assertRaises(helpers.ShopifyMissingSkuFieldError):
+            helpers.parse_shopify_sku_field_to_sku_and_bin(" ")
+        with self.assertRaises(helpers.OdooMissingSkuError):
+            helpers.format_sku_bin_for_shopify("", "bin")
+
+    def test_write_if_changed_multirecord_and_api_error_cause(self) -> None:
+        class Base:
+            pass
+
+        helpers.models.BaseModel = Base  # type: ignore
+
+        class Multi(Base):
+            def __len__(self) -> int:
+                return 2
+
+            id = 1
+
+        class Rec:
+            def __init__(self) -> None:
+                self.field = Multi()
+                self._fields = {"field": object()}
+
+            def __getitem__(self, name: str) -> Any:
+                return getattr(self, name)
+
+        with self.assertRaises(UserError):
+            helpers.write_if_changed(cast(Any, Rec()), {"field": Multi()})
+
+        class Var(BaseModel):
+            sku: str | None = None
+
+        class Vars(BaseModel):
+            nodes: list[Var]
+
+        class Prod(BaseModel):
+            id: str
+            title: str
+            variants: Vars
+
+        prod = Prod(id="gid/1", title="n", variants=Vars(nodes=[Var()]))
+        err = helpers.ShopifyApiError("msg", shopify_record=prod)
+        err.__cause__ = ValueError("boom")
+        self.assertIn("Shopify error: boom", str(err))
