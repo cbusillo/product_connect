@@ -96,9 +96,9 @@ class TestShopifyService(TransactionCase):
         def send_one(_request: Request) -> Response:
             return responses.pop(0)
 
-        with patch.object(_service_module.httpx, "Client", DummyClient), patch.object(
+        with patch.object(_service_module, "Client", DummyClient), patch.object(
             _service_module, "ShopifyClient", lambda http_client, url: http_client
-        ), patch.object(_service_module, _service_module.sleep.__name__) as fake_sleep, patch.object(
+        ), patch.object(_service_module, "sleep") as fake_sleep, patch.object(
             service, "get_first_location_gid", return_value="loc"
         ), patch.object(
             service, "_throttle_info", side_effect=[(True, None), (False, None)]

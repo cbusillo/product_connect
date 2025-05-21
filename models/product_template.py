@@ -176,8 +176,9 @@ class ProductTemplate(models.Model):
             return products
 
         if consumable_products := products.filtered(lambda p: p.type == "consu"):
+            variant_ids = consumable_products.mapped("product_variant_ids").ids
             self.env["shopify.sync"].create_and_run_async(
-                {"mode": SyncMode.EXPORT_BATCH_PRODUCTS, "odoo_products_to_sync": [(6, 0, consumable_products.ids)]}
+                {"mode": SyncMode.EXPORT_BATCH_PRODUCTS, "odoo_products_to_sync": [(6, 0, variant_ids)]}
             )
 
         return products
