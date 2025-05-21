@@ -118,3 +118,163 @@ class TestShopifyService(TransactionCase):
         service = self._service()
         with self.assertRaises(Exception):
             service._create_client()
+
+    def test_client_property_creates_client(self) -> None:
+        service = self._service()
+
+        def create_client() -> str:
+            service._client = "cli"
+            return "cli"
+
+        with patch.object(service, "_create_client", side_effect=create_client) as create:
+            service._client = None
+            self.assertEqual(service.client, "cli")
+            create.assert_called_once()
+
+    def test_get_first_location_gid_no_id(self) -> None:
+        service = self._service()
+
+        class Loc:
+            id = None
+
+        class Res:
+            nodes = [Loc()]
+
+        service._client = type("C", (), {"get_locations": lambda self: Res()})()
+        with self.assertRaises(Exception):
+            service.get_first_location_gid()
+
+    def test_rate_limit_hook_waits(self) -> None:
+        service = self._service()
+
+        class DummyClient:
+            def __init__(self, **kw: object) -> None:
+                self.event_hooks = kw.get("event_hooks", {})
+                self.send_func = lambda request: Response(200, request=request, json={})
+                self.send_calls: list[Request] = []
+
+            def send(self, request: Request, **_kw: object) -> Response:
+                self.send_calls.append(request)
+                return self.send_func(request)
+
+        class FakeResponse:
+            def __init__(self, json_data: dict) -> None:
+                self.headers = {"content-type": "application/json"}
+                self.status_code = 200
+                self._json = json_data
+                self.is_closed = False
+                self.read_called = False
+                self.request = Request("GET", "http://t")
+
+            def read(self) -> None:
+                self.read_called = True
+                self.is_closed = True
+
+            def json(self) -> dict:
+                return self._json
+
+            def close(self) -> None:
+                self.is_closed = True
+
+        with patch.object(_service_module, "Client", DummyClient), patch.object(_service_module, "sleep") as fake_sleep:
+            client = service._create_http_client("t")
+            hook = client.event_hooks["response"][0]
+            resp = FakeResponse({"extensions": {"cost": {"throttleStatus": {"currentlyAvailable": 100, "restoreRate": 2}}}})
+            hook(resp)
+            self.assertTrue(resp.read_called)
+            fake_sleep.assert_called_once()
+
+    def test_send_with_retry_transient_error(self) -> None:
+        service = self._service()
+
+        class DummyClient:
+            def __init__(self, **kw: object) -> None:
+                self.event_hooks = kw.get("event_hooks", {})
+                self.send_func = lambda request: Response(500, request=request)
+                self.send_calls: list[Request] = []
+
+            def send(self, request: Request, **_kw: object) -> Response:
+                self.send_calls.append(request)
+                return self.send_func(request)
+
+        with patch.object(_service_module, "Client", DummyClient), patch.object(_service_module, "sleep") as fake_sleep:
+            service.MAX_RETRY_ATTEMPTS = 1
+            client = service._create_http_client("t")
+            req = Request("GET", "http://t")
+            with self.assertRaises(Exception):
+                client.send(req)
+            self.assertEqual(len(client.send_calls), 2)
+            fake_sleep.assert_called()
+
+    def test_send_with_retry_not_transient(self) -> None:
+        service = self._service()
+
+        class DummyClient:
+            def __init__(self, **kw: object) -> None:
+                self.event_hooks = kw.get("event_hooks", {})
+                self.send_calls: list[Request] = []
+                self.response = Response(404, headers={"content-type": "application/json"}, request=Request("GET", "http://t"))
+
+            def send(self, request: Request, **_kw: object) -> Response:
+                self.send_calls.append(request)
+                return self.response
+
+        with patch.object(_service_module, "Client", DummyClient), patch.object(_service_module, "sleep") as fake_sleep:
+            client = service._create_http_client("t")
+            req = Request("GET", "http://t")
+            result = client.send(req)
+            self.assertIs(result, client.response)
+            self.assertEqual(len(client.send_calls), 1)
+            fake_sleep.assert_not_called()
+
+    def test_send_with_retry_invalid_json(self) -> None:
+        service = self._service()
+
+        class DummyClient:
+            def __init__(self, **kw: object) -> None:
+                self.event_hooks = kw.get("event_hooks", {})
+                self.send_calls: list[Request] = []
+
+                class Resp:
+                    status_code = 200
+                    headers = {"content-type": "application/json"}
+                    request = Request("GET", "http://t")
+
+                    def json(self) -> dict:
+                        raise ValueError("bad")
+
+                    def close(self) -> None:
+                        pass
+
+                self.response = Resp()
+
+            def send(self, request: Request, **_kw: object) -> Response:
+                self.send_calls.append(request)
+                return self.response
+
+        with patch.object(_service_module, "Client", DummyClient), patch.object(_service_module, "sleep") as fake_sleep:
+            client = service._create_http_client("t")
+            req = Request("GET", "http://t")
+            result = client.send(req)
+            self.assertIs(result, client.response)
+            self.assertEqual(len(client.send_calls), 1)
+            fake_sleep.assert_not_called()
+
+    def test_rate_limit_hook_no_json(self) -> None:
+        service = self._service()
+
+        class DummyClient:
+            def __init__(self, **kw: object) -> None:
+                self.event_hooks = kw.get("event_hooks", {})
+
+            def send(self, request: Request, **_kw: object) -> Response:
+                return Response(200, request=request)
+
+        class Resp:
+            headers: dict[str, str] = {}
+
+        with patch.object(_service_module, "Client", DummyClient), patch.object(_service_module, "sleep") as fake_sleep:
+            client = service._create_http_client("t")
+            hook = client.event_hooks["response"][0]
+            hook(Resp())
+            fake_sleep.assert_not_called()
