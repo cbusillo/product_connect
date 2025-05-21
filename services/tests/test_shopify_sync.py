@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 from odoo.api import Environment
 from odoo.tests import TransactionCase
 
+from ..shopify import ShopifyService
 from ..shopify.sync.base import ShopifyBaseImporter, ShopifyBaseExporter, ShopifyBaseDeleter
 from ..shopify.helpers import format_datetime_for_shopify, parse_shopify_datetime_to_utc
 from ..shopify.gql import Client
@@ -84,15 +85,12 @@ class TestShopifySyncItems(TransactionCase):
         config.set_param("shopify.api_token", "dummy_token")
 
         # noinspection PyShadowingNames
-        def _fake_create_client(self) -> None:    # type: ignore 
-            
+        def _fake_create_client(self) -> None:  # type: ignore
+
             self._client = MagicMock()
             self.first_location_gid = ""
 
-        patcher = patch(
-            "odoo.addons.product_connect.services.shopify.service.ShopifyService._create_client",
-            new=_fake_create_client,
-        )
+        patcher = patch.object(ShopifyService, ShopifyService._create_client.__name__, new=_fake_create_client)
         patcher.start()
         self.addCleanup(patcher.stop)
 
