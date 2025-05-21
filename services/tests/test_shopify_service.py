@@ -4,7 +4,9 @@ from unittest.mock import patch
 from httpx import Request, Response
 from odoo.tests import TransactionCase
 
+
 from ..shopify.service import ShopifyService
+from ..shopify import service as _service_module
 
 
 class DummySync:
@@ -94,14 +96,12 @@ class TestShopifyService(TransactionCase):
         def send_one(_request: Request) -> Response:
             return responses.pop(0)
 
-        with patch("product_connect.services.shopify.service.Client", DummyClient), patch(
-            "product_connect.services.shopify.service.ShopifyClient", (lambda http_client, url: http_client)
-        ), patch("product_connect.services.shopify.service.sleep") as fake_sleep, patch.object(
+        with patch.object(_service_module.httpx, "Client", DummyClient), patch.object(
+            _service_module, "ShopifyClient", lambda http_client, url: http_client
+        ), patch.object(_service_module, _service_module.sleep.__name__) as fake_sleep, patch.object(
             service, "get_first_location_gid", return_value="loc"
         ), patch.object(
-            service,
-            "_throttle_info",
-            side_effect=[(True, None), (False, None)],
+            service, "_throttle_info", side_effect=[(True, None), (False, None)]
         ):
             client = service._create_client()
             self.assertIs(service._client, client)

@@ -12,6 +12,8 @@ relative imports when possible. Use absolute imports only when necessary.
 
 pytest is installed in your environment, and you can use it to run tests.
 
+When writing tests, use patch.object instead of patch so we can use our pattern of relative imports.
+
 ***
 
 ## Setting up the environment
