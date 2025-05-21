@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, cast
 from unittest.mock import patch
 
 from httpx import Request, Response
@@ -61,16 +61,24 @@ class TestShopifyService(TransactionCase):
             def __init__(self, gid: str) -> None:
                 self.id = gid
 
-        class Response:
+        class LocationsResponse:
             def __init__(self, nodes: list[Loc]) -> None:
                 self.nodes = nodes
 
-        service._client = type("Client", (), {"get_locations": lambda self: Response([Loc("gid1")])})()
+        service._client = type(
+            "LocationsClient",
+            (),
+            {"get_locations": lambda _client: LocationsResponse([Loc("gid1")])},
+        )()
         self.assertEqual(service.get_first_location_gid(), "gid1")
 
     def test_get_first_location_gid_error(self) -> None:
         service = self._service()
-        service._client = type("Client", (), {"get_locations": lambda self: type("Res", (), {"nodes": []})()})()
+        service._client = type(
+            "LocationsClient",
+            (),
+            {"get_locations": lambda _client: type("LocationsResponse", (), {"nodes": []})()},
+        )()
         with self.assertRaises(Exception):
             service.get_first_location_gid()
 
@@ -104,11 +112,12 @@ class TestShopifyService(TransactionCase):
             service, "_throttle_info", side_effect=[(True, None), (False, None)]
         ):
             client = service._create_client()
+            dummy_client = cast(DummyClient, client)
             self.assertIs(service._client, client)
-            client.send_func = send_one
-            result = client.send(req)
+            dummy_client.send_func = send_one
+            result = dummy_client.send(req)
             self.assertEqual(result.status_code, 200)
-            self.assertEqual(len(client.send_calls), 2)
+            self.assertEqual(len(dummy_client.send_calls), 2)
             fake_sleep.assert_called_with(1.0)
             self.assertEqual(service.sync_record.hard_throttle_count, 1)
 

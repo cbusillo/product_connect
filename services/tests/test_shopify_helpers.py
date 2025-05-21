@@ -176,14 +176,14 @@ class TestShopifyHelpers(TransactionCase):
     def test_parse_datetime_and_gid_and_sku_errors(self) -> None:
         naive_dt = datetime(2024, 5, 20, 12, 34, 56)
         self.assertEqual(helpers.parse_shopify_datetime_to_utc(naive_dt), naive_dt)
-        self.assertEqual(helpers.parse_shopify_id_from_gid(5), "5")
+        self.assertEqual(helpers.parse_shopify_id_from_gid("5"), "5")
         self.assertEqual(helpers.format_shopify_gid_from_id("product", 5), "gid://shopify/product/5")
         with self.assertRaises(helpers.ShopifyMissingSkuFieldError):
             helpers.parse_shopify_sku_field_to_sku_and_bin(" ")
         with self.assertRaises(helpers.OdooMissingSkuError):
             helpers.format_sku_bin_for_shopify("", "bin")
 
-    def test_write_if_changed_multirecord_and_api_error_cause(self) -> None:
+    def test_write_if_changed_multi_record_and_api_error_cause(self) -> None:
         class Base:
             pass
 
@@ -319,7 +319,7 @@ class TestShopifyHelpers(TransactionCase):
             variants: list = []
 
         err = helpers.ShopifyApiError("msg", shopify_record=Prod())
-        with patch.object(helpers.OdooDataError, "__str__", lambda self: "err"):
+        with patch.object(helpers.OdooDataError, "__str__", lambda _exc: "err"):
             txt = str(err)
             self.assertIn("[foo]", txt)
 
