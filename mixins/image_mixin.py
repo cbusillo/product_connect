@@ -70,10 +70,12 @@ class ImageMixin(models.AbstractModel):
         for record in self:
             db_name = self.env.cr.dbname
             filestore_path = Path(config.filestore(db_name))
-            if not record.attachment.store_fname:
+            attachment: "odoo.model.ir_attachment" = record.attachment
+            store_fname = attachment.store_fname
+            if not store_fname:
                 self._reset_image_details(record)
                 continue
-            image_path = filestore_path / Path(record.attachment.store_fname)
+            image_path = filestore_path / Path(store_fname)
 
             try:
                 with Image.open(image_path) as img:
