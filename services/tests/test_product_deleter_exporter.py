@@ -1,0 +1,107 @@
+from httpx import HTTPError
+from unittest.mock import MagicMock, patch
+
+from odoo.tests import TransactionCase
+
+from ..shopify.sync.deleters.product_deleter import ProductDeleter
+from ..shopify.sync.exporters.product_exporter import ProductExporter
+from ..shopify import service as _service_module
+from ariadne_codegen.client_generators.dependencies.exceptions import GraphQLClientGraphQLMultiError, GraphQLClientGraphQLError
+
+
+class DummySync:
+    def __init__(self) -> None:
+        self.id = 1
+        self.hard_throttle_count = 0
+        self.total_count = 0
+        self.updated_count = 0
+
+
+class TestProductDeleter(TransactionCase):
+    def setUp(self) -> None:
+        super().setUp()
+
+        def _fake_create_client(self: _service_module.ShopifyService) -> None:
+            self._client = MagicMock()
+            self.first_location_gid = ""
+
+        patcher = patch.object(
+            _service_module.ShopifyService, _service_module.ShopifyService._create_client.__name__, new=_fake_create_client
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+        self.deleter = ProductDeleter(self.env, DummySync())
+        self.deleter.service._client = MagicMock()
+
+    def test_fetch_product_ids_page_success(self) -> None:
+        expected = object()
+        self.deleter.service.client.get_product_ids.return_value = expected
+        result = self.deleter._fetch_product_ids_page(None, "c1")
+        self.assertIs(result, expected)
+        self.deleter.service.client.get_product_ids.assert_called_once_with(cursor="c1", limit=self.deleter.page_size)
+
+    def test_fetch_product_ids_page_error(self) -> None:
+        error = GraphQLClientGraphQLMultiError([GraphQLClientGraphQLError("boom")])
+        self.deleter.service.client.get_product_ids.side_effect = error
+        with self.assertRaises(_service_module.ShopifyApiError):
+            self.deleter._fetch_product_ids_page(None, None)
+
+    def test_delete_one_success(self) -> None:
+        node = MagicMock(id="gid")
+        self.deleter._delete_one(node)
+        self.deleter.service.client.delete_product.assert_called_once()
+
+    def test_delete_one_error(self) -> None:
+        node = MagicMock(id="gid")
+        self.deleter.service.client.delete_product.side_effect = HTTPError("bad")
+        with self.assertRaises(_service_module.ShopifyApiError):
+            self.deleter._delete_one(node)
+
+    def test_delete_all_products_calls_collect_and_run(self) -> None:
+        with (
+            patch.object(ProductDeleter, ProductDeleter.collect_nodes.__name__, return_value=[MagicMock(id="gid")]) as collect,
+            patch.object(ProductDeleter, ProductDeleter.run.__name__) as run,
+        ):
+            self.deleter.delete_all_products()
+            collect.assert_called_once_with(self.deleter, self.deleter._fetch_product_ids_page)
+            run.assert_called_once_with(self.deleter, collect.return_value)
+
+
+class DummyPublication:
+    def __init__(self, gid: str) -> None:
+        self.id = gid
+
+
+class TestProductExporter(TransactionCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.exporter = ProductExporter(self.env, DummySync())
+
+    def test_metafield_from_id_value_key(self) -> None:
+        result = ProductExporter.metafield_from_id_value_key("5", "k", "v", "text")
+        self.assertEqual(result.namespace, "custom")
+        self.assertEqual(result.key, "k")
+        self.assertEqual(result.value, "v")
+        self.assertEqual(result.type, "text")
+        self.assertEqual(str(result.id), "gid://shopify/Metafield/5")
+
+    def test_is_published_on_channel(self) -> None:
+        gid = "gid://shopify/Publication/" + str(next(iter(_service_module.PUBLICATION_CHANNELS.values())))
+        publication = DummyPublication(gid)
+        self.assertTrue(ProductExporter.is_published_on_channel(publication))
+        publication.id = "gid://shopify/Publication/999"
+        self.assertFalse(ProductExporter.is_published_on_channel(publication))
+
+    def test_is_published_on_all_channels(self) -> None:
+        values = list(_service_module.PUBLICATION_CHANNELS.values())
+        channels = [DummyPublication(f"gid://shopify/Publication/{v}") for v in values]
+        self.assertTrue(self.exporter.is_published_on_all_channels(channels))
+        channels.append(DummyPublication("gid://shopify/Publication/999"))
+        self.assertFalse(self.exporter.is_published_on_all_channels(channels))
+
+    def test_publish_product(self) -> None:
+        self.env["ir.config_parameter"].sudo().set_param("shopify.test_store", "")
+        self.exporter.service._client = MagicMock()
+        self.exporter._publish_product("gid")
+        self.exporter.service.client.update_publications.assert_called_once()
