@@ -75,8 +75,6 @@ def make_pages() -> list[DummyPage]:
 
 
 class TestShopifySyncItems(TransactionCase):
-    test_tags = {"-at_install", "-post_install"}
-
     def setUp(self) -> None:
         super().setUp()
 

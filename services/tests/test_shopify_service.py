@@ -16,8 +16,6 @@ class DummySync:
 
 
 class TestShopifyService(TransactionCase):
-    test_tags = {"-at_install", "-post_install"}
-
     def _service(self) -> ShopifyService:
         return ShopifyService(self.env, DummySync())
 

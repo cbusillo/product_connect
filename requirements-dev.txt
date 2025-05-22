@@ -19,6 +19,8 @@ pytest-odoo @ git+https://github.com/camptocamp/pytest-odoo@master
 pytest-cov
 pytest-xdist
 
+websocket-client
+
 pylint
 pylint-odoo
 astroid

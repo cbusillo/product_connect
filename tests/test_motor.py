@@ -3,8 +3,6 @@ from odoo.exceptions import ValidationError
 
 
 class TestMotor(TransactionCase):
-    test_tags = {"-at_install", "-post_install"}
-
     def setUp(self) -> None:
         super().setUp()
         self.stage = self.env["motor.stage"].create({"name": "Checkin"})

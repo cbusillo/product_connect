@@ -1,11 +1,17 @@
-import { MotorTestWidget } from "@product_connect/widgets/motor_test_widget"
+import { MotorTestWidget } from "@product_connect/js/widgets/motor_test_widget"
 import { describe, expect, test } from "@odoo/hoot"
 import { mockService, mountWithCleanup, patchWithCleanup } from "@web/../tests/web_test_helpers"
 
 async function createWidget() {
-    mockService("notification", { add() {} })
+    mockService("notification", {
+        add() {
+        }
+    })
     mockService("orm", { searchRead: async () => [] })
-    patchWithCleanup(MotorTestWidget.prototype, { loadMotorTests: async () => {} })
+    patchWithCleanup(MotorTestWidget.prototype, {
+        loadMotorTests: async () => {
+        }
+    })
     const record = {
         data: {
             tests: { records: [] },

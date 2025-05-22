@@ -10,8 +10,6 @@ from ..shopify import helpers
 
 
 class TestShopifyHelpers(TransactionCase):
-    test_tags = {"-at_install", "-post_install"}
-
     def test_normalise_values(self) -> None:
         cases: List[Tuple[str, Callable[[str], str], str]] = [
             (" TeSt  ", helpers.normalize_str, "test"),

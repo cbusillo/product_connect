@@ -5,8 +5,6 @@ from odoo.addons.product_connect.services.shopify.helpers import SyncMode
 
 
 class TestProductTemplate(TransactionCase):
-    test_tags = {"-at_install", "-post_install"}
-
     def test_create_syncs_variants(self) -> None:
         with patch.object(type(self.env["shopify.sync"]), "create_and_run_async") as create_sync:
             product = self.env["product.template"].create({"name": "Test", "type": "consu"})

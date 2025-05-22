@@ -10,8 +10,6 @@ the "magic types" available from
 the Odoo Plugin for Jetbrains. For example, "odoo.model.product_template" or "odoo.values.product_template". Use
 relative imports when possible. Use absolute imports only when necessary.
 
-pytest is installed in your environment, and you can use it to run tests.
-
 When writing tests, use patch.object instead of patch so we can use our pattern of relative imports.
 
 ***
@@ -25,15 +23,6 @@ Use the environment script to load Odoo variables and activate the virtual envir
 ```
 
 ## Running the tests
-
-- Run pytest:
-   ```bash
-   cd /workspace 
-   pytest --odoo-log-level=warn --odoo-http 
-   ```
-    - Add --last-failed to run only the tests that failed in the last run
-    - Add `/odoo` to the end of the pytest command to run the full test suite before committing
-    - Examine the PYTEST_ADDOPTS to adjust options. Reasonable defaults are already set.
 
 - Run tests with odoo-bin:
     ```bash
