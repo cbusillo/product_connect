@@ -29,7 +29,7 @@ Use the environment script to load Odoo variables and activate the virtual envir
 - Run pytest:
    ```bash
    cd /workspace 
-   pytest --odoo-log-level=warn
+   pytest --odoo-log-level=warn --odoo-http 
    ```
     - Add --last-failed to run only the tests that failed in the last run
     - Add `/odoo` to the end of the pytest command to run the full test suite before committing
