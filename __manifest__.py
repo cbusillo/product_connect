@@ -68,6 +68,9 @@
             "product_connect/static/src/js/widgets/*",
             "product_connect/static/src/xml/*",
         ],
+        "web.assets_tests": [
+            "product_connect/static/tests/tours/**/*",
+        ],
     },
     "installable": True,
     "application": True,
