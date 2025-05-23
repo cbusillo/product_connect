@@ -47,7 +47,14 @@ source "$VENV_DIR/bin/activate"
 uv pip install 'pydantic>=2.11,<3' 'fastapi>=0.110' ariadne-codegen rlpycairo
 
 if [ -d /workspace ]; then
-  find /workspace -type f -name 'requirements*.txt' -print0 | sort -z -u | xargs -0 -I{} uv pip install -r {}
+  # Install base requirements first
+  find /workspace -type f -name 'requirements.txt' -print0 \
+    | sort -z -u \
+    | xargs -0 -I{} uv pip install -r {}
+  # Then install development‑specific requirements so they can override pins
+  find /workspace -type f -name 'requirements-dev.txt' -print0 \
+    | sort -z -u \
+    | xargs -0 -I{} uv pip install -r {}
 fi
 uv pip install -r "$ODOO_BASE_DIR/requirements.txt"
 
