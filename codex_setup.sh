@@ -27,7 +27,7 @@ apt-get install -y --no-install-recommends \
   libxrender1 libxtst6 xfonts-75dpi xfonts-base libssl-dev \
   python3.12 python3.12-venv python3.12-dev python3.12-full \
   libx11-6 libxcb1 libxext6 gettext libcairo2-dev libcairo2 \
-  libnss3 libxss1 libasound2 libatk-bridge2.0-0 libgbm1 fonts-liberation \
+  libnss3 libxss1 libasound2t64 libatk-bridge2.0-0 libgbm1 fonts-liberation \
   chromium chromium-driver google-chrome-stable xvfb  && \
 apt-get clean && rm -rf /var/lib/apt/lists/*
 
