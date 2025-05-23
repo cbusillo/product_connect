@@ -1,7 +1,7 @@
 from httpx import HTTPError
 from unittest.mock import MagicMock, patch
 
-from odoo.tests import TransactionCase
+from odoo.tests import TransactionCase, tagged
 
 from ..shopify.sync.deleters.product_deleter import ProductDeleter
 from ..shopify import service as _service_module
@@ -16,6 +16,7 @@ class DummySync:
         self.updated_count = 0
 
 
+@tagged("post_install", "-at_install")
 class TestProductDeleter(TransactionCase):
     def setUp(self) -> None:
         super().setUp()
@@ -63,5 +64,5 @@ class TestProductDeleter(TransactionCase):
             patch.object(ProductDeleter, ProductDeleter.run.__name__) as run,
         ):
             self.deleter.delete_all_products()
-            collect.assert_called_once_with(self.deleter, self.deleter._fetch_product_ids_page)
-            run.assert_called_once_with(self.deleter, collect.return_value)
+            collect.assert_called_once_with(self.deleter._fetch_product_ids_page)
+            run.assert_called_once_with(collect.return_value)

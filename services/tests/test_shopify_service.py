@@ -2,7 +2,7 @@ from typing import Callable, cast
 from unittest.mock import patch
 
 from httpx import Request, Response
-from odoo.tests import TransactionCase
+from odoo.tests import TransactionCase, tagged
 
 
 from ..shopify.service import ShopifyService
@@ -15,6 +15,7 @@ class DummySync:
         self.hard_throttle_count = 0
 
 
+@tagged("post_install", "-at_install")
 class TestShopifyService(TransactionCase):
     def _service(self) -> ShopifyService:
         return ShopifyService(self.env, DummySync())

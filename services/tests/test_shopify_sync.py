@@ -2,7 +2,7 @@ from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 from odoo.api import Environment
-from odoo.tests import TransactionCase
+from odoo.tests import TransactionCase, tagged
 
 from ..shopify import ShopifyService
 from ..shopify.sync.base import ShopifyBaseImporter, ShopifyBaseExporter, ShopifyBaseDeleter
@@ -74,6 +74,7 @@ def make_pages() -> list[DummyPage]:
     return [DummyPage([1, 2], "c1", True), DummyPage([3, 4])]
 
 
+@tagged("post_install", "-at_install")
 class TestShopifySyncItems(TransactionCase):
     def setUp(self) -> None:
         super().setUp()
