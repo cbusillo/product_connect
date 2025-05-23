@@ -286,3 +286,45 @@ class TestShopifyService(TransactionCase):
             hook = client.event_hooks["response"][0]
             hook(Resp())
             fake_sleep.assert_not_called()
+
+    def test_rate_limit_hook_closed_or_no_wait(self) -> None:
+        service = self._service()
+
+        class DummyClient:
+            def __init__(self, **kw: object) -> None:
+                self.event_hooks = kw.get("event_hooks", {})
+
+            def send(self, request: Request, **_kw: object) -> Response:
+                return Response(200, request=request)
+
+        class Resp:
+            def __init__(self, data: dict, closed: bool) -> None:
+                self.headers = {"content-type": "application/json"}
+                self._json = data
+                self.is_closed = closed
+                self.read_called = False
+                self.request = Request("GET", "http://t")
+
+            def read(self) -> None:
+                self.read_called = True
+                self.is_closed = True
+
+            def json(self) -> dict:
+                return self._json
+
+            def close(self) -> None:
+                self.is_closed = True
+
+        with patch.object(_service_module, "Client", DummyClient), patch.object(_service_module, "sleep") as fake_sleep:
+            client = service._create_http_client("t")
+            hook = client.event_hooks["response"][0]
+            resp_closed = Resp({}, True)
+            hook(resp_closed)
+            self.assertFalse(resp_closed.read_called)
+
+            resp_ok = Resp(
+                {"extensions": {"cost": {"throttleStatus": {"currentlyAvailable": service.MIN_API_POINTS, "restoreRate": 1}}}},
+                False,
+            )
+            hook(resp_ok)
+            fake_sleep.assert_not_called()
