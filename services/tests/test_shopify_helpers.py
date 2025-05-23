@@ -53,6 +53,15 @@ class TestShopifyHelpers(TransactionCase):
         self.assertEqual(err.sku, "")
         self.assertEqual(err.name, "")
 
+    def test_odoo_data_error_name_only(self) -> None:
+        class Rec:
+            name = "n"
+            id = None
+            default_code = None
+
+        err = helpers.OdooDataError("msg", Rec())
+        self.assertEqual(str(err), "msg [Odoo Name n]")
+
     def test_shopify_api_error_str(self) -> None:
         class Var(BaseModel):
             sku: str | None = None
@@ -224,6 +233,9 @@ class TestShopifyHelpers(TransactionCase):
     def test_parse_shopify_id_from_gid(self) -> None:
         self.assertEqual(helpers.parse_shopify_id_from_gid("gid://shopify/product/123"), "123")
 
+    def test_parse_shopify_id_from_gid_int(self) -> None:
+        self.assertEqual(helpers.parse_shopify_id_from_gid(5), "5")
+
     def test_parse_datetime_and_format_with_naive(self) -> None:
         dt_str = "2024-05-20T07:34:56-05:00"
         parsed = helpers.parse_shopify_datetime_to_utc(dt_str)
@@ -302,6 +314,41 @@ class TestShopifyHelpers(TransactionCase):
         self.assertFalse(changed)
         self.assertEqual(rec._written, [])
         self.assertEqual(rec._fields["price"].count, 1)
+
+    def test_write_if_changed_many2one_changed(self) -> None:
+        class Base:
+            def __len__(self) -> int:
+                return 1
+
+            def __init__(self, rec_id: int) -> None:
+                self.id = rec_id
+
+        helpers.models.BaseModel = Base  # type: ignore
+
+        class Rec:
+            def __init__(self) -> None:
+                self.m2o = Base(1)
+                self._fields = {"m2o": object()}
+                self.env = object()
+                self._written: list[dict[str, Base]] = []
+
+            def __getitem__(self, name: str) -> Base:
+                return getattr(self, name)
+
+            def with_context(self, **_kw: object) -> "Rec":
+                return self
+
+            def write(self, vals: dict[str, Base]) -> None:
+                self._written.append(vals)
+                for k, v in vals.items():
+                    setattr(self, k, v)
+
+        rec = Rec()
+        new = Base(2)
+        changed = helpers.write_if_changed(cast(Any, rec), {"m2o": new})
+        self.assertTrue(changed)
+        self.assertEqual(rec.m2o.id, 2)
+        self.assertEqual(rec._written, [{"m2o": new}])
 
     def test_shopify_api_error_sku_missing(self) -> None:
         class Prod(BaseModel):
