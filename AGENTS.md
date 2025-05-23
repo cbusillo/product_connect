@@ -57,6 +57,7 @@ complete:
 black --line-length 130 --extend-exclude 'services/shopify/gql|graphql/schema' .
 
 # type‑check only hand‑written code (skip pyi stubs and generated folders)
+cd /workspace
 mypy --config-file=mypy.ini --follow-imports=silent --exclude '(\.pyi$|services/shopify/gql/|graphql/schema/)' .
 ```
 
