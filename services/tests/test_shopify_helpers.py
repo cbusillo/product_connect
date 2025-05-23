@@ -5,10 +5,11 @@ from unittest.mock import patch
 from pydantic import BaseModel
 
 from odoo.exceptions import UserError
-from odoo.tests import TransactionCase
+from odoo.tests import TransactionCase, tagged
 from ..shopify import helpers
 
 
+@tagged("post_install", "-at_install")
 class TestShopifyHelpers(TransactionCase):
     def test_normalise_values(self) -> None:
         cases: List[Tuple[str, Callable[[str], str], str]] = [
