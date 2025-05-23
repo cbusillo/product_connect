@@ -15,6 +15,10 @@ set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
+# install google chrome repository for tour tests
+wget -qO - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor >/usr/share/keyrings/google-chrome.gpg
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+
 apt-get update -qq && \
 apt-get install -y --no-install-recommends \
   build-essential git wget curl ca-certificates gnupg dirmngr \
@@ -23,7 +27,8 @@ apt-get install -y --no-install-recommends \
   libxrender1 libxtst6 xfonts-75dpi xfonts-base libssl-dev \
   python3.12 python3.12-venv python3.12-dev python3.12-full \
   libx11-6 libxcb1 libxext6 gettext libcairo2-dev libcairo2 \
-  chromium chromium-driver xvfb  && \
+  libnss3 libxss1 libasound2 libatk-bridge2.0-0 libgbm1 fonts-liberation \
+  chromium chromium-driver google-chrome-stable xvfb  && \
 apt-get clean && rm -rf /var/lib/apt/lists/*
 
 tmp_deb=$(mktemp --suffix=.deb)

@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 from odoo.tests import TransactionCase
+from odoo import fields
 
 from ..shopify.sync.exporters.product_exporter import ProductExporter
 from ..shopify import service as _service_module
@@ -51,3 +52,26 @@ class TestProductExporter(TransactionCase):
         self.exporter.service._client = MagicMock()
         self.exporter._publish_product("gid")
         self.exporter.service.client.update_publications.assert_called_once()
+
+    def test_publish_product_skipped_on_test_store(self) -> None:
+        self.env["ir.config_parameter"].sudo().set_param("shopify.test_store", "1")
+        self.exporter.service._client = MagicMock()
+        self.exporter._publish_product("gid")
+        self.exporter.service.client.update_publications.assert_not_called()
+
+    def test_find_products_to_export(self) -> None:
+        tmpl1 = self.env["product.template"].create({"name": "P1", "type": "consu", "website_description": "d"})
+        prod1 = tmpl1.product_variant_id
+        prod1.shopify_next_export = True
+
+        tmpl2 = self.env["product.template"].create({"name": "P2", "type": "consu", "sale_ok": False, "website_description": "d"})
+        prod2 = tmpl2.product_variant_id
+
+        tmpl3 = self.env["product.template"].create({"name": "P3", "type": "consu", "website_description": "d"})
+        prod3 = tmpl3.product_variant_id
+        prod3.shopify_last_exported_at = fields.Datetime.now()
+
+        result = self.exporter._find_products_to_export()
+        self.assertIn(prod1, result)
+        self.assertNotIn(prod2, result)
+        self.assertNotIn(prod3, result)
