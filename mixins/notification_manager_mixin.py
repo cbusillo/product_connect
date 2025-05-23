@@ -132,7 +132,8 @@ class NotificationManagerMixin(models.AbstractModel):
             if error_traceback:
                 message += f"\nError traceback:\n{error_traceback}"
             self.send_email_notification_to_admin(subject, message)
-            new_cr.commit()
+            if not self.env.registry.in_test_mode():
+                new_cr.commit()
         finally:
             new_cr.close()
 
