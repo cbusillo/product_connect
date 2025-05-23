@@ -52,6 +52,16 @@ class TestShopifyHelpers(TransactionCase):
         err = helpers.OdooDataError("x")
         self.assertEqual(err.sku, "")
         self.assertEqual(err.name, "")
+        self.assertEqual(str(err), "x")
+
+    def test_odoo_data_error_name_only(self) -> None:
+        class Rec:
+            name = "n"
+            id = None
+            default_code = None
+
+        err = helpers.OdooDataError("msg", Rec())
+        self.assertEqual(str(err), "msg [Odoo Name n]")
 
     def test_odoo_data_error_name_only(self) -> None:
         class Rec:
@@ -372,6 +382,17 @@ class TestShopifyHelpers(TransactionCase):
     def test_shopify_product_id_no_record(self) -> None:
         err = helpers.ShopifyApiError("msg")
         self.assertEqual(err.shopify_product_id, "")
+
+    def test_shopify_api_error_no_shopify_id(self) -> None:
+        class Prod(BaseModel):
+            id: str | None = None
+            title: str = "n"
+            variants: list = []
+
+        err = helpers.ShopifyApiError("msg", shopify_record=Prod())
+        with patch.object(helpers.OdooDataError, "__str__", lambda _exc: "msg"):
+            txt = str(err)
+            self.assertNotIn("Shopify ID", txt)
 
     def test_parse_sku_no_value_error(self) -> None:
         with self.assertRaises(helpers.ShopifyMissingSkuFieldError):

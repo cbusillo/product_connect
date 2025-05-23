@@ -7,6 +7,7 @@ from odoo.tests import TransactionCase, tagged
 
 from ..shopify.service import ShopifyService
 from ..shopify import service as _service_module
+from ..shopify.helpers import ShopifyApiError
 
 
 class DummySync:
@@ -327,4 +328,95 @@ class TestShopifyService(TransactionCase):
                 False,
             )
             hook(resp_ok)
+            fake_sleep.assert_not_called()
+
+    def test_send_with_retry_zero_attempts(self) -> None:
+        service = self._service()
+        service.MAX_RETRY_ATTEMPTS = -1
+
+        class DummyClient:
+            def __init__(self, **kw: object) -> None:
+                self.event_hooks = kw.get("event_hooks", {})
+
+            def send(self, request: Request, **_kw: object) -> Response:
+                return Response(200, request=request)
+
+        with patch.object(_service_module, "Client", DummyClient), patch.object(_service_module, "sleep") as fake_sleep:
+            client = service._create_http_client("t")
+            req = Request("GET", "http://t")
+            with self.assertRaises(ShopifyApiError):
+                client.send(req)
+            fake_sleep.assert_not_called()
+
+    def test_send_with_retry_delay_no_hard_throttle(self) -> None:
+        service = self._service()
+
+        class DummyClient:
+            def __init__(self, **kw: object) -> None:
+                self.event_hooks = kw.get("event_hooks", {})
+                self.send_func: Callable[[Request], Response] = lambda request: Response(
+                    200,
+                    json={"extensions": {"cost": {"throttleStatus": {"currentlyAvailable": 400, "restoreRate": 1}}}},
+                    request=request,
+                    headers={"content-type": "application/json"},
+                )
+
+            def send(self, request: Request, **_kw: object) -> Response:
+                return self.send_func(request)
+
+        resp = Response(
+            200,
+            json={"extensions": {"cost": {"throttleStatus": {"currentlyAvailable": 400, "restoreRate": 1}}}},
+            request=Request("GET", "http://t"),
+            headers={"content-type": "application/json"},
+        )
+
+        responses = [resp, resp]
+
+        def send_one(_request: Request) -> Response:
+            return responses.pop(0)
+
+        service.MAX_RETRY_ATTEMPTS = 1
+        with patch.object(_service_module, "Client", DummyClient), patch.object(
+            _service_module, "sleep"
+        ) as fake_sleep, patch.object(service, "_throttle_info", side_effect=[(False, 2), (False, None)]):
+            client = service._create_http_client("t")
+            cast(DummyClient, client).send_func = send_one  # type: ignore
+            req = Request("GET", "http://t")
+            result = client.send(req)
+            self.assertEqual(result.status_code, 200)
+            fake_sleep.assert_called_once_with(2)
+            self.assertEqual(service.sync_record.hard_throttle_count, 0)
+
+    def test_send_with_retry_invalid_json_transient(self) -> None:
+        service = self._service()
+
+        class DummyClient:
+            def __init__(self, **kw: object) -> None:
+                self.event_hooks = kw.get("event_hooks", {})
+
+                class Resp:
+                    status_code = 200
+                    headers = {"content-type": "application/json"}
+                    request = Request("GET", "http://t")
+
+                    def json(self) -> dict:
+                        raise ValueError("bad")
+
+                    def close(self) -> None:
+                        pass
+
+                self.response = Resp()
+
+            def send(self, request: Request, **_kw: object) -> Response:
+                return self.response
+
+        service.MAX_RETRY_ATTEMPTS = 0
+        with patch.object(_service_module, "Client", DummyClient), patch.object(
+            _service_module, "sleep"
+        ) as fake_sleep, patch.object(_service_module, "THROTTLE_TRANSIENT_STATUS", {200}):
+            client = service._create_http_client("t")
+            req = Request("GET", "http://t")
+            with self.assertRaises(ShopifyApiError):
+                client.send(req)
             fake_sleep.assert_not_called()
