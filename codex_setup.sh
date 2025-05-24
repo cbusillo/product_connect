@@ -88,3 +88,4 @@ export VIRTUAL_ENV=/venv
 export PATH="$VIRTUAL_ENV/bin:$PATH"
 export BASH_ENV=/etc/profile.d/odoo_env.sh
 echo '. /etc/profile.d/odoo_env.sh' >> /etc/bash.bashrc
+printf '\n# ensure venv first even after pyenv\nPATH="/venv/bin:${PATH//\/venv\/bin:/}"\nexport PATH\n' >> /etc/bash.bashrc
