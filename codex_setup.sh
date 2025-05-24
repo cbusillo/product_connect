@@ -46,15 +46,7 @@ source "$VENV_DIR/bin/activate"
 
 uv pip install 'pydantic>=2.11,<3' 'fastapi>=0.110' ariadne-codegen rlpycairo
 
-if [ -d /workspace ]; then
-  # Install base requirements first
-  find /workspace -type f -name 'requirements.txt' -print0 \
-    | sort -z -u \
-    | xargs -0 -I{} uv pip install -r {}
-  find /workspace -type f -name 'requirements-dev.txt' -print0 \
-    | sort -z -u \
-    | xargs -0 -I{} uv pip install -r {}
-fi
+find /workspace -type f -name 'requirements*.txt' -print0 | sort -z -u | xargs -0 -I{} uv pip install -r {}
 uv pip install -r "$ODOO_BASE_DIR/requirements.txt"
 
 site_pkgs=$(python -c "import site, pathlib; print(next(p for p in site.getsitepackages() if 'site-packages' in p))")
@@ -91,4 +83,8 @@ uv cache prune --ci
 /odoo/odoo-bin -d "$ODOO_DATABASE" --init base,product_connect --addons-path="$ODOO_ADDONS_PATH" --without-demo=all --load-language=en_US --workers=0 --max-cron-threads=0 --log-level=warn --stop-after-init
 cd /workspace
 wget https://raw.githubusercontent.com/cbusillo/odoo-opw/main/mypy.ini
-wget https://raw.githubusercontent.com/cbusillo/odoo-opw/main/addons/conftest.py
+
+export VIRTUAL_ENV=/venv
+export PATH="$VIRTUAL_ENV/bin:$PATH"
+export BASH_ENV=/etc/profile.d/odoo_env.sh
+echo '. /etc/profile.d/odoo_env.sh' >> /etc/bash.bashrc

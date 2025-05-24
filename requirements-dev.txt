@@ -13,7 +13,6 @@ mypy
 pydantic[email,timezone]
 
 rich
-
 websocket-client
 
 pylint

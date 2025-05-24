@@ -14,14 +14,6 @@ When writing tests, use patch.object instead of patch so we can use our pattern 
 
 ***
 
-## Setting up the environment
-
-Use the environment script to load Odoo variables and activate the virtual environment:
-
-```bash
-. /etc/profile.d/odoo_env.sh
-```
-
 ## Running the tests
 
 - Run tests with odoo-bin:
