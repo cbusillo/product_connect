@@ -62,6 +62,9 @@ export GITHUB_TOKEN=$GITHUB_TOKEN
 export VENV_DIR=$VENV_DIR
 export CHROME_BIN=$(command -v chromium-browser || command -v chromium || command -v google-chrome || true)
 . /venv/bin/activate
+# ensure venv first even after pyenv
+PATH="/venv/bin:\${PATH//\/venv\/bin:/}"
+export PATH
 EOF
 chmod +x /etc/profile.d/odoo_env.sh
 . /etc/profile.d/odoo_env.sh
