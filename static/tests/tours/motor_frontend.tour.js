@@ -1,6 +1,7 @@
 import { registry } from "@web/core/registry"
 import { rpc } from "@web/core/network/rpc"
 
+// noinspection JSUnusedGlobalSymbols
 registry.category("web_tour.tours").add("motor_frontend_tour", {
     url: "/web",
     steps: () => [

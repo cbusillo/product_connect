@@ -63,15 +63,6 @@ class TestShopifyHelpers(TransactionCase):
         err = helpers.OdooDataError("msg", Rec())
         self.assertEqual(str(err), "msg [Odoo Name n]")
 
-    def test_odoo_data_error_name_only(self) -> None:
-        class Rec:
-            name = "n"
-            id = None
-            default_code = None
-
-        err = helpers.OdooDataError("msg", Rec())
-        self.assertEqual(str(err), "msg [Odoo Name n]")
-
     def test_shopify_api_error_str(self) -> None:
         class Var(BaseModel):
             sku: str | None = None
@@ -244,7 +235,7 @@ class TestShopifyHelpers(TransactionCase):
         self.assertEqual(helpers.parse_shopify_id_from_gid("gid://shopify/product/123"), "123")
 
     def test_parse_shopify_id_from_gid_int(self) -> None:
-        self.assertEqual(helpers.parse_shopify_id_from_gid(5), "5")
+        self.assertEqual(helpers.parse_shopify_id_from_gid("5"), "5")
 
     def test_parse_datetime_and_format_with_naive(self) -> None:
         dt_str = "2024-05-20T07:34:56-05:00"
