@@ -23,11 +23,13 @@ registry.category("web_tour.tours").add("motor_frontend_tour", {
                     model: "product.manufacturer",
                     method: "create",
                     args: [{ name: "Maker", is_motor_manufacturer: true }],
+                    kwargs: {},
                 })
                 const color = await rpc("/web/dataset/call_kw/product.color/create", {
                     model: "product.color",
                     method: "create",
                     args: [{ name: "Red" }],
+                    kwargs: {},
                 })
                 window.motorId = await rpc("/web/dataset/call_kw/motor/create", {
                     model: "motor",
@@ -41,6 +43,7 @@ registry.category("web_tour.tours").add("motor_frontend_tour", {
                             color,
                         },
                     ],
+                    kwargs: {},
                 })
             },
         },
