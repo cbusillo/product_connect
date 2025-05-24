@@ -51,7 +51,6 @@ if [ -d /workspace ]; then
   find /workspace -type f -name 'requirements.txt' -print0 \
     | sort -z -u \
     | xargs -0 -I{} uv pip install -r {}
-  # Then install development‑specific requirements so they can override pins
   find /workspace -type f -name 'requirements-dev.txt' -print0 \
     | sort -z -u \
     | xargs -0 -I{} uv pip install -r {}
@@ -69,7 +68,6 @@ export ODOO_ADDONS_PATH=$ODOO_ADDONS_PATH
 export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 export GITHUB_TOKEN=$GITHUB_TOKEN
 export VENV_DIR=$VENV_DIR
-export PYTEST_ADDOPTS="--cov=/workspace --cov-report=term-missing:skip-covered -ra -o python_files=test_*.py -n auto --dist=loadfile --odoo-addons-path=$ODOO_ADDONS_PATH"
 export CHROME_BIN=$(command -v chromium-browser || command -v chromium || command -v google-chrome || true)
 . /venv/bin/activate
 EOF
