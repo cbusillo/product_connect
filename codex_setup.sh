@@ -62,9 +62,6 @@ export GITHUB_TOKEN=$GITHUB_TOKEN
 export VENV_DIR=$VENV_DIR
 export CHROME_BIN=$(command -v chromium-browser || command -v chromium || command -v google-chrome || true)
 . /venv/bin/activate
-# ensure venv first even after pyenv
-PATH="/venv/bin:\${PATH//\/venv\/bin:/}"
-export PATH
 EOF
 chmod +x /etc/profile.d/odoo_env.sh
 . /etc/profile.d/odoo_env.sh
@@ -91,4 +88,7 @@ export VIRTUAL_ENV=/venv
 export PATH="$VIRTUAL_ENV/bin:$PATH"
 export BASH_ENV=/etc/profile.d/odoo_env.sh
 echo '. /etc/profile.d/odoo_env.sh' >> /etc/bash.bashrc
-printf '\n# ensure venv first even after pyenv\nPATH="/venv/bin:${PATH//\/venv\/bin:/}"\nexport PATH\n' >> /etc/bash.bashrc
+# ensure venv first after pyenv for interactive shells
+if ! grep -q 'ensure venv first after pyenv' /root/.bashrc 2>/dev/null; then
+    printf '\n# ensure venv first after pyenv\nPATH="/venv/bin:${PATH//\/venv\/bin:/}"\nexport PATH\n' >> /root/.bashrc
+fi
