@@ -14,7 +14,3 @@ pydantic[email,timezone]
 
 rich
 websocket-client
-
-pylint
-pylint-odoo
-astroid
