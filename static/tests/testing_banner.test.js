@@ -1,4 +1,4 @@
-import { TestingBanner } from "@product_connect/utils/testing_banner"
+import { TestingBanner } from "@product_connect/js/utils/testing_banner"
 import { describe, expect, test } from "@odoo/hoot"
 import { browser } from "@web/core/browser/browser"
 import { mountWithCleanup, patchWithCleanup } from "@web/../tests/web_test_helpers"
