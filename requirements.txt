@@ -7,7 +7,6 @@ simple_zpl2 @ git+https://github.com/sacherjj/simple_zpl2@master
 pillow
 qrcode
 requests
-python-dateutil
 pydantic-settings
 
 httpx[http2]

@@ -4,7 +4,6 @@ debugpy
 watchdog
 
 types-Pillow
-types-python-dateutil
 types-requests
 types-geoip2
 

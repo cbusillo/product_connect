@@ -4,7 +4,6 @@ from datetime import datetime, UTC
 from enum import StrEnum
 from typing import TypeVar, Self, Union, Any
 
-from dateutil.parser import parse
 from pydantic import BaseModel
 
 from odoo import models
@@ -243,7 +242,7 @@ def parse_shopify_datetime_to_utc(value: datetime | str) -> datetime:
     if isinstance(value, datetime):
         dt = value
     else:
-        dt = parse(value)
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=UTC)
     return dt.astimezone(UTC).replace(tzinfo=None)
