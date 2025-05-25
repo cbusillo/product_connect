@@ -1,5 +1,6 @@
-from typing import Callable, cast
-from unittest.mock import patch
+from typing import Callable, Iterator, Tuple, cast
+from unittest.mock import patch, MagicMock
+from contextlib import contextmanager
 
 from httpx import Request, Response
 from odoo.tests import TransactionCase, tagged
@@ -31,6 +32,14 @@ class _BaseDummyClient:
 class TestShopifyService(TransactionCase):
     def _service(self) -> ShopifyService:
         return ShopifyService(self.env, DummySync())
+
+    @contextmanager
+    def _client(
+        self, service: ShopifyService, client_cls: type[_BaseDummyClient]
+    ) -> Iterator[Tuple[_BaseDummyClient, MagicMock]]:
+        with patch.object(_service_module, "Client", client_cls), patch.object(_service_module, "sleep") as fake_sleep:
+            client = cast(_BaseDummyClient, service._create_http_client("t"))
+            yield client, fake_sleep
 
     def test_compute_throttle_delay_none(self) -> None:
         service = self._service()
@@ -215,9 +224,8 @@ class TestShopifyService(TransactionCase):
                 self.send_calls.append(request)
                 return self.send_func(request)
 
-        with patch.object(_service_module, "Client", DummyClient), patch.object(_service_module, "sleep") as fake_sleep:
+        with self._client(service, DummyClient) as (client, fake_sleep):
             service.MAX_RETRY_ATTEMPTS = 1
-            client = cast(DummyClient, service._create_http_client("t"))
             req = Request("GET", "http://t")
             with self.assertRaises(Exception):
                 client.send(req)
@@ -236,8 +244,7 @@ class TestShopifyService(TransactionCase):
                     request=Request("GET", "http://t"),
                 )
 
-        with patch.object(_service_module, "Client", DummyClient), patch.object(_service_module, "sleep") as fake_sleep:
-            client = cast(DummyClient, service._create_http_client("t"))
+        with self._client(service, DummyClient) as (client, fake_sleep):
             req = Request("GET", "http://t")
             result = client.send(req)
             self.assertIs(result, client.response)
@@ -264,8 +271,7 @@ class TestShopifyService(TransactionCase):
 
                 self.response = Resp()
 
-        with patch.object(_service_module, "Client", DummyClient), patch.object(_service_module, "sleep") as fake_sleep:
-            client = cast(DummyClient, service._create_http_client("t"))
+        with self._client(service, DummyClient) as (client, fake_sleep):
             req = Request("GET", "http://t")
             result = client.send(req)
             self.assertIs(result, client.response)

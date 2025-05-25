@@ -11,6 +11,70 @@ from ..shopify import helpers
 
 @tagged("post_install", "-at_install")
 class TestShopifyHelpers(TransactionCase):
+
+    def _make_rec(self, include_price: bool) -> tuple[type, object, object | None]:
+        class Base:
+            def __len__(self) -> int:
+                return 1
+
+            def __init__(self, rec_id: int) -> None:
+                self.id = rec_id
+
+        helpers.models.BaseModel = Base  # type: ignore
+
+        if include_price:
+
+            class FloatField:
+                def __init__(self) -> None:
+                    self.count = 0
+
+                def digits(self, _env: object) -> tuple[int, int]:
+                    self.count += 1
+                    return 16, 2
+
+            field = FloatField()
+
+            class Rec:
+                def __init__(self) -> None:
+                    self.m2o = Base(1)
+                    self.price = 1.0
+                    self.env = object()
+                    self._fields = {"m2o": object(), "price": field}
+                    self._written: list[dict[str, object]] = []
+
+                def __getitem__(self, name: str) -> object:
+                    return getattr(self, name)
+
+                def with_context(self, **_kw: object) -> "Rec":
+                    return self
+
+                def write(self, vals: dict[str, object]) -> None:
+                    self._written.append(vals)
+                    for k, v in vals.items():
+                        setattr(self, k, v)
+
+            return Base, Rec(), field
+
+        class RecNoPrice:
+            def __init__(self) -> None:
+                self.m2o = Base(1)
+                self._fields = {"m2o": object()}
+                self.env = object()
+                self._written: list[dict[str, Base]] = []
+
+            def __getitem__(self, name: str) -> Base:
+                return getattr(self, name)
+
+            def with_context(self, **_kw: object) -> "Rec":
+                return self
+
+            def write(self, vals: dict[str, Base]) -> None:
+                self._written.append(vals)
+                for k, v in vals.items():
+                    setattr(self, k, v)
+
+        return Base, RecNoPrice(), None
+
     def test_normalise_values(self) -> None:
         cases: List[Tuple[str, Callable[[str], str], str]] = [
             (" TeSt  ", helpers.normalize_str, "test"),
@@ -273,78 +337,16 @@ class TestShopifyHelpers(TransactionCase):
         self.assertEqual(helpers.determine_latest_odoo_product_modification_time(Prod()), helpers.DEFAULT_DATETIME)
 
     def test_write_if_changed_single_record_and_callable_digits(self) -> None:
-        class Base:
-            def __len__(self) -> int:
-                return 1
-
-            def __init__(self, rec_id: int) -> None:
-                self.id = rec_id
-
-        helpers.models.BaseModel = Base  # type: ignore
-
-        class FloatField:
-            def __init__(self) -> None:
-                self.count = 0
-
-            def digits(self, _env: object) -> tuple[int, int]:
-                self.count += 1
-                return 16, 2
-
-        class Rec:
-            def __init__(self) -> None:
-                self.m2o = Base(1)
-                self.price = 1.0
-                self.env = object()
-                self._fields = {"m2o": object(), "price": FloatField()}
-                self._written: list[dict[str, object]] = []
-
-            def __getitem__(self, name: str) -> object:
-                return getattr(self, name)
-
-            def with_context(self, **_kw: object) -> "Rec":
-                return self
-
-            def write(self, vals: dict[str, object]) -> None:
-                self._written.append(vals)
-                for k, v in vals.items():
-                    setattr(self, k, v)
-
-        rec = Rec()
+        Base, rec, field = self._make_rec(True)
         new_vals = {"m2o": Base(1), "price": 1.0}
         changed = helpers.write_if_changed(cast(Any, rec), new_vals)
         self.assertFalse(changed)
         self.assertEqual(rec._written, [])
-        self.assertEqual(rec._fields["price"].count, 1)
+        assert field is not None
+        self.assertEqual(field.count, 1)
 
     def test_write_if_changed_many2one_changed(self) -> None:
-        class Base:
-            def __len__(self) -> int:
-                return 1
-
-            def __init__(self, rec_id: int) -> None:
-                self.id = rec_id
-
-        helpers.models.BaseModel = Base  # type: ignore
-
-        class Rec:
-            def __init__(self) -> None:
-                self.m2o = Base(1)
-                self._fields = {"m2o": object()}
-                self.env = object()
-                self._written: list[dict[str, Base]] = []
-
-            def __getitem__(self, name: str) -> Base:
-                return getattr(self, name)
-
-            def with_context(self, **_kw: object) -> "Rec":
-                return self
-
-            def write(self, vals: dict[str, Base]) -> None:
-                self._written.append(vals)
-                for k, v in vals.items():
-                    setattr(self, k, v)
-
-        rec = Rec()
+        Base, rec, _field = self._make_rec(False)
         new = Base(2)
         changed = helpers.write_if_changed(cast(Any, rec), {"m2o": new})
         self.assertTrue(changed)
