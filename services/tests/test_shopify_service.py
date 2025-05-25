@@ -20,6 +20,7 @@ class _BaseDummyClient:
     def __init__(self, **kw: object) -> None:
         self.event_hooks = kw.get("event_hooks", {})
         self.send_calls: list[Request] = []
+        self.response = Response(200, request=Request("GET", "http://t"))
 
     def send(self, request: Request, **_kw: object) -> Response:
         self.send_calls.append(request)
@@ -216,7 +217,7 @@ class TestShopifyService(TransactionCase):
 
         with patch.object(_service_module, "Client", DummyClient), patch.object(_service_module, "sleep") as fake_sleep:
             service.MAX_RETRY_ATTEMPTS = 1
-            client = service._create_http_client("t")
+            client = cast(DummyClient, service._create_http_client("t"))
             req = Request("GET", "http://t")
             with self.assertRaises(Exception):
                 client.send(req)
@@ -236,7 +237,7 @@ class TestShopifyService(TransactionCase):
                 )
 
         with patch.object(_service_module, "Client", DummyClient), patch.object(_service_module, "sleep") as fake_sleep:
-            client = service._create_http_client("t")
+            client = cast(DummyClient, service._create_http_client("t"))
             req = Request("GET", "http://t")
             result = client.send(req)
             self.assertIs(result, client.response)
@@ -264,7 +265,7 @@ class TestShopifyService(TransactionCase):
                 self.response = Resp()
 
         with patch.object(_service_module, "Client", DummyClient), patch.object(_service_module, "sleep") as fake_sleep:
-            client = service._create_http_client("t")
+            client = cast(DummyClient, service._create_http_client("t"))
             req = Request("GET", "http://t")
             result = client.send(req)
             self.assertIs(result, client.response)
