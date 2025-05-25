@@ -16,6 +16,16 @@ class DummySync:
         self.hard_throttle_count = 0
 
 
+class _BaseDummyClient:
+    def __init__(self, **kw: object) -> None:
+        self.event_hooks = kw.get("event_hooks", {})
+        self.send_calls: list[Request] = []
+
+    def send(self, request: Request, **_kw: object) -> Response:
+        self.send_calls.append(request)
+        return self.response
+
+
 @tagged("post_install", "-at_install")
 class TestShopifyService(TransactionCase):
     def _service(self) -> ShopifyService:
@@ -88,10 +98,10 @@ class TestShopifyService(TransactionCase):
         config.set_param("shopify.api_token", "token")
         service = self._service()
 
-        class DummyClient:
+        class DummyClient(_BaseDummyClient):
             def __init__(self, **_kw: object) -> None:
-                self.event_hooks: dict[str, list[Callable[[Response], None]]] = {}
-                self.send_calls: list[Request] = []
+                super().__init__(**_kw)
+                self.event_hooks = {}
                 self.send_func: Callable[[Request], Response] = lambda request: Response(200, request=request, json={})
 
             def send(self, request: Request, **_kw: object) -> Response:
@@ -156,11 +166,10 @@ class TestShopifyService(TransactionCase):
     def test_rate_limit_hook_waits(self) -> None:
         service = self._service()
 
-        class DummyClient:
+        class DummyClient(_BaseDummyClient):
             def __init__(self, **kw: object) -> None:
-                self.event_hooks = kw.get("event_hooks", {})
-                self.send_func = lambda request: Response(200, request=request, json={})
-                self.send_calls: list[Request] = []
+                super().__init__(**kw)
+                self.send_func: Callable[[Request], Response] = lambda request: Response(200, request=request, json={})
 
             def send(self, request: Request, **_kw: object) -> Response:
                 self.send_calls.append(request)
@@ -196,11 +205,10 @@ class TestShopifyService(TransactionCase):
     def test_send_with_retry_transient_error(self) -> None:
         service = self._service()
 
-        class DummyClient:
+        class DummyClient(_BaseDummyClient):
             def __init__(self, **kw: object) -> None:
-                self.event_hooks = kw.get("event_hooks", {})
+                super().__init__(**kw)
                 self.send_func = lambda request: Response(500, request=request)
-                self.send_calls: list[Request] = []
 
             def send(self, request: Request, **_kw: object) -> Response:
                 self.send_calls.append(request)
@@ -218,15 +226,14 @@ class TestShopifyService(TransactionCase):
     def test_send_with_retry_not_transient(self) -> None:
         service = self._service()
 
-        class DummyClient:
+        class DummyClient(_BaseDummyClient):
             def __init__(self, **kw: object) -> None:
-                self.event_hooks = kw.get("event_hooks", {})
-                self.send_calls: list[Request] = []
-                self.response = Response(404, headers={"content-type": "application/json"}, request=Request("GET", "http://t"))
-
-            def send(self, request: Request, **_kw: object) -> Response:
-                self.send_calls.append(request)
-                return self.response
+                super().__init__(**kw)
+                self.response = Response(
+                    404,
+                    headers={"content-type": "application/json"},
+                    request=Request("GET", "http://t"),
+                )
 
         with patch.object(_service_module, "Client", DummyClient), patch.object(_service_module, "sleep") as fake_sleep:
             client = service._create_http_client("t")
@@ -239,10 +246,9 @@ class TestShopifyService(TransactionCase):
     def test_send_with_retry_invalid_json(self) -> None:
         service = self._service()
 
-        class DummyClient:
+        class DummyClient(_BaseDummyClient):
             def __init__(self, **kw: object) -> None:
-                self.event_hooks = kw.get("event_hooks", {})
-                self.send_calls: list[Request] = []
+                super().__init__(**kw)
 
                 class Resp:
                     status_code = 200
@@ -257,10 +263,6 @@ class TestShopifyService(TransactionCase):
 
                 self.response = Resp()
 
-            def send(self, request: Request, **_kw: object) -> Response:
-                self.send_calls.append(request)
-                return self.response
-
         with patch.object(_service_module, "Client", DummyClient), patch.object(_service_module, "sleep") as fake_sleep:
             client = service._create_http_client("t")
             req = Request("GET", "http://t")
@@ -272,9 +274,9 @@ class TestShopifyService(TransactionCase):
     def test_rate_limit_hook_no_json(self) -> None:
         service = self._service()
 
-        class DummyClient:
+        class DummyClient(_BaseDummyClient):
             def __init__(self, **kw: object) -> None:
-                self.event_hooks = kw.get("event_hooks", {})
+                super().__init__(**kw)
 
             def send(self, request: Request, **_kw: object) -> Response:
                 return Response(200, request=request)
@@ -291,9 +293,9 @@ class TestShopifyService(TransactionCase):
     def test_rate_limit_hook_closed_or_no_wait(self) -> None:
         service = self._service()
 
-        class DummyClient:
+        class DummyClient(_BaseDummyClient):
             def __init__(self, **kw: object) -> None:
-                self.event_hooks = kw.get("event_hooks", {})
+                super().__init__(**kw)
 
             def send(self, request: Request, **_kw: object) -> Response:
                 return Response(200, request=request)
@@ -334,9 +336,9 @@ class TestShopifyService(TransactionCase):
         service = self._service()
         service.MAX_RETRY_ATTEMPTS = -1
 
-        class DummyClient:
+        class DummyClient(_BaseDummyClient):
             def __init__(self, **kw: object) -> None:
-                self.event_hooks = kw.get("event_hooks", {})
+                super().__init__(**kw)
 
             def send(self, request: Request, **_kw: object) -> Response:
                 return Response(200, request=request)
@@ -351,9 +353,9 @@ class TestShopifyService(TransactionCase):
     def test_send_with_retry_delay_no_hard_throttle(self) -> None:
         service = self._service()
 
-        class DummyClient:
+        class DummyClient(_BaseDummyClient):
             def __init__(self, **kw: object) -> None:
-                self.event_hooks = kw.get("event_hooks", {})
+                super().__init__(**kw)
                 self.send_func: Callable[[Request], Response] = lambda request: Response(
                     200,
                     json={"extensions": {"cost": {"throttleStatus": {"currentlyAvailable": 400, "restoreRate": 1}}}},
@@ -391,9 +393,9 @@ class TestShopifyService(TransactionCase):
     def test_send_with_retry_invalid_json_transient(self) -> None:
         service = self._service()
 
-        class DummyClient:
+        class DummyClient(_BaseDummyClient):
             def __init__(self, **kw: object) -> None:
-                self.event_hooks = kw.get("event_hooks", {})
+                super().__init__(**kw)
 
                 class Resp:
                     status_code = 200
@@ -407,9 +409,6 @@ class TestShopifyService(TransactionCase):
                         pass
 
                 self.response = Resp()
-
-            def send(self, request: Request, **_kw: object) -> Response:
-                return self.response
 
         service.MAX_RETRY_ATTEMPTS = 0
         with patch.object(_service_module, "Client", DummyClient), patch.object(
