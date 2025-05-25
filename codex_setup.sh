@@ -90,5 +90,6 @@ export BASH_ENV=/etc/profile.d/odoo_env.sh
 echo '. /etc/profile.d/odoo_env.sh' >> /etc/bash.bashrc
 # ensure venv first after pyenv for interactive shells
 if ! grep -q 'ensure venv first after pyenv' /root/.bashrc 2>/dev/null; then
-    printf '\n# ensure venv first after pyenv\nPATH="/venv/bin:${PATH//\/venv\/bin:/}"\nexport PATH\n' >> /root/.bashrc
+  # shellcheck disable=SC2016
+  printf '\n# ensure venv first after pyenv\nPATH="/venv/bin:${PATH//\/venv\/bin:/}"\nexport PATH\n' >> /root/.bashrc
 fi
