@@ -80,7 +80,7 @@ sudo -u postgres pg_ctlcluster "$pg_version" "$pg_cluster" restart
 
 uv cache prune --ci
 
-/odoo/odoo-bin -d "$ODOO_DATABASE" --init base,product_connect --addons-path="$ODOO_ADDONS_PATH" --without-demo=all --load-language=en_US --workers=0 --max-cron-threads=0 --log-level=warn --stop-after-init
+/odoo/odoo-bin -d "$ODOO_DATABASE" --init base,product_connect --addons-path="$ODOO_ADDONS_PATH" --without-demo=all --load-language=en_US --workers=0 --max-cron-threads=0 --log-level=info --stop-after-init
 cd /workspace
 wget https://raw.githubusercontent.com/cbusillo/odoo-opw/main/mypy.ini
 
