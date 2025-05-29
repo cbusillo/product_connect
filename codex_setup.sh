@@ -1,19 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${PYTHON_VERSION:=3.12}"
-: "${ODOO_VERSION:=18.0}"
-: "${ODOO_BASE_DIR:=/odoo}"
-: "${ODOO_ENTERPRISE_DIR:=/enterprise}"
-: "${ODOO_BASE_REPOSITORY:=odoo/odoo}"
-: "${ODOO_ENTERPRISE_REPOSITORY:=codebykyle/odoo-enterprise-mirror}"
-: "${ODOO_DATABASE:=odoo-test}"
-: "${ODOO_ADDONS_PATH:=/odoo/addons,/enterprise,/workspace}"
-: "${GITHUB_TOKEN:?Must be set}"
-: "${WKHTML_VERSION:=0.12.6.1-3.jammy}"
-: "${VENV_DIR:=/venv}"
-: "${ADDITIONAL_BRANCHES:=testing prod}"
-
 export DEBIAN_FRONTEND=noninteractive
 export GIT_TERMINAL_PROMPT=0
 
@@ -60,7 +47,6 @@ cat >/etc/profile.d/odoo_env.sh <<EOF
 export ODOO_DATABASE=$ODOO_DATABASE
 export ODOO_ADDONS_PATH=$ODOO_ADDONS_PATH
 export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
-export GITHUB_TOKEN=$GITHUB_TOKEN
 export VENV_DIR=$VENV_DIR
 export CHROME_BIN=$(command -v chromium-browser || command -v chromium || command -v google-chrome || true)
 . /venv/bin/activate
@@ -83,13 +69,12 @@ sudo -u postgres pg_ctlcluster "$pg_version" "$pg_cluster" restart
 uv cache prune --ci
 
 # Prefetch additional branches before the sandbox goes offline
-if [ -d /workspace/.git ]; then
-  cd /workspace
-  for branch in $ADDITIONAL_BRANCHES; do
-    git fetch --depth 1 origin "${branch}:${branch}" || echo "Branch ${branch} not found on remote"
-  done
-  cd -
-fi
+cd /workspace/"${ADDON_NAME}"
+for branch in $ADDITIONAL_BRANCHES; do
+  git fetch --depth 1 origin "${branch}:${branch}" || echo "Branch ${branch} not found on remote"
+done
+cd -
+
 
 /odoo/odoo-bin -d "$ODOO_DATABASE" --init base --addons-path="$ODOO_ADDONS_PATH" --without-demo=all --load-language=en_US --workers=0 --max-cron-threads=0 --log-level=warn --stop-after-init
 cd /workspace
