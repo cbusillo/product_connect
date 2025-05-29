@@ -88,11 +88,6 @@ export VIRTUAL_ENV=/venv
 export PATH="$VIRTUAL_ENV/bin:$PATH"
 export BASH_ENV=/etc/profile.d/odoo_env.sh
 echo '. /etc/profile.d/odoo_env.sh' >> /etc/bash.bashrc
-
-export VIRTUAL_ENV=/venv
-export PATH="$VIRTUAL_ENV/bin:$PATH"
-export BASH_ENV=/etc/profile.d/odoo_env.sh
-echo '. /etc/profile.d/odoo_env.sh' >> /etc/bash.bashrc
 # ensure venv first after pyenv for interactive shells
 if ! grep -q 'ensure venv first after pyenv' /root/.bashrc 2>/dev/null; then
   # shellcheck disable=SC2016
