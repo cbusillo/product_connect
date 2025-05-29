@@ -12,6 +12,7 @@ set -euo pipefail
 : "${GITHUB_TOKEN:?Must be set}"
 : "${WKHTML_VERSION:=0.12.6.1-3.jammy}"
 : "${VENV_DIR:=/venv}"
+: "${ADDITIONAL_BRANCHES:=testing prod}"
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -80,7 +81,16 @@ sudo -u postgres pg_ctlcluster "$pg_version" "$pg_cluster" restart
 
 uv cache prune --ci
 
-/odoo/odoo-bin -d "$ODOO_DATABASE" --init base,product_connect --addons-path="$ODOO_ADDONS_PATH" --without-demo=all --load-language=en_US --workers=0 --max-cron-threads=0 --log-level=info --stop-after-init
+# Prefetch additional branches before the sandbox goes offline
+if [ -d /workspace/.git ]; then
+  cd /workspace
+  for branch in $ADDITIONAL_BRANCHES; do
+    git fetch --depth 1 origin "${branch}:${branch}" || echo "Branch ${branch} not found on remote"
+  done
+  cd -
+fi
+
+/odoo/odoo-bin -d "$ODOO_DATABASE" --init base --addons-path="$ODOO_ADDONS_PATH" --without-demo=all --load-language=en_US --workers=0 --max-cron-threads=0 --log-level=warn --stop-after-init
 cd /workspace
 wget https://raw.githubusercontent.com/cbusillo/odoo-opw/main/mypy.ini
 

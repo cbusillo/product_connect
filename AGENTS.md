@@ -18,9 +18,10 @@ When writing tests, use patch.object instead of patch so we can use our pattern 
 
 - Run tests with odoo-bin:
     ```bash
-    /odoo/odoo-bin -d $ODOO_DATABASE -i base,product_connect --addons-path=$ODOO_ADDONS_PATH --stop-after-init --test-enable --log-level=warn  
+    /odoo/odoo-bin -d $ODOO_DATABASE -u product_connect --addons-path=$ODOO_ADDONS_PATH --stop-after-init --test-enable --log-level=info
     ```
-    - Use `--test-tags[-][tag][/module][:class][.method]` to run specific tests
+    - Upgrades **product_connect** (base is pre‑installed during `codex_setup.sh`) and runs its tests.
+        - Use `--test-tags[-][tag][/module][:class][.method]` to run specific tests
 
 - Front-end (tour) tests:
   Odoo tours are headless‐Chrome integration tests that live under the `/web` module.  
