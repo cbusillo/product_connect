@@ -68,14 +68,6 @@ sudo -u postgres pg_ctlcluster "$pg_version" "$pg_cluster" restart
 
 uv cache prune --ci
 
-# Prefetch additional branches before the sandbox goes offline
-cd /workspace/"${ADDON_NAME}"
-for branch in $ADDITIONAL_BRANCHES; do
-  git fetch --depth 1 origin "${branch}:${branch}" || echo "Branch ${branch} not found on remote"
-done
-cd -
-
-
 /odoo/odoo-bin -d "$ODOO_DATABASE" --init base --addons-path="$ODOO_ADDONS_PATH" --without-demo=all --load-language=en_US --workers=0 --max-cron-threads=0 --log-level=warn --stop-after-init
 cd /workspace
 wget https://raw.githubusercontent.com/cbusillo/odoo-opw/main/mypy.ini
