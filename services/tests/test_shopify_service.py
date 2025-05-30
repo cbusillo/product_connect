@@ -148,6 +148,17 @@ class TestShopifyService(TransactionCase):
         with self.assertRaises(Exception):
             service._create_client()
 
+    def test_create_client_resets_on_location_error(self) -> None:
+        config = self.env["ir.config_parameter"].sudo()
+        config.set_param("shopify.shop_url_key", "shop")
+        config.set_param("shopify.api_token", "token")
+        service = self._service()
+
+        with patch.object(service, "get_first_location_gid", side_effect=ShopifyApiError("boom")):
+            with self.assertRaises(ShopifyApiError):
+                service._create_client()
+        self.assertIsNone(service._client)
+
     def test_client_property_creates_client(self) -> None:
         service = self._service()
 
