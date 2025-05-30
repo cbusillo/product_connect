@@ -31,9 +31,9 @@ class ShopifyService:
 
         return self._client
 
-    def get_first_location_gid(self) -> str:
-        client = self.client
-        shopify_response = client.get_locations()
+    def get_first_location_gid(self, client: ShopifyClient | None = None) -> str:
+        shopify = client or self.client
+        shopify_response = shopify.get_locations()
         locations = shopify_response.nodes
         if not locations:
             raise ShopifyApiError("No locations found in the Shopify store.")
@@ -57,8 +57,9 @@ class ShopifyService:
         endpoint = f"https://{shop_url_key}.myshopify.com/admin/api/{api_version}/graphql.json"
         http_client = self._create_http_client(api_token)
         client = ShopifyClient(http_client=http_client, url=endpoint)
+        first_location_gid = self.get_first_location_gid(client)
         self._client = client
-        self.first_location_gid = self.get_first_location_gid()
+        self.first_location_gid = first_location_gid
         return client
 
     def _create_http_client(self, api_token: str) -> Client:
