@@ -17,3 +17,6 @@ if addons_path and addons_path != current_path:
 
 if __name__.startswith("odoo.addons."):
     from . import mixins, controllers, models, wizards
+
+if odoo_config.get("test_enable"):
+    from . import tests
