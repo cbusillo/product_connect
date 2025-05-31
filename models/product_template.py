@@ -400,8 +400,8 @@ class ProductTemplate(models.Model):
         while new_sku and new_sku <= max_sku:
             if not (
                 self.env["product.template"]
-                .with_context(active_test=False)
                 .sudo()
+                .with_context(active_test=False)
                 .search([("default_code", "=", new_sku)], limit=1)
             ):
                 return new_sku
