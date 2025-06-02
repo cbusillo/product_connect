@@ -21,9 +21,9 @@ class TestProductDeleter(TransactionCase):
     def setUp(self) -> None:
         super().setUp()
 
-        def _fake_create_client(self: _service_module.ShopifyService) -> None:
-            self._client = MagicMock()
-            self.first_location_gid = ""
+        def _fake_create_client(service: _service_module.ShopifyService) -> None:
+            service._client = MagicMock()
+            service.first_location_gid = ""
 
         patcher = patch.object(
             _service_module.ShopifyService, _service_module.ShopifyService._create_client.__name__, new=_fake_create_client

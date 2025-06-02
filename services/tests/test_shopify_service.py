@@ -161,14 +161,15 @@ class TestShopifyService(TransactionCase):
 
     def test_client_property_creates_client(self) -> None:
         service = self._service()
+        mock_client = MagicMock()
 
-        def create_client() -> str:
-            service._client = "cli"
-            return "cli"
+        def create_client() -> MagicMock:
+            service._client = mock_client
+            return mock_client
 
         with patch.object(service, "_create_client", side_effect=create_client) as create:
             service._client = None
-            self.assertEqual(service.client, "cli")
+            self.assertEqual(service.client, mock_client)
             create.assert_called_once()
 
     def test_get_first_location_gid_no_id(self) -> None:
@@ -180,7 +181,7 @@ class TestShopifyService(TransactionCase):
         class Res:
             nodes = [Loc()]
 
-        service._client = type("C", (), {"get_locations": lambda self: Res()})()
+        service._client = type("C", (), {"get_locations": lambda _: Res()})()
         with self.assertRaises(Exception):
             service.get_first_location_gid()
 
@@ -243,17 +244,13 @@ class TestShopifyService(TransactionCase):
             self.assertEqual(len(client.send_calls), 2)
             fake_sleep.assert_called()
 
-    def test_send_with_retry_not_transient(self) -> None:
+    def _test_send_without_retry(self, response_factory: Callable[[Request], Response | object]) -> None:
         service = self._service()
 
         class DummyClient(_BaseDummyClient):
             def __init__(self, **kw: object) -> None:
                 super().__init__(**kw)
-                self.response = Response(
-                    404,
-                    headers={"content-type": "application/json"},
-                    request=Request("GET", "http://t"),
-                )
+                self.response = response_factory(Request("GET", "http://t"))
 
         with self._client(service, DummyClient) as (client, fake_sleep):
             req = Request("GET", "http://t")
@@ -261,33 +258,30 @@ class TestShopifyService(TransactionCase):
             self.assertIs(result, client.response)
             self.assertEqual(len(client.send_calls), 1)
             fake_sleep.assert_not_called()
+
+    def test_send_with_retry_not_transient(self) -> None:
+        def create_response(request: Request) -> Response:
+            return Response(
+                404,
+                headers={"content-type": "application/json"},
+                request=request,
+            )
+        self._test_send_without_retry(create_response)
 
     def test_send_with_retry_invalid_json(self) -> None:
-        service = self._service()
+        def create_response(_request: Request) -> object:
+            class Resp:
+                status_code = 200
+                headers = {"content-type": "application/json"}
 
-        class DummyClient(_BaseDummyClient):
-            def __init__(self, **kw: object) -> None:
-                super().__init__(**kw)
+                def json(self) -> dict:
+                    raise ValueError("bad")
 
-                class Resp:
-                    status_code = 200
-                    headers = {"content-type": "application/json"}
-                    request = Request("GET", "http://t")
+                def close(self) -> None:
+                    pass
 
-                    def json(self) -> dict:
-                        raise ValueError("bad")
-
-                    def close(self) -> None:
-                        pass
-
-                self.response = Resp()
-
-        with self._client(service, DummyClient) as (client, fake_sleep):
-            req = Request("GET", "http://t")
-            result = client.send(req)
-            self.assertIs(result, client.response)
-            self.assertEqual(len(client.send_calls), 1)
-            fake_sleep.assert_not_called()
+            return Resp()
+        self._test_send_without_retry(create_response)
 
     def test_rate_limit_hook_no_json(self) -> None:
         service = self._service()

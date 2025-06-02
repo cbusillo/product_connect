@@ -6,6 +6,10 @@ from datetime import timedelta
 
 from ..shopify.sync.exporters.product_exporter import ProductExporter
 from ..shopify import helpers as _helpers_module
+from ..shopify.gql import (
+    ProductSetProductSetProductResourcePublicationsV2NodesPublication,
+    ProductSetProductSetProductResourcePublicationsV2Nodes,
+)
 
 
 class DummySync:
@@ -16,10 +20,15 @@ class DummySync:
         self.updated_count = 0
 
 
-class DummyPublication:
+class DummyPublication(ProductSetProductSetProductResourcePublicationsV2NodesPublication):
     def __init__(self, gid: str) -> None:
-        self.id = gid
-        self.publication = type("P", (), {"id": gid})()
+        super().__init__(id=gid, publication=type("P", (), {"id": gid})())
+
+
+class DummyPublicationNode(ProductSetProductSetProductResourcePublicationsV2Nodes):
+    def __init__(self, gid: str) -> None:
+        publication = DummyPublication(gid)
+        super().__init__(publication=publication)
 
 
 @tagged("post_install", "-at_install")
@@ -45,9 +54,9 @@ class TestProductExporter(TransactionCase):
 
     def test_is_published_on_all_channels(self) -> None:
         values = list(_helpers_module.PUBLICATION_CHANNELS.values())
-        channels = [DummyPublication(f"gid://shopify/Publication/{v}") for v in values]
+        channels = [DummyPublicationNode(f"gid://shopify/Publication/{v}") for v in values]
         self.assertTrue(self.exporter.is_published_on_all_channels(channels))
-        channels.append(DummyPublication("gid://shopify/Publication/999"))
+        channels.append(DummyPublicationNode("gid://shopify/Publication/999"))
         self.assertFalse(self.exporter.is_published_on_all_channels(channels))
 
     def test_publish_product(self) -> None:

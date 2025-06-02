@@ -1,6 +1,6 @@
 from datetime import datetime, UTC
-from typing import Any, Callable, List, Tuple, cast
-from unittest.mock import patch
+from typing import Callable
+from unittest.mock import patch, MagicMock
 
 from pydantic import BaseModel
 
@@ -12,71 +12,24 @@ from ..shopify import helpers
 @tagged("post_install", "-at_install")
 class TestShopifyHelpers(TransactionCase):
 
-    def _make_rec(self, include_price: bool) -> tuple[type, object, object | None]:
-        class Base:
-            def __len__(self) -> int:
-                return 1
-
-            def __init__(self, rec_id: int) -> None:
-                self.id = rec_id
-
-        helpers.models.BaseModel = Base  # type: ignore
-
-        if include_price:
-
-            class FloatField:
-                def __init__(self) -> None:
-                    self.count = 0
-
-                def digits(self, _env: object) -> tuple[int, int]:
-                    self.count += 1
-                    return 16, 2
-
-            field = FloatField()
-
-            class Rec:
-                def __init__(self) -> None:
-                    self.m2o = Base(1)
-                    self.price = 1.0
-                    self.env = object()
-                    self._fields = {"m2o": object(), "price": field}
-                    self._written: list[dict[str, object]] = []
-
-                def __getitem__(self, name: str) -> object:
-                    return getattr(self, name)
-
-                def with_context(self, **_kw: object) -> "Rec":
-                    return self
-
-                def write(self, vals: dict[str, object]) -> None:
-                    self._written.append(vals)
-                    for k, v in vals.items():
-                        setattr(self, k, v)
-
-            return Base, Rec(), field
-
-        class RecNoPrice:
-            def __init__(self) -> None:
-                self.m2o = Base(1)
-                self._fields = {"m2o": object()}
-                self.env = object()
-                self._written: list[dict[str, Base]] = []
-
-            def __getitem__(self, name: str) -> Base:
-                return getattr(self, name)
-
-            def with_context(self, **_kw: object) -> "Rec":
-                return self
-
-            def write(self, vals: dict[str, Base]) -> None:
-                self._written.append(vals)
-                for k, v in vals.items():
-                    setattr(self, k, v)
-
-        return Base, RecNoPrice(), None
+    def setUp(self) -> None:
+        super().setUp()
+        # Create test models for the tests
+        self.test_partner = self.env["res.partner"].create(
+            {
+                "name": "Test Partner",
+            }
+        )
+        self.test_product = self.env["product.product"].create(
+            {
+                "name": "Test Product",
+                "list_price": 100.0,
+                "standard_price": 50.0,
+            }
+        )
 
     def test_normalise_values(self) -> None:
-        cases: List[Tuple[str, Callable[[str], str], str]] = [
+        cases: list[tuple[str, Callable[[str], str], str]] = [
             (" TeSt  ", helpers.normalize_str, "test"),
             ("+1 (800) 555-1234", helpers.normalize_phone, "18005551234"),
             (" Example@Email.Com ", helpers.normalize_email, "example@email.com"),
@@ -181,56 +134,31 @@ class TestShopifyHelpers(TransactionCase):
             helpers.format_sku_bin_for_shopify("", "Bin")
 
     def test_write_if_changed_branches(self) -> None:
-        class MockRec:
-            def __init__(self) -> None:
-                self._fields = {"name": object()}
-                self.name = "old"
-                self._written: list[dict[str, str]] = []
-
-            def __getitem__(self, item: str) -> Any:
-                return getattr(self, item)
-
-            def with_context(self, **_kw: Any) -> "MockRec":
-                return self
-
-            def write(self, vals: dict[str, str]) -> None:
-                self._written.append(vals)
-                for k, v in vals.items():
-                    setattr(self, k, v)
-
-        rec = MockRec()
-        self.assertFalse(helpers.write_if_changed(cast(Any, rec), {"name": "old"}))
-        self.assertTrue(helpers.write_if_changed(cast(Any, rec), {"name": "new"}))
-        self.assertEqual(rec._written, [{"name": "new"}])
+        partner = self.env["res.partner"].create({"name": "old"})
+        
+        with patch.object(self.env["res.partner"].__class__, "write", wraps=partner.write) as mock_write:
+            self.assertFalse(helpers.write_if_changed(partner, {"name": "old"}))
+            mock_write.assert_not_called()
+            
+        with patch.object(self.env["res.partner"].__class__, "write", wraps=partner.write) as mock_write:
+            self.assertTrue(helpers.write_if_changed(partner, {"name": "new"}))
+            mock_write.assert_called_once_with({"name": "new"})
+            self.assertEqual(partner.name, "new")
 
     def test_write_if_changed_float(self) -> None:
-        class FloatField:
-            def __init__(self, digits: tuple[int, int] = (16, 2)) -> None:
-                self.digits = digits
-
-        class FloatRec:
-            def __init__(self, price: float) -> None:
-                self.price = price
-                self._fields = {"price": FloatField()}
-                self.env = object()
-                self._written: list[dict[str, float]] = []
-
-            def __getitem__(self, item: str) -> Any:
-                return getattr(self, item)
-
-            def with_context(self, **_kw: Any) -> "FloatRec":
-                return self
-
-            def write(self, vals: dict[str, float]) -> None:
-                self._written.append(vals)
-                for k, v in vals.items():
-                    setattr(self, k, v)
-
-        rec = FloatRec(1.23)
-        self.assertFalse(helpers.write_if_changed(cast(Any, rec), {"price": 1.23}))
-        self.assertTrue(helpers.write_if_changed(cast(Any, rec), {"price": 1.25}))
+        product = self.env["product.product"].create({"name": "Test", "list_price": 1.23})
+        
+        with patch.object(self.env["product.product"].__class__, "write", wraps=product.write) as mock_write:
+            self.assertFalse(helpers.write_if_changed(product, {"list_price": 1.23}))
+            mock_write.assert_not_called()
+            
+        with patch.object(self.env["product.product"].__class__, "write", wraps=product.write) as mock_write:
+            self.assertTrue(helpers.write_if_changed(product, {"list_price": 1.25}))
+            mock_write.assert_called_once_with({"list_price": 1.25})
+            self.assertEqual(product.list_price, 1.25)
+            
         with self.assertRaises(UserError):
-            helpers.write_if_changed(cast(Any, rec), {"price": ["bad"]})
+            helpers.write_if_changed(product, {"list_price": ["bad"]})
 
     def test_determine_latest_odoo_product_modification_time(self) -> None:
         class Tmpl:
@@ -256,28 +184,26 @@ class TestShopifyHelpers(TransactionCase):
         with self.assertRaises(helpers.OdooMissingSkuError):
             helpers.format_sku_bin_for_shopify("", "bin")
 
-    def test_write_if_changed_multi_record_and_api_error_cause(self) -> None:
-        class Base:
-            pass
+    def test_write_if_changed_multi_record_raises_error(self) -> None:
+        # Create multiple partners
+        partners = self.env["res.partner"].create(
+            [
+                {"name": "Partner 1"},
+                {"name": "Partner 2"},
+            ]
+        )
 
-        helpers.models.BaseModel = Base  # type: ignore
+        # Create a mock record with a multi-record recordset
+        # This tests the error handling for unsupported multi-record operations
+        mock_record = MagicMock()
+        mock_record._fields = {"partner_ids": MagicMock()}
+        mock_record.__getitem__ = lambda _, key: partners if key == "partner_ids" else None
 
-        class Multi(Base):
-            def __len__(self) -> int:
-                return 2
+        # Verify that write_if_changed raises an error for multi-record recordsets
+        with self.assertRaises(UserError) as cm:
+            helpers.write_if_changed(mock_record, {"partner_ids": partners})
 
-            id = 1
-
-        class Rec:
-            def __init__(self) -> None:
-                self.field = Multi()
-                self._fields = {"field": object()}
-
-            def __getitem__(self, name: str) -> Any:
-                return getattr(self, name)
-
-        with self.assertRaises(UserError):
-            helpers.write_if_changed(cast(Any, Rec()), {"field": Multi()})
+        self.assertIn("multi‑record recordset", str(cm.exception))
 
         class Var(BaseModel):
             sku: str | None = None
@@ -326,32 +252,109 @@ class TestShopifyHelpers(TransactionCase):
         self.assertEqual(helpers.parse_shopify_sku_field_to_sku_and_bin("SKU1 Bin"), ("SKU1", "Bin"))
 
     def test_determine_latest_modification_none(self) -> None:
-        class Tmpl:
-            write_date = None
+        # Create a product with no write_date (new record)
+        product = self.env["product.product"].create(
+            {
+                "name": "Test Product No Date",
+            }
+        )
+        # Force write_date to None to simulate the test case
+        self.env.cr.execute("UPDATE product_product SET write_date = NULL WHERE id = %s", (product.id,))
+        self.env.cr.execute("UPDATE product_template SET write_date = NULL WHERE id = %s", (product.product_tmpl_id.id,))
+        product.invalidate_recordset(["write_date"])
+        product.product_tmpl_id.invalidate_recordset(["write_date"])
 
-        class Prod:
-            write_date = None
-            product_tmpl_id = Tmpl()
-            shopify_last_exported_at = None
+        # Clear shopify_last_exported_at if it exists
+        if "shopify_last_exported_at" in product._fields:
+            product.shopify_last_exported_at = False
 
-        self.assertEqual(helpers.determine_latest_odoo_product_modification_time(Prod()), helpers.DEFAULT_DATETIME)
+        result = helpers.determine_latest_odoo_product_modification_time(product)
+        self.assertEqual(result, helpers.DEFAULT_DATETIME)
 
-    def test_write_if_changed_single_record_and_callable_digits(self) -> None:
-        Base, rec, field = self._make_rec(True)
-        new_vals = {"m2o": Base(1), "price": 1.0}
-        changed = helpers.write_if_changed(cast(Any, rec), new_vals)
-        self.assertFalse(changed)
-        self.assertEqual(rec._written, [])
-        assert field is not None
-        self.assertEqual(field.count, 1)
+    def test_write_if_changed_no_changes(self) -> None:
+        # Create a sale order with a partner
+        sale_order = self.env["sale.order"].create(
+            {
+                "partner_id": self.test_partner.id,
+                "state": "draft",
+            }
+        )
 
-    def test_write_if_changed_many2one_changed(self) -> None:
-        Base, rec, _field = self._make_rec(False)
-        new = Base(2)
-        changed = helpers.write_if_changed(cast(Any, rec), {"m2o": new})
-        self.assertTrue(changed)
-        self.assertEqual(rec.m2o.id, 2)
-        self.assertEqual(rec._written, [{"m2o": new}])
+        # Try to write the same values - should not trigger a write
+        with patch.object(self.env["sale.order"].__class__, "write", wraps=sale_order.write) as mock_write:
+            changed = helpers.write_if_changed(
+                sale_order,
+                {
+                    "partner_id": self.test_partner.id,
+                    "state": "draft",
+                },
+            )
+            self.assertFalse(changed)
+            mock_write.assert_not_called()
+
+    def test_write_if_changed_with_changes(self) -> None:
+        # Create a sale order with a partner
+        sale_order = self.env["sale.order"].create(
+            {
+                "partner_id": self.test_partner.id,
+                "state": "draft",
+            }
+        )
+
+        # Create a new partner for the change
+        new_partner = self.env["res.partner"].create(
+            {
+                "name": "New Partner",
+            }
+        )
+
+        # Write different values - should trigger a write
+        with patch.object(self.env["sale.order"].__class__, "write", wraps=sale_order.write) as mock_write:
+            changed = helpers.write_if_changed(
+                sale_order,
+                {
+                    "partner_id": new_partner.id,
+                    "state": "draft",  # Same value
+                },
+            )
+            self.assertTrue(changed)
+            mock_write.assert_called_once()
+            self.assertEqual(sale_order.partner_id.id, new_partner.id)
+
+    def test_write_if_changed_with_float_field(self) -> None:
+        # Test with a product that has float fields
+        product = self.env["product.product"].create(
+            {
+                "name": "Test Product",
+                "list_price": 100.0,
+                "standard_price": 50.0,
+            }
+        )
+
+        # Test that float comparison works correctly
+        with patch.object(self.env["product.product"].__class__, "write", wraps=product.write) as mock_write:
+            changed = helpers.write_if_changed(
+                product,
+                {
+                    "list_price": 100.0,  # Same value
+                    "standard_price": 50.0,  # Same value
+                },
+            )
+            self.assertFalse(changed)
+            mock_write.assert_not_called()
+
+        # Test with actual changes
+        with patch.object(self.env["product.product"].__class__, "write", wraps=product.write) as mock_write:
+            changed = helpers.write_if_changed(
+                product,
+                {
+                    "list_price": 150.0,  # Different value
+                    "standard_price": 50.0,  # Same value
+                },
+            )
+            self.assertTrue(changed)
+            mock_write.assert_called_once_with({"list_price": 150.0})
+            self.assertEqual(product.list_price, 150.0)
 
     def test_shopify_api_error_sku_missing(self) -> None:
         class Prod(BaseModel):

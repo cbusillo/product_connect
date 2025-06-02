@@ -83,8 +83,7 @@ class TestShopifySyncItems(TransactionCase):
         config.set_param("shopify.shop_url_key", "dummy.example.com")
         config.set_param("shopify.api_token", "dummy_token")
 
-        # noinspection PyShadowingNames
-        def _fake_create_client(self) -> None:  # type: ignore
+        def _fake_create_client(_service_self: ShopifyService) -> None:
 
             self._client = MagicMock()
             self.first_location_gid = ""

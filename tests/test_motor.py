@@ -1,3 +1,5 @@
+import base64
+
 from odoo.tests import TransactionCase
 from odoo.exceptions import ValidationError
 
@@ -10,8 +12,8 @@ class TestMotor(TransactionCase):
         self.stroke = self.env["motor.stroke"].create({"name": "Four", "code": "4"})
         self.config = self.env["motor.configuration"].create({"name": "I4", "code": "4"})
 
-    def _create_motor(self, **extra: object) -> "odoo.model.motor":
-        vals: dict[str, object] = {
+    def _create_motor(self, **extra: int | float | str) -> "odoo.model.motor":
+        vals: dict[str, int | float | str] = {
             "manufacturer": self.manufacturer.id,
             "stroke": self.stroke.id,
             "configuration": self.config.id,
@@ -41,6 +43,4 @@ class TestMotor(TransactionCase):
         motor = self._create_motor()
         code = motor.generate_qr_code()
         self.assertTrue(code)
-        import base64
-
         base64.b64decode(code)

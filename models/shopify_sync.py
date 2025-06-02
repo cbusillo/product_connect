@@ -226,7 +226,6 @@ class ShopifySync(models.TransientModel):
     @api.model
     def _cron_dispatch_next(self) -> None:
         while True:
-            next_sync = None
             with self._dispatch_lock(self.env.cr, self.LOCK_ID) as lock_acquired:
                 if not lock_acquired:
                     _logger.debug("Another worker already running; skipping.")

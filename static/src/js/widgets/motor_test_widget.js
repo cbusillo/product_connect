@@ -28,6 +28,7 @@ import { PdfViewerField } from '@web/views/fields/pdf_viewer/pdf_viewer_field'
  */
 export class MotorTestWidget extends Component {
     static template = 'product_connect.MotorTestWidget'
+    // noinspection JSUnusedGlobalSymbols
     static components = {
         ResettableBadgeSelectionField,
         FloatField,
