@@ -7,8 +7,7 @@ types-Pillow
 types-requests
 types-geoip2
 
-# odoo-stubs @ git+https://github.com/odoo-ide/odoo-stubs@18.0
-mypy
+# installed in docker odoo-stubs @ git+https://github.com/odoo-ide/odoo-stubs@18.0
 pydantic[email,timezone]
 
 rich
