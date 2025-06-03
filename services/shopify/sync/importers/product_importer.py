@@ -235,12 +235,11 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
                 "is_ready_for_sale": True,
             }
 
-            condition = metafields_by_key.get("condition")
-            if condition:
-                if self.env["product.condition"].search([("code", "=", condition.value)], limit=1):
-                    odoo_product_input["condition"] = self.env["product.condition"].search(
-                        [("code", "=", condition.value)], limit=1
-                    )
+            condition_metafield = metafields_by_key.get("condition")
+            if condition_metafield:
+                condition = self.env["product.condition"].search([("code", "=", condition_metafield.value)], limit=1)
+                if condition:
+                    odoo_product_input["condition"] = condition.id
 
             ebay_category_from_shopify = metafields_by_key.get("ebay_category_id")
             if ebay_category_from_shopify:
