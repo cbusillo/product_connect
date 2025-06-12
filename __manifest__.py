@@ -9,6 +9,7 @@
         "base",
         "product",
         "web",
+        "web_tour",
         "website_sale",
         "base_automation",
         "stock",
@@ -68,8 +69,8 @@
             "product_connect/static/src/js/widgets/*",
             "product_connect/static/src/xml/*",
         ],
-        "web.assets_tests": [
-            "product_connect/static/tests/tours/**/*",
+        "web.assets_unit_tests": [
+            "product_connect/static/tests/**/*.test.js",
         ],
     },
     "installable": True,
