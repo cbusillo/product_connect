@@ -75,8 +75,7 @@ class ProductExporter(ShopifyBaseExporter["odoo.model.product_product"]):
         )
         if cutoff_date:
             odoo_products = odoo_products.filtered(
-                lambda p: p.shopify_next_export is True
-                or (p.write_date > cutoff_date or p.product_tmpl_id.write_date > cutoff_date)
+                lambda p: p.shopify_next_export is True or (p.write_date > cutoff_date or p.product_tmpl_id.write_date > cutoff_date)
             )
 
         else:
@@ -107,9 +106,7 @@ class ProductExporter(ShopifyBaseExporter["odoo.model.product_product"]):
         try:
             shopify_response = client.product_set(shopify_product_set_input, identifier)
         except (ValueError, GraphQLClientGraphQLMultiError) as error:
-            exception = ShopifyApiError(
-                "Error exporting product", odoo_record=odoo_product, shopify_input=shopify_product_set_input
-            )
+            exception = ShopifyApiError("Error exporting product", odoo_record=odoo_product, shopify_input=shopify_product_set_input)
             _logger.error(exception)
             raise exception from error
 
@@ -155,9 +152,7 @@ class ProductExporter(ShopifyBaseExporter["odoo.model.product_product"]):
         odoo_product.shopify_last_exported_at = fields.Datetime.now()
 
     @staticmethod
-    def _sync_images_after_export(
-        odoo_product: "odoo.model.product_product", shopify_product: ProductSetProductSetProduct
-    ) -> None:
+    def _sync_images_after_export(odoo_product: "odoo.model.product_product", shopify_product: ProductSetProductSetProduct) -> None:
         shopify_images = [image for image in shopify_product.media.nodes if image.status != MediaStatus.FAILED]
         if not shopify_images:
             return

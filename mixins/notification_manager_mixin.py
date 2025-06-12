@@ -66,9 +66,7 @@ class NotificationManagerMixin(models.AbstractModel):
         error: Exception | str | None = None,
     ) -> None:
         error_traceback = (
-            "".join(traceback.format_exception(type(error), error, error.__traceback__))
-            if isinstance(error, Exception)
-            else error
+            "".join(traceback.format_exception(type(error), error, error.__traceback__)) if isinstance(error, Exception) else error
         )
         env = env or self.env
         notification_history = env["notification.history"].sudo()

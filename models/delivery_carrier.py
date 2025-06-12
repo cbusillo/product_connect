@@ -22,7 +22,5 @@ class DeliveryCarrierServiceMap(models.Model):
         "delivery.carrier", required=True, ondelete="cascade", help="The Odoo delivery.carrier representing this service level."
     )
     platform = fields.Selection([("shopify", "Shopify"), ("ebay", "eBay"), ("manual", "Manual")], required=True, index=True)
-    external_name = fields.Char(
-        required=True, index=True, help="Normalised display text from Shopify, or service code from eBay."
-    )
+    external_name = fields.Char(required=True, index=True, help="Normalised display text from Shopify, or service code from eBay.")
     external_id = fields.Char(help="Numeric ID when a platform sends one (e.g. eBay’s ShippingService ID).")

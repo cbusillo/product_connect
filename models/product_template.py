@@ -149,7 +149,6 @@ class ProductTemplate(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list: list["odoo.values.product_template"]) -> "odoo.model.product_template":
-
         for vals in vals_list:
             if "type" in vals and vals["type"] == "service":
                 vals["is_ready_for_sale"] = False
@@ -184,7 +183,6 @@ class ProductTemplate(models.Model):
         return products
 
     def write(self, vals: "odoo.values.product_template") -> bool:
-
         qc_reset_fields = {"is_dismantled", "is_cleaned", "is_pictured"}
         ui_refresh_fields = {
             "is_listable",
@@ -399,10 +397,7 @@ class ProductTemplate(models.Model):
         new_sku = sequence_model.next_by_code("product.template.default_code")
         while new_sku and new_sku <= max_sku:
             if not (
-                self.env["product.template"]
-                .sudo()
-                .with_context(active_test=False)
-                .search([("default_code", "=", new_sku)], limit=1)
+                self.env["product.template"].sudo().with_context(active_test=False).search([("default_code", "=", new_sku)], limit=1)
             ):
                 return new_sku
             new_sku = sequence_model.next_by_code("product.template.default_code")
@@ -485,9 +480,7 @@ class ProductTemplate(models.Model):
         for product in self:
             existing_products = product.find_new_products_with_same_mpn()
             if existing_products:
-                raise UserError(
-                    f"Product(s) with the same MPN already exist: {', '.join(existing_products.mapped('default_code'))}"
-                )
+                raise UserError(f"Product(s) with the same MPN already exist: {', '.join(existing_products.mapped('default_code'))}")
 
     @api.model
     def _check_fields_and_images(self, product: "odoo.model.product_template") -> list[str]:
@@ -526,8 +519,7 @@ class ProductTemplate(models.Model):
         for image in images_with_data:
             if image.image_1920_file_size_kb < min_image_size:
                 missing_fields.append(
-                    f"Image ({image.initial_index}) too small "
-                    f"({image.image_1920_file_size_kb}kB < {min_image_size}kB minimum size)"
+                    f"Image ({image.initial_index}) too small ({image.image_1920_file_size_kb}kB < {min_image_size}kB minimum size)"
                 )
             if image.image_1920_width < min_image_resolution - 1 and image.image_1920_height < min_image_resolution - 1:
                 missing_fields.append(
@@ -541,9 +533,7 @@ class ProductTemplate(models.Model):
         for product in products:
             missing_fields = self._check_fields_and_images(product)
             if missing_fields:
-                missing_fields_display = ", ".join(
-                    self._fields[f].string if "image" not in f.lower() else f for f in missing_fields
-                )
+                missing_fields_display = ", ".join(self._fields[f].string if "image" not in f.lower() else f for f in missing_fields)
                 product.message_post(
                     body=f"Missing data: {missing_fields_display}",
                     subject="Import Error",
@@ -784,9 +774,7 @@ class ProductTemplate(models.Model):
         company_partner_id = self.env.company.partner_id.id
         note = f"Tech Result '{self.tech_result.name}'<br/>" if self.tech_result else ""
         for test in self.motor.tests:
-            relevant_conditions = self.motor_product_template.repair_by_tests.filtered(
-                lambda c: c.conditional_test == test.template
-            )
+            relevant_conditions = self.motor_product_template.repair_by_tests.filtered(lambda c: c.conditional_test == test.template)
             for condition in relevant_conditions:
                 if condition.is_condition_met(test.computed_result):
                     note += f"Test '{test.name}' failed: {test.computed_result}</br>"

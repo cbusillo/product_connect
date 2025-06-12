@@ -252,9 +252,7 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
                 write_if_changed(odoo_product, odoo_product_input)
             else:
                 odoo_product = (
-                    self.env["product.product"]
-                    .with_context(skip_shopify_sync=True, force_sku_check=True)
-                    .create(odoo_product_input)
+                    self.env["product.product"].with_context(skip_shopify_sync=True, force_sku_check=True).create(odoo_product_input)
                 )
 
             self._sync_images_bidirectional(odoo_product, shopify_product)

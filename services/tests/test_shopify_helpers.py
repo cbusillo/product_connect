@@ -11,7 +11,6 @@ from ..shopify import helpers
 
 @tagged("post_install", "-at_install")
 class TestShopifyHelpers(TransactionCase):
-
     def setUp(self) -> None:
         super().setUp()
         # Create test models for the tests
@@ -135,11 +134,11 @@ class TestShopifyHelpers(TransactionCase):
 
     def test_write_if_changed_branches(self) -> None:
         partner = self.env["res.partner"].create({"name": "old"})
-        
+
         with patch.object(self.env["res.partner"].__class__, "write", wraps=partner.write) as mock_write:
             self.assertFalse(helpers.write_if_changed(partner, {"name": "old"}))
             mock_write.assert_not_called()
-            
+
         with patch.object(self.env["res.partner"].__class__, "write", wraps=partner.write) as mock_write:
             self.assertTrue(helpers.write_if_changed(partner, {"name": "new"}))
             mock_write.assert_called_once_with({"name": "new"})
@@ -147,16 +146,16 @@ class TestShopifyHelpers(TransactionCase):
 
     def test_write_if_changed_float(self) -> None:
         product = self.env["product.product"].create({"name": "Test", "list_price": 1.23})
-        
+
         with patch.object(self.env["product.product"].__class__, "write", wraps=product.write) as mock_write:
             self.assertFalse(helpers.write_if_changed(product, {"list_price": 1.23}))
             mock_write.assert_not_called()
-            
+
         with patch.object(self.env["product.product"].__class__, "write", wraps=product.write) as mock_write:
             self.assertTrue(helpers.write_if_changed(product, {"list_price": 1.25}))
             mock_write.assert_called_once_with({"list_price": 1.25})
             self.assertEqual(product.list_price, 1.25)
-            
+
         with self.assertRaises(UserError):
             helpers.write_if_changed(product, {"list_price": ["bad"]})
 

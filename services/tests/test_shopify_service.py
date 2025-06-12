@@ -34,9 +34,7 @@ class TestShopifyService(TransactionCase):
         return ShopifyService(self.env, DummySync())
 
     @contextmanager
-    def _client(
-        self, service: ShopifyService, client_cls: type[_BaseDummyClient]
-    ) -> Iterator[Tuple[_BaseDummyClient, MagicMock]]:
+    def _client(self, service: ShopifyService, client_cls: type[_BaseDummyClient]) -> Iterator[Tuple[_BaseDummyClient, MagicMock]]:
         with patch.object(_service_module, "Client", client_cls), patch.object(_service_module, "sleep") as fake_sleep:
             client = cast(_BaseDummyClient, service._create_http_client("t"))
             yield client, fake_sleep
@@ -56,9 +54,7 @@ class TestShopifyService(TransactionCase):
         self.assertEqual(service._compute_throttle_delay(data), 16.0)
         data = {"extensions": {"cost": {"throttleStatus": {"currentlyAvailable": 0, "restoreRate": 0}}}}
         self.assertEqual(service._compute_throttle_delay(data), 60.0)
-        data = {
-            "extensions": {"cost": {"throttleStatus": {"currentlyAvailable": service.MIN_API_POINTS - 1, "restoreRate": 1000}}}
-        }
+        data = {"extensions": {"cost": {"throttleStatus": {"currentlyAvailable": service.MIN_API_POINTS - 1, "restoreRate": 1000}}}}
         self.assertEqual(service._compute_throttle_delay(data), 1.0)
 
     def test_throttle_info_with_error(self) -> None:
@@ -124,12 +120,12 @@ class TestShopifyService(TransactionCase):
         def send_one(_request: Request) -> Response:
             return responses.pop(0)
 
-        with patch.object(_service_module, "Client", DummyClient), patch.object(
-            _service_module, "ShopifyClient", lambda http_client, url: http_client
-        ), patch.object(_service_module, "sleep") as fake_sleep, patch.object(
-            service, "get_first_location_gid", return_value="loc"
-        ), patch.object(
-            service, "_throttle_info", side_effect=[(True, None), (False, None)]
+        with (
+            patch.object(_service_module, "Client", DummyClient),
+            patch.object(_service_module, "ShopifyClient", lambda http_client, url: http_client),
+            patch.object(_service_module, "sleep") as fake_sleep,
+            patch.object(service, "get_first_location_gid", return_value="loc"),
+            patch.object(service, "_throttle_info", side_effect=[(True, None), (False, None)]),
         ):
             client = service._create_client()
             dummy_client = cast(DummyClient, client)
@@ -266,6 +262,7 @@ class TestShopifyService(TransactionCase):
                 headers={"content-type": "application/json"},
                 request=request,
             )
+
         self._test_send_without_retry(create_response)
 
     def test_send_with_retry_invalid_json(self) -> None:
@@ -281,6 +278,7 @@ class TestShopifyService(TransactionCase):
                     pass
 
             return Resp()
+
         self._test_send_without_retry(create_response)
 
     def test_rate_limit_hook_no_json(self) -> None:
@@ -391,9 +389,11 @@ class TestShopifyService(TransactionCase):
             return responses.pop(0)
 
         service.MAX_RETRY_ATTEMPTS = 1
-        with patch.object(_service_module, "Client", DummyClient), patch.object(
-            _service_module, "sleep"
-        ) as fake_sleep, patch.object(service, "_throttle_info", side_effect=[(False, 2), (False, None)]):
+        with (
+            patch.object(_service_module, "Client", DummyClient),
+            patch.object(_service_module, "sleep") as fake_sleep,
+            patch.object(service, "_throttle_info", side_effect=[(False, 2), (False, None)]),
+        ):
             client = service._create_http_client("t")
             cast(DummyClient, client).send_func = send_one  # type: ignore
             req = Request("GET", "http://t")
@@ -423,9 +423,11 @@ class TestShopifyService(TransactionCase):
                 self.response = Resp()
 
         service.MAX_RETRY_ATTEMPTS = 0
-        with patch.object(_service_module, "Client", DummyClient), patch.object(
-            _service_module, "sleep"
-        ) as fake_sleep, patch.object(_service_module, "THROTTLE_TRANSIENT_STATUS", {200}):
+        with (
+            patch.object(_service_module, "Client", DummyClient),
+            patch.object(_service_module, "sleep") as fake_sleep,
+            patch.object(_service_module, "THROTTLE_TRANSIENT_STATUS", {200}),
+        ):
             client = service._create_http_client("t")
             req = Request("GET", "http://t")
             with self.assertRaises(ShopifyApiError):

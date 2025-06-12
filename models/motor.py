@@ -285,9 +285,7 @@ class Motor(models.Model):
     @api.depends("products_not_enabled.reference_product", "products_not_enabled.reference_product.image_256")
     def _compute_products_with_reference(self) -> None:
         for motor in self:
-            reference_products = motor.products_not_enabled.filtered(
-                lambda p: p.reference_product and p.reference_product.image_256
-            )
+            reference_products = motor.products_not_enabled.filtered(lambda p: p.reference_product and p.reference_product.image_256)
 
             if reference_products != motor.products_with_reference_product:
                 motor.products_with_reference_product = reference_products
@@ -303,9 +301,7 @@ class Motor(models.Model):
 
     def _compute_shaft_length(self) -> None:
         for motor in self:
-            shaft_length = motor.tests.filtered(
-                lambda t: "shaft" in t.template.name.lower() and "length" in t.template.name.lower()
-            )
+            shaft_length = motor.tests.filtered(lambda t: "shaft" in t.template.name.lower() and "length" in t.template.name.lower())
             motor.shaft_length = shaft_length.selection_result if shaft_length else ""
 
     def _compute_hours(self) -> None:
@@ -529,7 +525,6 @@ class Motor(models.Model):
 
     def _compute_compression(self) -> None:
         for motor in self:
-
             desired_cylinders = motor._get_cylinder_count()
             current_cylinders = motor.cylinders.mapped("cylinder_number")
 

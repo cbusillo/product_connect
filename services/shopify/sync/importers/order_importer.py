@@ -286,9 +286,7 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
             if existing_line:
                 changed |= write_if_changed(existing_line, line_values)
             else:
-                self.env["sale.order.line"].with_context(skip_shopify_sync=True).create(
-                    {"order_id": odoo_order.id, **line_values}
-                )
+                self.env["sale.order.line"].with_context(skip_shopify_sync=True).create({"order_id": odoo_order.id, **line_values})
                 changed = True
 
             if first_group:
@@ -315,9 +313,7 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
             if parts:
                 discount_reason = ", ".join(dict.fromkeys(parts))
 
-        discount_amount = self._get_amount_for_order_currency(
-            shopify_order.total_discounts_set, shopify_order.currency_code.value
-        )
+        discount_amount = self._get_amount_for_order_currency(shopify_order.total_discounts_set, shopify_order.currency_code.value)
 
         # locate any existing discount line by matching the discount product
         discount_product = self.env["product.product"].search([("default_code", "=", "DISC")], limit=1)

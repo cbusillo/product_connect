@@ -387,7 +387,7 @@ class ShopifySync(models.TransientModel):
     def _mark_failed(self, error: Exception) -> None:
         def _truncate_text(text: str) -> str:
             if len(text) > 100000:
-                return text[:50000] + f"...{len(text)-50000}"
+                return text[:50000] + f"...{len(text) - 50000}"
             return text
 
         vals = self._prepare_failure_vals(error)

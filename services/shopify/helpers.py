@@ -209,13 +209,11 @@ def write_if_changed(record: models.BaseModel, vals: dict[str, Any]) -> bool:
         field = record._fields[field_name]
 
         if isinstance(new_value, (list, tuple)):
-            raise UserError(
-                f"write_if_changed(): unsupported value for field '{field_name}'. lists and tuples are not supported."
-            )
+            raise UserError(f"write_if_changed(): unsupported value for field '{field_name}'. lists and tuples are not supported.")
         if isinstance(current_value, models.BaseModel):
             if len(current_value) > 1:
                 raise UserError(
-                    f"write_if_changed(): field '{field_name}' contains a multi‑record recordset " "which is not supported."
+                    f"write_if_changed(): field '{field_name}' contains a multi‑record recordset which is not supported."
                 )
             current_id = current_value.id if current_value else False
             new_id = new_value.id if isinstance(new_value, models.BaseModel) else new_value

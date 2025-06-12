@@ -84,7 +84,6 @@ class TestShopifySyncItems(TransactionCase):
         config.set_param("shopify.api_token", "dummy_token")
 
         def _fake_create_client(_service_self: ShopifyService) -> None:
-
             self._client = MagicMock()
             self.first_location_gid = ""
 

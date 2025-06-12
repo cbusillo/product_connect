@@ -105,9 +105,7 @@ class LabelMixin(models.AbstractModel):
 
         for line in text:
             current_line_text_size = (
-                self.LABEL_TEXT_SIZE["small"]
-                if line.startswith("(SM)") and len(line.replace("(SM)", "")) > 8
-                else label_text_size
+                self.LABEL_TEXT_SIZE["small"] if line.startswith("(SM)") and len(line.replace("(SM)", "")) > 8 else label_text_size
             )
             line = line.replace("(SM)", "")
             label.add_default_font(
