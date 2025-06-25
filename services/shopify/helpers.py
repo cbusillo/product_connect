@@ -4,11 +4,11 @@ from datetime import datetime, UTC
 from enum import StrEnum
 from typing import TypeVar, Self, Union, Any
 
-from pydantic import BaseModel
-
 from odoo import models
 from odoo.exceptions import UserError
 from odoo.tools import float_compare
+
+from .gql.base_model import BaseModel
 
 
 T = TypeVar("T")

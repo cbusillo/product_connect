@@ -91,7 +91,7 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
                 )
 
         email = shopify_email or (partner.email if partner else "")
-        phone = self._format_phone_number(shopify_phone) or partner.phone
+        phone = self._format_phone_number(shopify_phone) or (partner.phone if partner else "")
 
         last_name_raw = (shopify_customer.last_name or "").strip()
         ebay_username = ""
@@ -105,6 +105,9 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
         first_name = (shopify_customer.first_name or "").strip()
         name_parts = [first_name, last_name]
         name = re.sub(r"\s{2,}", " ", " ".join(p for p in name_parts if p)).strip() or email
+        # Truncate name to 512 characters (Odoo char field limit)
+        if name and len(name) > 512:
+            name = name[:512]
 
         tax_exempt_flag = bool(shopify_customer.tax_exempt) if shopify_customer.tax_exempt is not None else False
         fiscal_position = self._get_tax_exempt_fiscal_position() if tax_exempt_flag else False
@@ -119,7 +122,6 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
             "shopify_customer_id": shopify_customer_id,
             "name": name,
             "ebay_username": ebay_username or False,
-            "is_blacklisted": email_blacklisted_flag,
             "phone_blacklisted": sms_blacklisted_flag,
             "mobile_blacklisted": sms_blacklisted_flag,
             "property_account_position_id": fiscal_position.id if fiscal_position else False,
@@ -128,16 +130,15 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
             partner_vals["email"] = email
         if phone:
             partner_vals["phone"] = phone
-        created = False
-
         if not partner:
             partner = self.env["res.partner"].create(partner_vals)
-            created = changed = True
+            changed = True
         else:
             changed = write_if_changed(partner, partner_vals)
 
-        if created:
-            shopify_category = self._get_or_create_category("Shopify")
+        # Always ensure Shopify category is assigned
+        shopify_category = self._get_or_create_category("Shopify")
+        if shopify_category.id not in partner.category_id.ids:
             partner.write({"category_id": [(4, shopify_category.id)]})
             changed = True
 
@@ -165,9 +166,23 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
         ):
             partner.property_account_position_id = False
 
-        if not sms_blacklisted_flag and (partner.phone_blacklisted or partner.mobile_blacklisted):
-            partner.phone_blacklisted = False
-            partner.mobile_blacklisted = False
+        # Update phone blacklist status based on marketing opt-out
+        if sms_blacklisted_flag != partner.phone_blacklisted:
+            partner.phone_blacklisted = sms_blacklisted_flag
+            partner.mobile_blacklisted = sms_blacklisted_flag
+            changed = True
+
+        # Manage email blacklist via mail.blacklist model
+        if partner.email_normalized:
+            blacklist_sudo = self.env["mail.blacklist"].sudo()
+            existing_blacklist = blacklist_sudo.search([("email", "=", partner.email_normalized)], limit=1)
+
+            if email_blacklisted_flag and not existing_blacklist:
+                blacklist_sudo.create({"email": partner.email_normalized})
+                changed = True
+            elif not email_blacklisted_flag and existing_blacklist:
+                existing_blacklist.unlink()
+                changed = True
 
         return changed
 
@@ -224,6 +239,15 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
         )
 
         if not existing_address and is_different_address:
+
+            def phone_matches(child_address: "odoo.model.res_partner") -> bool:
+                if not formatted_phone:
+                    return True  # No phone to match, consider it a match based on other fields
+                existing_phones = {normalize_phone(p) for p in (child_address.phone, child_address.mobile) if p}
+                if not existing_phones:
+                    return True  # Existing address has no phone, still consider it a match
+                return normalize_phone(formatted_phone) in existing_phones
+
             possible_duplicates = partner.child_ids.filtered(
                 lambda a: normalize_str(a.street) == normalize_str(address.address_1)
                 and normalize_str(a.street2) == normalize_str(address.address_2)
@@ -231,7 +255,7 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
                 and normalize_str(a.zip) == normalize_str(address.zip)
                 and (not country or a.country_id.id == country.id)
                 and (not state or a.state_id.id == state.id)
-                and normalize_phone(formatted_phone) in {normalize_phone(a.phone), normalize_phone(a.mobile)}
+                and phone_matches(a)
                 and normalize_str(a.company_name) == normalize_str(address.company)
             )
             for possible_duplicate in possible_duplicates:
@@ -239,6 +263,7 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
                     continue
                 if not possible_duplicate.shopify_address_id:
                     write_if_changed(possible_duplicate, {"shopify_address_id": shopify_address_id})
+                    return False  # Found duplicate, only updated shopify_address_id, no other changes needed
                 existing_address = possible_duplicate
                 break
 
@@ -280,18 +305,29 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
 
         if existing_address:
             if existing_address.type != address_type:
-                existing_address.copy(
-                    default={
-                        "type": address_type,
-                        "shopify_address_id": f"{shopify_address_id}:{address_type}",
-                        "name": address_vals.get("name"),
-                    }
-                )
+                copy_defaults = {
+                    "type": address_type,
+                    "shopify_address_id": f"{shopify_address_id}:{address_type}",
+                    "name": address_vals.get("name"),
+                }
+                company_name_to_set = address_vals.get("company_name")
+                if company_name_to_set:
+                    copy_defaults["company_name"] = company_name_to_set
+                copied_address = existing_address.copy(default=copy_defaults)
+                # Odoo automatically sets company_name to False for child contacts
+                # We need to explicitly set it again if it was provided
+                if company_name_to_set and not copied_address.company_name:
+                    copied_address.write({"company_name": company_name_to_set})
                 return True
             changed = write_if_changed(existing_address, address_vals)
             return changed
         elif is_different_address:
             address_vals["category_id"] = [(6, 0, partner.category_id.ids)]
-            self.env["res.partner"].create(address_vals)
+            company_name_to_set = address_vals.get("company_name")
+            created_address = self.env["res.partner"].create(address_vals)
+            # Odoo automatically sets company_name to False for child contacts
+            # We need to explicitly set it again if it was provided
+            if company_name_to_set and not created_address.company_name:
+                created_address.write({"company_name": company_name_to_set})
             return True
         return False

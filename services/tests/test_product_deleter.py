@@ -1,11 +1,12 @@
 from httpx import HTTPError
 from unittest.mock import MagicMock, patch
 
-from odoo.tests import TransactionCase, tagged
+from odoo.tests import tagged
 
 from ..shopify.sync.deleters.product_deleter import ProductDeleter
 from ..shopify import service as _service_module
 from ariadne_codegen.client_generators.dependencies.exceptions import GraphQLClientGraphQLMultiError, GraphQLClientGraphQLError
+from .test_base import ShopifyTestBase
 
 
 class DummySync:
@@ -17,22 +18,14 @@ class DummySync:
 
 
 @tagged("post_install", "-at_install")
-class TestProductDeleter(TransactionCase):
+class TestProductDeleter(ShopifyTestBase):
     def setUp(self) -> None:
         super().setUp()
-
-        def _fake_create_client(service: _service_module.ShopifyService) -> None:
-            service._client = MagicMock()
-            service.first_location_gid = ""
-
-        patcher = patch.object(
-            _service_module.ShopifyService, _service_module.ShopifyService._create_client.__name__, new=_fake_create_client
-        )
-        patcher.start()
-        self.addCleanup(patcher.stop)
-
+        self._setup_shopify_mocks()  # Set up Shopify API mocks
+        
         self.deleter = ProductDeleter(self.env, DummySync())
-        self.deleter.service._client = MagicMock()
+        # Use the mocked service from ShopifyTestBase
+        self.deleter.service._client = self.mock_client
 
     def test_fetch_product_ids_page_success(self) -> None:
         expected = object()

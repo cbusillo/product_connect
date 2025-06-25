@@ -378,7 +378,7 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
             {
                 "name": name,
                 "default_code": default_code,
-                "type": "service",
+                "type": "consu",
                 "sale_ok": True,
                 "purchase_ok": False,
                 "invoice_policy": "order",

@@ -1,6 +1,6 @@
 {
     "name": "Product Connect Module",
-    "version": "18.0.6.0",
+    "version": "18.0.6.2",
     "category": "Industries",
     "author": "Chris Busillo",
     "company": "Shiny Computers",
@@ -71,6 +71,9 @@
         ],
         "web.assets_unit_tests": [
             "product_connect/static/tests/**/*.test.js",
+        ],
+        "web.assets_tests": [
+            "product_connect/static/tests/tours/**/*.js",
         ],
     },
     "installable": True,

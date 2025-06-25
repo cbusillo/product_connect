@@ -10,7 +10,7 @@ from io import BytesIO
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError, UserError
 from pathlib import Path
-from typing import Self, Any, cast, Literal
+from typing import Self, cast, Literal
 
 from ..utils import constants
 
@@ -65,7 +65,7 @@ class Motor(models.Model):
     stage_name = fields.Char(related="stage.name")
 
     @api.model
-    def _read_group_stages(self, *_args: Any) -> "odoo.model.motor_stage":
+    def _read_group_stages(self, *_args: object, **_kwargs: object) -> "odoo.model.motor_stage":
         all_stages = self.env["motor.stage"].search([])
         self.env["motor"].search([("stage", "=", False), ("active", "in", [True, False])]).write(
             {"stage": all_stages.search([("name", "=", "Checkin")], limit=1).id}

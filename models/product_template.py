@@ -343,12 +343,10 @@ class ProductTemplate(models.Model):
     @api.depends("product_template_image_ids")
     def _compute_image_1920(self) -> None:
         for product in self:
-            default_code = product.default_code
             if product.product_template_image_ids:
                 product.image_1920 = product.product_template_image_ids[0].image_1920
             else:
                 product.image_1920 = False
-            product.default_code = default_code
 
     def _inverse_image_1920(self) -> None:
         for product in self:
@@ -396,6 +394,8 @@ class ProductTemplate(models.Model):
         max_sku = "9" * sequence.padding
         new_sku = sequence_model.next_by_code("product.template.default_code")
         while new_sku and new_sku <= max_sku:
+            # sometimes sudo or with_context trigger even though they are correct.
+            # noinspection PyUnresolvedReferences
             if not (
                 self.env["product.template"].sudo().with_context(active_test=False).search([("default_code", "=", new_sku)], limit=1)
             ):

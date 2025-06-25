@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from odoo.tests import TransactionCase, tagged
+from odoo.tests import tagged
 from odoo import fields
 from datetime import timedelta
 
@@ -10,6 +10,7 @@ from ..shopify.gql import (
     ProductSetProductSetProductResourcePublicationsV2NodesPublication,
     ProductSetProductSetProductResourcePublicationsV2Nodes,
 )
+from .test_base import ShopifyTestBase
 
 
 class DummySync:
@@ -32,7 +33,7 @@ class DummyPublicationNode(ProductSetProductSetProductResourcePublicationsV2Node
 
 
 @tagged("post_install", "-at_install")
-class TestProductExporter(TransactionCase):
+class TestProductExporter(ShopifyTestBase):
     def setUp(self) -> None:
         super().setUp()
         self.exporter = ProductExporter(self.env, DummySync())

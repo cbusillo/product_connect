@@ -7,6 +7,8 @@ from odoo.exceptions import ValidationError
 class TestMotor(TransactionCase):
     def setUp(self) -> None:
         super().setUp()
+        # Use context to skip Shopify sync during tests
+        self.env = self.env(context=dict(self.env.context, skip_shopify_sync=True))
         self.stage = self.env["motor.stage"].create({"name": "Checkin"})
         self.manufacturer = self.env["product.manufacturer"].create({"name": "Maker", "is_motor_manufacturer": True})
         self.stroke = self.env["motor.stroke"].create({"name": "Four", "code": "4"})

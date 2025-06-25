@@ -48,7 +48,7 @@ class ShopifySync(models.TransientModel):
 
     LOCK_ID = 87945012
     IMPORT_EXPORT_CRON_TIME = 60 * 60
-    CRON_IDLE_TIMEOUT_THRESHOLD_SECONDS = 60  # TODO: increase in prod
+    CRON_IDLE_TIMEOUT_THRESHOLD_SECONDS = 60
 
     create_time_human = fields.Char(compute="_compute_create_time_human", string="Created")
     start_time = fields.Datetime()
@@ -135,7 +135,8 @@ class ShopifySync(models.TransientModel):
                     continue
 
                 vals_to_create.append(vals)
-        if not self.env.registry.in_test_mode():
+        test_mode = self.env.registry.in_test_mode() or getattr(__import__("threading").current_thread(), "testing", False)
+        if not test_mode:
             self.env.cr.commit()
 
         if not vals_to_create:
@@ -143,7 +144,7 @@ class ShopifySync(models.TransientModel):
 
         syncs = super().create(vals_to_create)
         syncs.state = "queued"
-        if not self.env.registry.in_test_mode():
+        if not test_mode:
             self.env.cr.commit()
         return syncs
 
@@ -315,16 +316,12 @@ class ShopifySync(models.TransientModel):
             vals_list = [vals_list]
 
         sync_jobs = self.create(vals_list)
-        if not self.env.registry.in_test_mode():
-            self.env.cr.commit()
         if sync_jobs:
             sync_jobs.run_async()
         return sync_jobs
 
     def duplicate_and_run_async(self) -> "odoo.model.shopify_sync":
         new_syncs = self.duplicate()
-        if not self.env.registry.in_test_mode():
-            self.env.cr.commit()
         new_syncs.run_async()
         return new_syncs
 
@@ -411,14 +408,16 @@ class ShopifySync(models.TransientModel):
             vals["error_shopify_record"] = _truncate_text(f"{vals.get('error_shopify_record', '')}\n{combined}".strip())
 
         self.write(vals)
-        if not self.env.registry.in_test_mode():
+        test_mode = self.env.registry.in_test_mode() or getattr(__import__("threading").current_thread(), "testing", False)
+        if not test_mode:
             self.env.cr.commit()
         _logger.error(f"Shopify sync failed:\n{vals['error_traceback']}")
 
     @contextmanager
     def _run_guard(self) -> Generator[None, None, None]:
         self.write({"state": "running"})
-        if not self.env.registry.in_test_mode():
+        test_mode = self.env.registry.in_test_mode() or getattr(__import__("threading").current_thread(), "testing", False)
+        if not test_mode:
             self.env.cr.commit()
         try:
             yield
@@ -461,7 +460,8 @@ class ShopifySync(models.TransientModel):
         products.shopify_ebay_category_id = False
 
         self.total_count = max(len(products), self.total_count)
-        if not self.env.registry.in_test_mode():
+        test_mode = self.env.registry.in_test_mode() or getattr(__import__("threading").current_thread(), "testing", False)
+        if not test_mode:
             self.env.cr.commit()
 
     def _run_import_all_products(self) -> None:

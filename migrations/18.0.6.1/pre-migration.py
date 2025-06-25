@@ -12,8 +12,14 @@ def migrate(cr: Cursor, version: str) -> None:
         return
 
     env["ir.config_parameter"].sudo().search([("key", "=", "shopify.last_import_time")]).unlink()
-    env["ir.config_parameter"].sudo().search([("key", "=", "shopify.shop_url")]).unlink()
+
+    shop_url_param = env["ir.config_parameter"].sudo().search([("key", "=", "shopify.shop_url")], limit=1)
+    if shop_url_param and shop_url_param.value:
+        env["ir.config_parameter"].sudo().set_param("shopify.shop_url_key", shop_url_param.value)
+    shop_url_param.unlink()
+
     env["ir.config_parameter"].sudo().search([("key", "=", "shopify.api_version")]).unlink()
+    env["ir.cron"].with_context(active_test=False).sudo().search([("name", "=", "Run Shopify Sync")]).unlink()
 
     util.rename_field(cr, "product.image", "index", "initial_index")
     util.rename_field(cr, "motor.image", "index", "initial_index")

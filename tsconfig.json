@@ -6,18 +6,12 @@
     "moduleResolution": "node",
     "baseUrl": ".",
     "paths": {
-      "@odoo/*": [
-        "odoo/addons/web/static/lib/owl/*"
-      ],
-      "@web/*": [
-        "odoo/addons/web/static/*"
-      ],
       "@product_connect/*": [
-        "addons/product_connect/static/src/*"
+        "static/src/*"
       ]
     }
   },
   "include": [
-    "addons/**/static/src/**/*"
+    "static/src/**/*"
   ]
 }

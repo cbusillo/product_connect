@@ -2,21 +2,23 @@ from datetime import datetime, UTC
 from typing import Callable
 from unittest.mock import patch, MagicMock
 
-from pydantic import BaseModel
-
 from odoo.exceptions import UserError
 from odoo.tests import TransactionCase, tagged
 from ..shopify import helpers
+from ..shopify.gql.base_model import BaseModel
 
 
 @tagged("post_install", "-at_install")
 class TestShopifyHelpers(TransactionCase):
     def setUp(self) -> None:
         super().setUp()
+        # Use context to skip Shopify sync during tests
+        self.env = self.env(context=dict(self.env.context, skip_shopify_sync=True))
         # Create test models for the tests
         self.test_partner = self.env["res.partner"].create(
             {
                 "name": "Test Partner",
+                "autopost_bills": "ask",
             }
         )
         self.test_product = self.env["product.product"].create(
@@ -133,7 +135,7 @@ class TestShopifyHelpers(TransactionCase):
             helpers.format_sku_bin_for_shopify("", "Bin")
 
     def test_write_if_changed_branches(self) -> None:
-        partner = self.env["res.partner"].create({"name": "old"})
+        partner = self.env["res.partner"].create({"name": "old", "autopost_bills": "ask"})
 
         with patch.object(self.env["res.partner"].__class__, "write", wraps=partner.write) as mock_write:
             self.assertFalse(helpers.write_if_changed(partner, {"name": "old"}))
@@ -187,8 +189,8 @@ class TestShopifyHelpers(TransactionCase):
         # Create multiple partners
         partners = self.env["res.partner"].create(
             [
-                {"name": "Partner 1"},
-                {"name": "Partner 2"},
+                {"name": "Partner 1", "autopost_bills": "ask"},
+                {"name": "Partner 2", "autopost_bills": "ask"},
             ]
         )
 
@@ -255,6 +257,8 @@ class TestShopifyHelpers(TransactionCase):
         product = self.env["product.product"].create(
             {
                 "name": "Test Product No Date",
+                "list_price": 10.0,
+                "standard_price": 5.0,
             }
         )
         # Force write_date to None to simulate the test case
@@ -265,7 +269,8 @@ class TestShopifyHelpers(TransactionCase):
 
         # Clear shopify_last_exported_at if it exists
         if "shopify_last_exported_at" in product._fields:
-            product.shopify_last_exported_at = False
+            self.env.cr.execute("UPDATE product_product SET shopify_last_exported_at = NULL WHERE id = %s", (product.id,))
+            product.invalidate_recordset(["shopify_last_exported_at"])
 
         result = helpers.determine_latest_odoo_product_modification_time(product)
         self.assertEqual(result, helpers.DEFAULT_DATETIME)
@@ -304,6 +309,7 @@ class TestShopifyHelpers(TransactionCase):
         new_partner = self.env["res.partner"].create(
             {
                 "name": "New Partner",
+                "autopost_bills": "ask",
             }
         )
 

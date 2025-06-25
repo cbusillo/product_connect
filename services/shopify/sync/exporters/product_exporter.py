@@ -43,7 +43,7 @@ _logger = logging.getLogger(__name__)
 
 
 class ProductExporter(ShopifyBaseExporter["odoo.model.product_product"]):
-    def __init__(self, env: Environment, sync_record: "odoo.model.shopify_sync"):
+    def __init__(self, env: Environment, sync_record: "odoo.model.shopify_sync") -> None:
         super().__init__(env, sync_record)
         self.odoo_base_url = env["ir.config_parameter"].sudo().get_param("web.base.url")
 

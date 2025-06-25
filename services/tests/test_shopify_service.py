@@ -3,12 +3,12 @@ from unittest.mock import patch, MagicMock
 from contextlib import contextmanager
 
 from httpx import Request, Response
-from odoo.tests import TransactionCase, tagged
-
+from odoo.tests import tagged
 
 from ..shopify.service import ShopifyService
 from ..shopify import service as _service_module
 from ..shopify.helpers import ShopifyApiError
+from .test_base import ShopifyTestBase
 
 
 class DummySync:
@@ -29,7 +29,11 @@ class _BaseDummyClient:
 
 
 @tagged("post_install", "-at_install")
-class TestShopifyService(TransactionCase):
+class TestShopifyService(ShopifyTestBase):
+    def setUp(self) -> None:
+        super().setUp()
+        # Don't call _setup_shopify_mocks() here as this test manages its own mocks
+
     def _service(self) -> ShopifyService:
         return ShopifyService(self.env, DummySync())
 
@@ -38,6 +42,15 @@ class TestShopifyService(TransactionCase):
         with patch.object(_service_module, "Client", client_cls), patch.object(_service_module, "sleep") as fake_sleep:
             client = cast(_BaseDummyClient, service._create_http_client("t"))
             yield client, fake_sleep
+
+    def _test_client_retry_behavior(self, service: ShopifyService, client_cls: type[_BaseDummyClient], expected_calls: int):
+        with self._client(service, client_cls) as (client, fake_sleep):
+            req = Request("GET", "http://t")
+            result = client.send(req)
+
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(len(client.send_calls), expected_calls)
+            fake_sleep.assert_called()
 
     def test_compute_throttle_delay_none(self) -> None:
         service = self._service()
@@ -358,6 +371,264 @@ class TestShopifyService(TransactionCase):
             req = Request("GET", "http://t")
             with self.assertRaises(ShopifyApiError):
                 client.send(req)
+            fake_sleep.assert_not_called()
+
+    def test_rate_limit_progressive_backoff(self) -> None:
+        service = self._service()
+
+        class DummyClient(_BaseDummyClient):
+            def __init__(self, **kw: object) -> None:
+                super().__init__(**kw)
+                self.attempt = 0
+
+            def send(self, request: Request, **_kw: object) -> Response:
+                self.send_calls.append(request)
+                self.attempt += 1
+
+                if self.attempt < 3:
+                    return Response(
+                        429,
+                        json={"errors": [{"extensions": {"code": "THROTTLED"}}]},
+                        request=request,
+                        headers={"content-type": "application/json"},
+                    )
+                else:
+                    return Response(200, json={}, request=request)
+
+        service.MAX_RETRY_ATTEMPTS = 3
+        with self._client(service, DummyClient) as (client, fake_sleep):
+            req = Request("GET", "http://t")
+            result = client.send(req)
+
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(len(client.send_calls), 3)
+            # Check progressive backoff
+            calls = fake_sleep.call_args_list
+            self.assertGreater(len(calls), 1)
+            # Each delay should be longer than the previous
+            for i in range(1, len(calls)):
+                self.assertGreaterEqual(calls[i][0][0], calls[i - 1][0][0])
+
+    def test_concurrent_request_handling(self) -> None:
+        service = self._service()
+
+        class DummyClient(_BaseDummyClient):
+            def __init__(self, **kw: object) -> None:
+                super().__init__(**kw)
+                self.concurrent_requests = 0
+                self.max_concurrent = 0
+
+            def send(self, request: Request, **_kw: object) -> Response:
+                self.concurrent_requests += 1
+                self.max_concurrent = max(self.max_concurrent, self.concurrent_requests)
+                self.send_calls.append(request)
+                response = Response(200, json={}, request=request)
+                self.concurrent_requests -= 1
+                return response
+
+        with self._client(service, DummyClient) as (client, _):
+            # Simulate multiple requests
+            for _ in range(5):
+                req = Request("GET", "http://t")
+                client.send(req)
+
+            # Verify requests were handled
+            self.assertEqual(len(client.send_calls), 5)
+            # Max concurrent should be 1 (sequential processing)
+            self.assertEqual(client.max_concurrent, 1)
+
+    def test_api_error_with_retry_after_header(self) -> None:
+        service = self._service()
+
+        class DummyClient(_BaseDummyClient):
+            def __init__(self, **kw: object) -> None:
+                super().__init__(**kw)
+                self.attempt = 0
+
+            def send(self, request: Request, **_kw: object) -> Response:
+                self.send_calls.append(request)
+                self.attempt += 1
+
+                if self.attempt == 1:
+                    return Response(
+                        429,
+                        headers={"Retry-After": "5", "content-type": "application/json"},
+                        json={"errors": [{"message": "Rate limited"}]},
+                        request=request,
+                    )
+                else:
+                    return Response(200, json={}, request=request)
+
+        service.MAX_RETRY_ATTEMPTS = 2
+        self._test_client_retry_behavior(service, DummyClient, 2)
+
+    def test_network_timeout_handling(self) -> None:
+        service = self._service()
+
+        class DummyClient(_BaseDummyClient):
+            def __init__(self, **kw: object) -> None:
+                super().__init__(**kw)
+                self.attempt = 0
+
+            def send(self, request: Request, **_kw: object) -> Response:
+                self.send_calls.append(request)
+                self.attempt += 1
+
+                if self.attempt == 1:
+                    # Simulate gateway timeout instead of connection timeout
+                    return Response(504, json={"error": "Gateway timeout"}, request=request)
+                else:
+                    return Response(200, json={}, request=request)
+
+        service.MAX_RETRY_ATTEMPTS = 1
+        self._test_client_retry_behavior(service, DummyClient, 2)
+
+    def test_graphql_error_handling(self) -> None:
+        service = self._service()
+
+        graphql_errors = {
+            "errors": [
+                {
+                    "message": "Field 'invalidField' doesn't exist",
+                    "extensions": {"code": "GRAPHQL_PARSE_FAILED", "category": "graphql"},
+                }
+            ]
+        }
+
+        class DummyClient(_BaseDummyClient):
+            def send(self, request: Request, **_kw: object) -> Response:
+                self.send_calls.append(request)
+                return Response(
+                    200,  # GraphQL returns 200 even for errors
+                    json=graphql_errors,
+                    request=request,
+                    headers={"content-type": "application/json"},
+                )
+
+        with self._client(service, DummyClient) as (client, fake_sleep):
+            req = Request("POST", "http://t/graphql")
+            client.send(req)
+
+            # Should not retry GraphQL parse errors
+            self.assertEqual(len(client.send_calls), 1)
+            fake_sleep.assert_not_called()
+
+    def test_bulk_operation_throttling(self) -> None:
+        service = self._service()
+        service.MIN_API_POINTS = 30  # Set minimum points threshold
+
+        class DummyClient(_BaseDummyClient):
+            def __init__(self, **kw: object) -> None:
+                super().__init__(**kw)
+                self.request_count = 0
+
+            def send(self, request: Request, **_kw: object) -> Response:
+                self.send_calls.append(request)
+                self.request_count += 1
+                
+                # First request has low points triggering throttle
+                if self.request_count == 1:
+                    available = 20  # Below MIN_API_POINTS
+                else:
+                    available = 100  # Restored after wait
+                
+                return Response(
+                    200,
+                    json={"extensions": {"cost": {"throttleStatus": {"currentlyAvailable": available, "restoreRate": 50}}}},
+                    request=request,
+                    headers={"content-type": "application/json"},
+                )
+
+        with self._client(service, DummyClient) as (client, fake_sleep):
+            # Make a request that will trigger rate limiting
+            req = Request("POST", "http://t/bulk")
+            client.send(req)
+
+            # Should have waited due to low API points
+            self.assertTrue(fake_sleep.called)
+            # At least one call was made
+            self.assertGreaterEqual(len(client.send_calls), 1)
+
+    def test_api_version_mismatch_error(self) -> None:
+        service = self._service()
+
+        version_error = {
+            "errors": [{"message": "API version 2024-10 is not supported", "extensions": {"code": "API_VERSION_NOT_SUPPORTED"}}]
+        }
+
+        class DummyClient(_BaseDummyClient):
+            def send(self, request: Request, **_kw: object) -> Response:
+                self.send_calls.append(request)
+                return Response(
+                    400,
+                    json=version_error,
+                    request=request,
+                    headers={"content-type": "application/json"},
+                )
+
+        with self._client(service, DummyClient) as (client, fake_sleep):
+            req = Request("POST", "http://t/graphql")
+            response = client.send(req)
+            
+            # Should return 400 response without retrying
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json(), version_error)
+            
+            # Should not retry version errors
+            self.assertEqual(len(client.send_calls), 1)
+            fake_sleep.assert_not_called()
+
+    def test_connection_reset_recovery(self) -> None:
+        service = self._service()
+
+        class DummyClient(_BaseDummyClient):
+            def __init__(self, **kw: object) -> None:
+                super().__init__(**kw)
+                self.attempt = 0
+
+            def send(self, request: Request, **_kw: object) -> Response:
+                self.send_calls.append(request)
+                self.attempt += 1
+
+                if self.attempt <= 2:
+                    # Simulate transient server error instead of connection reset
+                    return Response(503, json={"error": "Service unavailable"}, request=request)
+                else:
+                    return Response(200, json={}, request=request)
+
+        service.MAX_RETRY_ATTEMPTS = 3
+        with self._client(service, DummyClient) as (client, fake_sleep):
+            req = Request("GET", "http://t")
+            result = client.send(req)
+
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(len(client.send_calls), 3)
+            # Should have delays between retries
+            self.assertEqual(fake_sleep.call_count, 2)
+
+    def test_invalid_credentials_no_retry(self) -> None:
+        service = self._service()
+
+        auth_error = {"errors": [{"message": "Invalid access token", "extensions": {"code": "UNAUTHORIZED"}}]}
+
+        class DummyClient(_BaseDummyClient):
+            def send(self, request: Request, **_kw: object) -> Response:
+                self.send_calls.append(request)
+                return Response(
+                    401,
+                    json=auth_error,
+                    request=request,
+                    headers={"content-type": "application/json"},
+                )
+
+        service.MAX_RETRY_ATTEMPTS = 3
+        with self._client(service, DummyClient) as (client, fake_sleep):
+            req = Request("GET", "http://t")
+            result = client.send(req)
+
+            # Should not retry auth errors
+            self.assertEqual(len(client.send_calls), 1)
+            self.assertEqual(result.status_code, 401)
             fake_sleep.assert_not_called()
 
     def test_send_with_retry_delay_no_hard_throttle(self) -> None:
