@@ -107,14 +107,9 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
             changed = write_if_changed(existing_order, order_values)
             changed |= self._sync_order_lines(existing_order, shopify_order)
 
-            if existing_order.state == "draft":
-                existing_order.with_context(skip_shopify_sync=True).action_confirm()
-
             return changed
         new_order = self.env["sale.order"].with_context(skip_shopify_sync=True).create(order_values)
         self._sync_order_lines(new_order, shopify_order)
-
-        new_order.with_context(skip_shopify_sync=True).action_confirm()
 
         return True
 

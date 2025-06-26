@@ -210,3 +210,23 @@ class TestOrderShippingImport(ShopifyTestBase):
         delivery_lines = order.order_line.filtered("is_delivery")
         self.assertEqual(len(delivery_lines), 1)
         self.assertEqual(delivery_lines[0].price_unit, 20.00)
+
+    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    def test_imported_orders_remain_draft(self, mock_import_customer: MagicMock) -> None:
+        mock_import_customer.return_value = True
+
+        order_data = create_shopify_order_response(
+            customer=create_shopify_customer_response(),
+            line_items=[create_shopify_order_line_item_response(sku=self.product.default_code)],
+            shipping_lines=[create_shopify_shipping_line_response(title="UPS Ground", price="15.00")],
+        )
+
+        shopify_order = OrderFields(**order_data)
+        self.importer._import_one(shopify_order)
+
+        order = self.env["sale.order"].search([("shopify_order_id", "=", "123456789")])
+        self.assertEqual(order.state, "draft", "Imported orders should remain in draft state")
+        
+        # Verify no stock pickings were created
+        pickings = self.env["stock.picking"].search([("sale_id", "=", order.id)])
+        self.assertEqual(len(pickings), 0, "No delivery orders should be created for draft imported orders")
