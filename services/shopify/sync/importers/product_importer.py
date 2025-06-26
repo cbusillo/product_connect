@@ -251,6 +251,7 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
             if odoo_product:
                 write_if_changed(odoo_product, odoo_product_input)
             else:
+                odoo_product_input["source"] = "shopify"
                 odoo_product = (
                     self.env["product.product"].with_context(skip_shopify_sync=True, force_sku_check=True).create(odoo_product_input)
                 )

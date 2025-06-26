@@ -21,9 +21,9 @@ class ProductTemplate(models.Model):
     ]
 
     source = fields.Selection(
-        [("import", "Import Product"), ("motor", "Motor Product"), ("standard", "Standard Product")],
+        [("import", "Import Product"), ("motor", "Motor Product"), ("shopify", "Shopify Product"), ("standard", "Standard Product")],
         default="standard",
-        required=True,
+        required=False,
         index=True,
     )
 
@@ -384,6 +384,12 @@ class ProductTemplate(models.Model):
                 continue
             if not self.SKU_PATTERN.fullmatch(product.default_code):
                 raise ValidationError(self.env._("SKU must be 4-8 digits."))
+
+    @api.constrains("source", "type")
+    def _check_source_required_for_consumable(self) -> None:
+        for product in self:
+            if product.type == "consu" and not product.source:
+                raise ValidationError(self.env._("Source is required for consumable products."))
 
     def get_next_sku(self) -> str:
         sequence_model: "odoo.model.ir_sequence" = self.env["ir.sequence"]
