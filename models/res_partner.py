@@ -25,10 +25,3 @@ class ResPartner(models.Model):
     def _compute_ebay_profile_url(self) -> None:
         for partner in self:
             partner.ebay_profile_url = f"https://www.ebay.com/usr/{partner.ebay_username}" if partner.ebay_username else False
-
-    def action_view_partner_with_same_bank(self) -> "odoo.values.ir_actions_act_window_close":
-        # TODO: Remove when account module button validation is fixed in --dev=all mode
-        if hasattr(super(), "action_view_partner_with_same_bank"):
-            return super().action_view_partner_with_same_bank()
-        # Otherwise return a dummy action to prevent errors
-        return {"type": "ir.actions.act_window_close"}

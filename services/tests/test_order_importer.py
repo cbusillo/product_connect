@@ -109,7 +109,7 @@ class TestOrderImporter(ShopifyTestBase):
         self.env["delivery.carrier.service.map"].create(
             {
                 "platform": "shopify",
-                "external_name": "ups ground",
+                "platform_service_normalized_name": "ups ground",
                 "carrier": self.ups_carrier.id,
             }
         )
@@ -158,8 +158,9 @@ class TestOrderImporter(ShopifyTestBase):
             (None, ""),
         ]
 
+        service_map_model = self.env["delivery.carrier.service.map"]
         for input_name, expected in test_cases:
-            result = OrderImporter._normalise_carrier_name(input_name)
+            result = service_map_model.normalize_service_name(input_name)
             self.assertEqual(result, expected, f"Failed for input: {input_name}")
 
     def test_get_amount_for_order_currency(self) -> None:
@@ -560,7 +561,7 @@ class TestOrderImporter(ShopifyTestBase):
         self.env["delivery.carrier.service.map"].create(
             {
                 "platform": "shopify",
-                "external_name": "fedex express",
+                "platform_service_normalized_name": "fedex express",
                 "carrier": fedex_carrier.id,
             }
         )

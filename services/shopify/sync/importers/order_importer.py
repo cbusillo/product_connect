@@ -1,6 +1,4 @@
 import logging
-import re
-import unicodedata
 from decimal import Decimal
 
 from odoo.api import Environment
@@ -27,16 +25,8 @@ _logger = logging.getLogger(__name__)
 
 
 class OrderImporter(ShopifyBaseImporter[OrderFields]):
-    _CARRIER_PUNCTUATION_PATTERN = re.compile(r"[^\w\s\-]")
-
     def __init__(self, env: Environment, sync_record: "odoo.model.shopify_sync") -> None:
         super().__init__(env, sync_record)
-
-    @classmethod
-    def _normalise_carrier_name(cls, name: str) -> str:
-        cleaned = cls._CARRIER_PUNCTUATION_PATTERN.sub("", name or "")
-        # noinspection SpellCheckingInspection
-        return unicodedata.normalize("NFKD", cleaned).strip().casefold()
 
     @staticmethod
     def _get_amount_for_order_currency(price_set: MoneyBagFields, order_currency: CurrencyCode) -> Decimal:
@@ -110,6 +100,7 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
             "partner_invoice_id": billing_partner.id,
             "partner_shipping_id": shipping_partner.id,
             "currency_id": currency.id,
+            "source_platform": "shopify",
         }
 
         if existing_order:
@@ -241,8 +232,10 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
         shipping_lines = [line for line in shopify_order.shipping_lines.nodes if line and line.is_removed is not True]
 
         grouped: dict[str, list] = {}
+        service_map_model = self.env["delivery.carrier.service.map"]
         for line in shipping_lines:
-            grouped.setdefault(self._normalise_carrier_name(line.title or ""), []).append(line)
+            normalized_name = service_map_model.normalize_service_name(line.title or "")
+            grouped.setdefault(normalized_name, []).append(line)
 
         existing_delivery_lines = odoo_order.order_line.filtered("is_delivery")
         existing_by_product_id = {line.product_id.id: line for line in existing_delivery_lines}
@@ -250,6 +243,7 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
 
         first_group = True
         changed = False
+        total_shipping_charge = 0.0
 
         for normalised_name, lines in grouped.items():
             total_amount = sum(
@@ -262,8 +256,10 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
             if total_amount == 0:
                 continue
 
+            total_shipping_charge += float(total_amount)
+
             mapping = self.env["delivery.carrier.service.map"].search(
-                [("platform", "=", "shopify"), ("external_name", "=", normalised_name)],
+                [("platform", "=", "shopify"), ("platform_service_normalized_name", "=", normalised_name)],
                 limit=1,
             )
             if not mapping:
@@ -298,6 +294,10 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
         stale_lines = existing_delivery_lines.filtered(lambda line: line.product_id.id not in processed_product_ids)
         if stale_lines:
             stale_lines.unlink()
+            changed = True
+
+        if odoo_order.shipping_charge != total_shipping_charge:
+            odoo_order.shipping_charge = total_shipping_charge
             changed = True
 
         return changed

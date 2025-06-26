@@ -21,6 +21,9 @@
         "sale_management",
         "purchase",
         "phone_validation",
+        "delivery",
+        "delivery_ups_rest",
+        "delivery_usps_rest",
     ],
     "description": "Module to connect to various product sources and manage product data for motor parts.",
     "data": [
@@ -32,6 +35,9 @@
         "data/product_condition_data.xml",
         "data/res_config_data.xml",
         "data/mail_templates.xml",
+        "data/delivery_products.xml",  # delivery data order is important (relations)
+        "data/delivery_carriers.xml",
+        "data/delivery_carrier_mappings.xml",
         "report/motor_product_reports.xml",
         "report/motor_reports.xml",
         "report/product_reports.xml",
@@ -56,6 +62,7 @@
         "views/repair_order_views.xml",
         "views/res_partner_views.xml",
         "views/res_users_views.xml",
+        "views/sale_order_views.xml",
         "views/shopify_sync_views.xml",
         "security/ir.model.access.csv",
     ],

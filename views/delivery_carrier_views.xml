@@ -5,7 +5,7 @@
         <field name="arch" type="xml">
             <list editable="bottom" string="Service Mappings">
                 <field name="platform"/>
-                <field name="external_name"/>
+                <field name="platform_service_normalized_name"/>
                 <field name="external_id"/>
             </list>
         </field>
@@ -20,7 +20,7 @@
                 <group>
                     <field name="carrier"/>
                     <field name="platform"/>
-                    <field name="external_name"/>
+                    <field name="platform_service_normalized_name"/>
                     <field name="external_id"/>
                 </group>
             </form>
@@ -35,11 +35,11 @@
         <field name="arch" type="xml">
             <xpath expr="//form/sheet/notebook" position="inside">
                 <page string="Service Mappings">
-                    <field name="service_map_ids" mode="list,form" context="{'default_platform': 'shopify'}"
+                    <field name="service_maps" mode="list,form" context="{'default_platform': 'shopify'}"
                            nolabel="1">
                         <list editable="bottom">
                             <field name="platform"/>
-                            <field name="external_name"/>
+                            <field name="platform_service_normalized_name"/>
                             <field name="external_id"/>
                         </list>
                     </field>
