@@ -58,5 +58,6 @@ ignore = [
     "SLF001", # Private member access - PyCharm handles this better with context awareness, Odoo uses _fields etc as public API
     "ARG001", # Unused function argument - PyCharm handles this better with context awareness
     "ARG002", # Unused method argument - PyCharm handles this better with context awareness
+    "ANN201", # Missing type annotation for function - PyCharm handles this better with context awareness
     "ANN202", # Missing type annotation for function - PyCharm handles this better with context awareness
 ]
