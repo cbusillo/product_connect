@@ -12,7 +12,7 @@ _logger = logging.getLogger(__name__)
 
 class ProductTemplate(models.Model):
     _name = "product.template"
-    _inherit = ["product.template", "label.mixin", "notification.manager.mixin"]
+    _inherit = ["product.template", "label.mixin", "notification.manager.mixin", "transaction.mixin"]
     _description = "Product"
     _order = "create_date desc"
     _sql_constraints = [
@@ -547,8 +547,7 @@ class ProductTemplate(models.Model):
                     partner_ids=[self.env.user.partner_id.id],
                 )
 
-        if not self.env.registry.in_test_mode():
-            self.env.cr.commit()
+        self._safe_commit()
 
     def print_bin_labels(self) -> None:
         unique_bins = [

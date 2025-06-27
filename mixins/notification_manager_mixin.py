@@ -51,6 +51,7 @@ class NotificationHistory(models.Model):
 
 class NotificationManagerMixin(models.AbstractModel):
     _name = "notification.manager.mixin"
+    _inherit = ["transaction.mixin"]
     _description = "Notification Manager Mixin"
 
     ADMIN_EMAIL = "info@shinycomputers.com"
@@ -114,13 +115,10 @@ class NotificationManagerMixin(models.AbstractModel):
         shopify_record: BaseModel | None = None,
         error: Exception | None = None,
     ) -> None:
-        if not self.env.registry.in_test_mode():
-            self.env.cr.rollback()
+        self._safe_rollback()
         error_traceback = "".join(traceback.format_exception(type(error), error, error.__traceback__)) if error else ""
 
-        new_cr = self.env.registry.cursor()
-        try:
-            new_env = api.Environment(new_cr, self.env.uid, self.env.context, su=True)
+        with self._new_cursor_context() as new_env:
             self.notify_channel(subject, body, "errors", record, shopify_record, new_env, error)
             message = f"{body}"
             if record:
@@ -130,10 +128,6 @@ class NotificationManagerMixin(models.AbstractModel):
             if error_traceback:
                 message += f"\nError traceback:\n{error_traceback}"
             self.send_email_notification_to_admin(subject, message)
-            if not self.env.registry.in_test_mode():
-                new_cr.commit()
-        finally:
-            new_cr.close()
 
     def send_email_notification_to_admin(self, subject: str, body: str) -> None:
         recipient_user = self.env["res.users"].sudo().search([("login", "=", self.ADMIN_EMAIL)], limit=1)

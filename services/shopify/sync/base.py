@@ -47,13 +47,11 @@ class ShopifyBase(ABC, Generic[T]):
 
     def _maybe_commit(self, processed_count: int) -> None:
         if processed_count % self.commit_size == 0:
-            if not self.env.registry.in_test_mode():
-                self.env.cr.commit()
+            self.sync_record._safe_commit()
             _logger.info(f"Processed {processed_count} records so far.")
         if time.monotonic() - self._last_heartbeat > HEARTBEAT_SECONDS:
             self.sync_record.write({})
-            if not self.env.registry.in_test_mode():
-                self.env.cr.commit()
+            self.sync_record._safe_commit()
             self._last_heartbeat = time.monotonic()
 
     def _iterate_pages(
