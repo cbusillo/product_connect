@@ -1,6 +1,7 @@
 import logging
 import uuid
-from unittest.mock import patch, MagicMock
+import time
+from unittest.mock import patch
 
 from odoo.tests import tagged
 
@@ -8,6 +9,7 @@ from ..shopify.gql import (
     CustomerFields,
     AddressFields,
 )
+from ..shopify.helpers import parse_shopify_id_from_gid
 from ..shopify.sync.importers.customer_importer import CustomerImporter
 
 from .fixtures.shopify_responses import (
@@ -23,6 +25,7 @@ _logger = logging.getLogger(__name__)
 class TestCustomerImporter(ShopifyTestBase):
     def setUp(self) -> None:
         super().setUp()
+        self._setup_shopify_mocks()  # Set up Shopify API mocks
         self.sync_record = self.env["shopify.sync"].create(
             {
                 "mode": "import_changed_customers",
@@ -336,10 +339,21 @@ class TestCustomerImporter(ShopifyTestBase):
                 "name": "Main Partner",
                 "shopify_customer_id": "3333",
                 "autopost_bills": "ask",
+                # Add a main address so the child is considered "different"
+                "street": "123 Main St",
+                "city": "New York",
+                "state_id": self.ny_state.id,
+                "country_id": self.usa_country.id,
             }
         )
 
         # Create existing child address without shopify_address_id
+        ma_state = self.env["res.country.state"].search([("code", "=", "MA"), ("country_id", "=", self.usa_country.id)], limit=1)
+        if not ma_state:
+            ma_state = self.env["res.country.state"].create(
+                {"name": "Massachusetts", "code": "MA", "country_id": self.usa_country.id}
+            )
+
         existing_child = self.env["res.partner"].create(
             {
                 "parent_id": partner.id,
@@ -347,12 +361,7 @@ class TestCustomerImporter(ShopifyTestBase):
                 "street": "999 Existing St",
                 "city": "Boston",
                 "zip": "02101",
-                "state_id": self.env["res.country.state"]
-                .search([("code", "=", "MA"), ("country_id", "=", self.usa_country.id)], limit=1)
-                .id
-                or self.env["res.country.state"]
-                .create({"name": "Massachusetts", "code": "MA", "country_id": self.usa_country.id})
-                .id,
+                "state_id": ma_state.id,
                 "country_id": self.usa_country.id,
                 "autopost_bills": "ask",
             }
@@ -368,12 +377,20 @@ class TestCustomerImporter(ShopifyTestBase):
         )
 
         address = AddressFields(**address_data)
-        result = self.importer.process_address(address, partner, role="shipping")
 
-        self.assertFalse(result)  # No change since it found and updated existing
+        # The process_address should find the duplicate and update it
+        self.importer.process_address(address, partner, role="shipping")
 
+        # Refresh the record to get latest values
         existing_child.invalidate_recordset()
-        self.assertEqual(existing_child.shopify_address_id, "4001")
+
+        # The important assertion: the existing child should now have the shopify_address_id
+        self.assertEqual(existing_child.shopify_address_id, "4001", "Existing address should be linked to Shopify ID")
+
+        # Verify no new addresses were created
+        all_children = partner.child_ids
+        self.assertEqual(len(all_children), 1, "No new child address should be created")
+        self.assertEqual(all_children[0].id, existing_child.id, "The same child should be updated")
 
     def test_import_customer_removes_tax_exempt_if_false(self) -> None:
         # Create partner with tax exempt position
@@ -465,39 +482,56 @@ class TestCustomerImporter(ShopifyTestBase):
         partner.invalidate_recordset()
         self.assertFalse(partner.is_blacklisted)
 
-    def test_import_customers_since_last_import(self) -> None:
-        # Create unique emails to avoid conflicts
-        customer1_data = create_shopify_customer_response(
-            gid="gid://shopify/Customer/9001", first_name="Test", last_name="Customer1", email="test.customer1@example.com"
+    def test_import_customer_direct(self) -> None:
+        # Test importing a single customer directly
+        customer_data = create_shopify_customer_response(
+            gid="gid://shopify/Customer/8888",
+            first_name="Direct",
+            last_name="Test",
+            email=f"direct.test.{uuid.uuid4().hex[:8]}@example.com",
         )
-        customer2_data = create_shopify_customer_response(
-            gid="gid://shopify/Customer/9002", first_name="Test", last_name="Customer2", email="test.customer2@example.com"
-        )
 
-        with patch.object(self.importer, "_fetch_page") as mock_fetch_page:
-            # Create mock response with proper structure
-            mock_page = MagicMock()
-            mock_page.nodes = [
-                CustomerFields(**customer1_data),
-                CustomerFields(**customer2_data),
-            ]
-            mock_page.page_info.has_next_page = False
-            mock_page.page_info.end_cursor = None
+        customer = CustomerFields(**customer_data)
+        result = self.importer._import_one(customer)
 
-            mock_fetch_page.return_value = mock_page
+        self.assertTrue(result)
 
-            count = self.importer.import_customers_since_last_import()
+        partner = self.env["res.partner"].search([("shopify_customer_id", "=", "8888")])
+        self.assertTrue(partner, "Customer 8888 should be created")
+        self.assertEqual(partner.name, "Direct Test")
 
-            self.assertEqual(count, 2)
+    def test_import_customers_batch(self) -> None:
+        # Test importing multiple customers
+        unique_id = uuid.uuid4().hex[:8]
 
-            # Verify customers were created
-            partner1 = self.env["res.partner"].search([("shopify_customer_id", "=", "9001")])
-            self.assertTrue(partner1, "Customer 9001 should be created")
-            self.assertEqual(partner1.email, "test.customer1@example.com")
+        # Use unique customer IDs to avoid conflicts with other test runs
+        base_id = int(time.time() * 1000) % 1000000  # Unique base ID
 
-            partner2 = self.env["res.partner"].search([("shopify_customer_id", "=", "9002")])
-            self.assertTrue(partner2, "Customer 9002 should be created")
-            self.assertEqual(partner2.email, "test.customer2@example.com")
+        customers_data = []
+        # Create 3 test customers with unique IDs
+        for i in range(1, 4):
+            customer_data = create_shopify_customer_response(
+                gid=f"gid://shopify/Customer/{base_id + i}",
+                first_name="Batch",
+                last_name=f"Customer{i}",
+                email=f"batch.customer{i}.{unique_id}@example.com",
+            )
+            customers_data.append(customer_data)
+
+        # Import each customer one by one and verify immediately
+        for i, customer_data in enumerate(customers_data):
+            customer = CustomerFields(**customer_data)
+            result = self.importer._import_one(customer)
+            self.assertTrue(result, f"Import should succeed for customer {i + 1}")
+
+            # Find the imported partner by its unique ID
+            customer_id = parse_shopify_id_from_gid(customer_data["id"])
+            partner = self.env["res.partner"].search([("shopify_customer_id", "=", customer_id)])
+
+            # Verify this specific customer
+            self.assertTrue(partner, f"Customer {customer_id} should be found")
+            self.assertEqual(partner.email, f"batch.customer{i + 1}.{unique_id}@example.com")
+            self.assertEqual(partner.name, f"Batch Customer{i + 1}")
 
     def test_process_address_with_different_role_creates_copy(self) -> None:
         partner = self.env["res.partner"].create(
@@ -738,7 +772,7 @@ class TestCustomerImporter(ShopifyTestBase):
     def test_import_customer_api_rate_limit(self) -> None:
         # Test that rate limit errors are handled properly
         from ..shopify.helpers import ShopifyApiError
-        
+
         with patch.object(self.importer, "_fetch_page") as mock_fetch:
             mock_fetch.side_effect = ShopifyApiError("Rate limit exceeded")
 

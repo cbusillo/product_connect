@@ -117,12 +117,13 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
     def _images_are_in_sync(
         self, odoo_product: "odoo.model.product_product", shopify_images: list[ProductFieldsMediaNodesMediaImage]
     ) -> bool:
-        if len(odoo_product.images) != len(shopify_images):
+        template_images = odoo_product.product_tmpl_id.images
+        if len(template_images) != len(shopify_images):
             _logger.debug(
-                f"Image count mismatch for product {odoo_product.id}: Odoo has {len(odoo_product.images)}, Shopify has {len(shopify_images)}"
+                f"Image count mismatch for product {odoo_product.id}: Odoo has {len(template_images)}, Shopify has {len(shopify_images)}"
             )
             return False
-        if any(image.shopify_media_id is None for image in odoo_product.images):
+        if any(image.shopify_media_id is None for image in template_images):
             _logger.debug(f"Missing Shopify media ID for product {odoo_product.id}")
             return False
         return self._ordered_odoo_media_ids(odoo_product) == self._ordered_shopify_media_ids(shopify_images)
@@ -161,7 +162,7 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
             _logger.debug(f"Images already in sync for product {odoo_product.id}")
             return
 
-        existing_by_mid = {image.shopify_media_id: image for image in odoo_product.images if image.shopify_media_id}
+        existing_by_mid = {image.shopify_media_id: image for image in odoo_product.product_tmpl_id.images if image.shopify_media_id}
         ordered_images = []
 
         for shopify_image in shopify_images:
@@ -187,7 +188,7 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
                 )
             ordered_images.append(image)
 
-        odoo_product.images = [(6, 0, [image.id for image in ordered_images])]
+        odoo_product.product_tmpl_id.images = [(6, 0, [image.id for image in ordered_images])]
 
         for sequence, image in enumerate(ordered_images):
             image.sequence = sequence
@@ -210,7 +211,7 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
 
     @staticmethod
     def _ordered_odoo_media_ids(product: "odoo.model.product_product") -> list[str]:
-        ordered_images = sorted(product.images, key=image_order_key)
+        ordered_images = sorted(product.product_tmpl_id.images, key=image_order_key)
         return [image.shopify_media_id for image in ordered_images if image.shopify_media_id]
 
     @staticmethod
@@ -237,10 +238,10 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
                 "default_code": sku,
                 "website_description": shopify_product.description_html,
                 "list_price": float(variant.price),
-                "standard_price": float(variant.inventory_item.unit_cost.amount),
+                "standard_price": float(variant.inventory_item.unit_cost.amount or 0),
                 "mpn": variant.barcode,
                 "bin": bin_location,
-                "weight": float(variant.inventory_item.measurement.weight.value or 0),
+                "weight": float(variant.inventory_item.measurement.weight.value or 0) if variant.inventory_item.measurement.weight else 0,
                 "type": "consu",
                 "is_storable": True,
                 "manufacturer": self.get_or_create_manufacturer(shopify_product.vendor).id if shopify_product.vendor else False,
@@ -248,26 +249,35 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
                 "is_ready_for_sale": True,
             }
 
+            # Store template fields separately
+            template_vals = {}
+            
             condition_metafield = metafields_by_key.get("condition")
             if condition_metafield:
                 condition = self.env["product.condition"].search([("code", "=", condition_metafield.value)], limit=1)
                 if condition:
-                    odoo_product_input["condition"] = condition.id
+                    template_vals["condition"] = condition.id
 
             ebay_category_from_shopify = metafields_by_key.get("ebay_category_id")
             if ebay_category_from_shopify:
                 odoo_product_input["shopify_ebay_category_id"] = parse_shopify_id_from_gid(ebay_category_from_shopify.id)
-                odoo_product_input["part_type"] = self.get_or_create_part_type(
+                template_vals["part_type"] = self.get_or_create_part_type(
                     shopify_product.product_type, ebay_category_from_shopify.value
                 ).id
 
             if odoo_product:
                 write_if_changed(odoo_product, odoo_product_input)
+                # Update template fields if any
+                if template_vals:
+                    write_if_changed(odoo_product.product_tmpl_id, template_vals)
             else:
                 odoo_product_input["source"] = "shopify"
                 odoo_product = (
                     self.env["product.product"].with_context(skip_shopify_sync=True, force_sku_check=True).create(odoo_product_input)
                 )
+                # Update template fields after creation
+                if template_vals:
+                    write_if_changed(odoo_product.product_tmpl_id, template_vals)
 
             self._sync_images_bidirectional(odoo_product, shopify_product)
             if shopify_product.total_inventory is not None:

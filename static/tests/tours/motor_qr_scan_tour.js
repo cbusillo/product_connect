@@ -3,16 +3,21 @@
 import { registry } from "@web/core/registry";
 
 registry.category("web_tour.tours").add("motor_qr_scan_tour", {
+    test: true,
     steps: () => [
         {
-            content: "Navigate to Motors menu",
-            trigger: "a[data-menu-xmlid='product_connect.menu_motor_main']",
+            content: "Open the app menu",
+            trigger: ".o_navbar_apps_menu button",
             run: "click",
         },
         {
-            content: "Click on Motors submenu",
-            trigger: "a[data-menu-xmlid='product_connect.menu_motor']",
+            content: "Click on the Motors app",
+            trigger: ".o-dropdown--menu .dropdown-item:contains('Motors')",
             run: "click",
+        },
+        {
+            content: "Wait for motor list to load",
+            trigger: ".o_list_view",
         },
         {
             content: "Open an existing motor",
@@ -22,12 +27,10 @@ registry.category("web_tour.tours").add("motor_qr_scan_tour", {
         {
             content: "Wait for form to load",
             trigger: ".o_form_view",
-            isCheck: true,
         },
         {
             content: "Check if QR code widget is present",
             trigger: ".qr_code_widget",
-            isCheck: true,
         },
         {
             content: "Click on QR code to generate",
@@ -37,7 +40,6 @@ registry.category("web_tour.tours").add("motor_qr_scan_tour", {
         {
             content: "Verify QR code image appears",
             trigger: ".qr_code_widget img[src*='data:image']",
-            isCheck: true,
         },
         {
             content: "Go back to list view",
@@ -47,7 +49,6 @@ registry.category("web_tour.tours").add("motor_qr_scan_tour", {
         {
             content: "Verify back at motor list",
             trigger: ".o_list_view",
-            isCheck: true,
         },
     ],
 });

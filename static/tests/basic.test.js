@@ -15,7 +15,7 @@ describe("Basic Product Connect Tests", () => {
 
     test("should handle objects", async () => {
         const obj = { name: "Motor", hp: 100 };
-        expect(obj).toHaveProperty("name");
+        expect(obj.name).toBe("Motor");
         expect(obj.hp).toBe(100);
     });
 });

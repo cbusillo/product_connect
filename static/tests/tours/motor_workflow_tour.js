@@ -3,16 +3,21 @@
 import { registry } from "@web/core/registry";
 
 registry.category("web_tour.tours").add("motor_workflow_tour", {
+    test: true,
     steps: () => [
         {
-            content: "Navigate to Motors menu",
-            trigger: "a[data-menu-xmlid='product_connect.menu_motor_main']",
+            content: "Open the app menu",
+            trigger: ".o_navbar_apps_menu button",
             run: "click",
         },
         {
-            content: "Click on Motors submenu",
-            trigger: "a[data-menu-xmlid='product_connect.menu_motor']",
+            content: "Click on the Motors app",
+            trigger: ".o-dropdown--menu .dropdown-item:contains('Motors')",
             run: "click",
+        },
+        {
+            content: "Wait for motor list to load",
+            trigger: ".o_list_view",
         },
         {
             content: "Create new motor",
@@ -27,7 +32,6 @@ registry.category("web_tour.tours").add("motor_workflow_tour", {
         {
             content: "Confirm manufacturer selection",
             trigger: ".ui-menu-item a:contains('TestMaker')",
-            in_modal: false,
             run: "click",
         },
         {
@@ -38,7 +42,6 @@ registry.category("web_tour.tours").add("motor_workflow_tour", {
         {
             content: "Confirm stroke selection",
             trigger: ".ui-menu-item a:contains('Four')",
-            in_modal: false,
             run: "click",
         },
         {
@@ -49,7 +52,6 @@ registry.category("web_tour.tours").add("motor_workflow_tour", {
         {
             content: "Confirm configuration selection",
             trigger: ".ui-menu-item a:contains('V8')",
-            in_modal: false,
             run: "click",
         },
         {
@@ -85,7 +87,6 @@ registry.category("web_tour.tours").add("motor_workflow_tour", {
         {
             content: "Verify motor was saved",
             trigger: ".o_form_view.o_form_saved",
-            isCheck: true,
         },
         {
             content: "Go back to list view",
@@ -95,7 +96,6 @@ registry.category("web_tour.tours").add("motor_workflow_tour", {
         {
             content: "Verify motor appears in list",
             trigger: ".o_data_row:contains('SN12345')",
-            isCheck: true,
         },
     ],
 });

@@ -1,4 +1,4 @@
-from . import test_motor, test_product_template, test_integration, test_simple
+from . import test_base, test_motor, test_product_template, test_integration, test_simple
 
 # noinspection PyUnresolvedReferences
 from ..services.tests import (
