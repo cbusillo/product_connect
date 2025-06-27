@@ -525,13 +525,13 @@ class TestShopifyService(ShopifyTestBase):
             def send(self, request: Request, **_kw: object) -> Response:
                 self.send_calls.append(request)
                 self.request_count += 1
-                
+
                 # First request has low points triggering throttle
                 if self.request_count == 1:
                     available = 20  # Below MIN_API_POINTS
                 else:
                     available = 100  # Restored after wait
-                
+
                 return Response(
                     200,
                     json={"extensions": {"cost": {"throttleStatus": {"currentlyAvailable": available, "restoreRate": 50}}}},
@@ -569,11 +569,11 @@ class TestShopifyService(ShopifyTestBase):
         with self._client(service, DummyClient) as (client, fake_sleep):
             req = Request("POST", "http://t/graphql")
             response = client.send(req)
-            
+
             # Should return 400 response without retrying
             self.assertEqual(response.status_code, 400)
             self.assertEqual(response.json(), version_error)
-            
+
             # Should not retry version errors
             self.assertEqual(len(client.send_calls), 1)
             fake_sleep.assert_not_called()

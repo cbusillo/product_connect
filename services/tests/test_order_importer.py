@@ -855,3 +855,36 @@ eBay Order Id:   11-22222-33333   """
         product_lines = order.order_line.filtered(lambda l: not l.is_delivery)
         self.assertEqual(len(product_lines), 2)
         self.assertEqual(sum(line.product_uom_qty for line in product_lines), 5)
+
+    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    def test_shopify_note_populated_with_payment_and_note(self, mock_import_customer: MagicMock) -> None:
+        """Test that shopify_note is populated with payment info and order note"""
+        mock_import_customer.return_value = True
+
+        order_data = create_shopify_order_response(
+            note="Test order note",
+            payment_gateway_names=["credit_card", "paypal"],
+            customer=create_shopify_customer_response(),
+            line_items=[create_shopify_order_line_item_response(sku=self.product_a.default_code)],
+        )
+
+        order = self._import_order_and_verify_success(order_data)
+        self.assertEqual(order.shopify_note, "Payment: credit_card, paypal\nTest order note")
+
+    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    def test_ebay_order_includes_ebay_info_in_shopify_note(self, mock_import_customer: MagicMock) -> None:
+        """eBay orders should include eBay-specific info in shopify_note"""
+        mock_import_customer.return_value = True
+
+        order_data = create_shopify_order_response(
+            note="eBay order note",
+            custom_attributes=[{"key": "Note Attributes", "value": "eBay Sales Record Number: 12345\neBay Order Id: 67890"}],
+            customer=create_shopify_customer_response(),
+            line_items=[create_shopify_order_line_item_response(sku=self.product_a.default_code)],
+        )
+
+        order = self._import_order_and_verify_success(order_data)
+        self.assertIn("eBay Sales Record: 12345", order.shopify_note)
+        self.assertIn("eBay Order ID: 67890", order.shopify_note)
+        self.assertIn("eBay order note", order.shopify_note)
+        self.assertEqual(order.source_platform, "ebay")

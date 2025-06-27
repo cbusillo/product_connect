@@ -228,7 +228,7 @@ class TestOrderShippingImport(ShopifyTestBase):
         self.assertEqual(order.state, "sale", "Imported orders should be in sale state")
         self.assertTrue(order.locked, "Imported orders should be locked")
         self.assertEqual(order.invoice_status, "invoiced", "Imported orders should be marked as invoiced")
-        
+
         pickings = self.env["stock.picking"].search([("sale_id", "=", order.id)])
         self.assertEqual(len(pickings), 0, "No delivery orders should be created for imported orders")
 
@@ -243,9 +243,7 @@ eBay Latest Delivery Date: 2025-06-30T07:00:00.000Z
 eBay Handle By Date: 2025-06-27T03:59:59.000Z
 eBay Account: outboardpartswarehouseva"""
 
-        custom_attributes = [
-            {"key": "Note Attributes", "value": ebay_note_attributes}
-        ]
+        custom_attributes = [{"key": "Note Attributes", "value": ebay_note_attributes}]
 
         order_data = create_shopify_order_response(
             customer=create_shopify_customer_response(),

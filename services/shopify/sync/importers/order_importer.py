@@ -175,7 +175,7 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
                     note_parts.append(f"eBay Order ID: {ebay_data['order_id']}")
 
         if note_parts:
-            order_values["note"] = "\n".join(note_parts)
+            order_values["shopify_note"] = "\n".join(note_parts)
 
         if existing_order:
             # Don't change lock status of existing orders
@@ -183,7 +183,7 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
             update_values.pop("locked", None)
             update_values.pop("state", None)  # Don't change state either
             update_values.pop("invoice_status", None)  # Don't change invoice status
-            
+
             changed = write_if_changed(existing_order, update_values)
             changed |= self._sync_order_lines(existing_order, shopify_order)
 
@@ -246,7 +246,7 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
             if not product:
                 _logger.warning(f"No matching product for SKU {sku} in order {shopify_order.name}")
                 continue
-            
+
             if shopify_line.quantity <= 0:
                 raise ShopifyDataError(f"Invalid quantity {shopify_line.quantity} for line {shopify_line.id}")
 
@@ -461,15 +461,19 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
         product = self.env["product.product"].search([("default_code", "=", default_code)], limit=1)
         if product:
             return product
-        return self.env["product.product"].with_context(skip_sku_check=True).create(
-            {
-                "name": name,
-                "default_code": default_code,
-                "type": "consu",
-                "sale_ok": True,
-                "purchase_ok": False,
-                "invoice_policy": "order",
-            }
+        return (
+            self.env["product.product"]
+            .with_context(skip_sku_check=True)
+            .create(
+                {
+                    "name": name,
+                    "default_code": default_code,
+                    "type": "consu",
+                    "sale_ok": True,
+                    "purchase_ok": False,
+                    "invoice_policy": "order",
+                }
+            )
         )
 
     def _resolve_address(

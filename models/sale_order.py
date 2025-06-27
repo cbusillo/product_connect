@@ -5,6 +5,10 @@ class SaleOrder(models.Model):
     _inherit = "sale.order"
 
     shopify_order_id = fields.Char(string="Shopify Order ID", copy=False)
+    shopify_note = fields.Text(
+        string="Shopify Note",
+        help="Imported notes from Shopify/eBay (payment info, order notes, eBay details). The standard note field is reserved for manual Odoo notes.",
+    )
 
     ebay_order_id = fields.Char(string="eBay Order ID", copy=False)
     source_platform = fields.Selection([("shopify", "Shopify"), ("ebay", "eBay"), ("manual", "Manual")], string="Source Platform")

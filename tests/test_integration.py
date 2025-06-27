@@ -4,7 +4,6 @@ from .test_base import ProductConnectHttpCase, ProductConnectIntegrationCase
 
 @tagged("post_install", "-at_install", "product_connect_js")
 class TestProductConnectIntegration(ProductConnectHttpCase):
-
     def test_javascript_tests_run(self) -> None:
         """Test that JavaScript tests execute properly"""
         # Use the test user created in setUpClass
@@ -19,7 +18,6 @@ class TestProductConnectIntegration(ProductConnectHttpCase):
 
 @tagged("post_install", "-at_install", "product_connect_tour")
 class TestProductConnectTours(ProductConnectIntegrationCase):
-
     def test_basic_tour(self) -> None:
         """Test basic tour functionality"""
         self.start_tour("/web", "test_basic_tour", login=self.test_user.login, timeout=60)

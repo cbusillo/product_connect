@@ -22,7 +22,7 @@ class TestProductDeleter(ShopifyTestBase):
     def setUp(self) -> None:
         super().setUp()
         self._setup_shopify_mocks()  # Set up Shopify API mocks
-        
+
         self.deleter = ProductDeleter(self.env, DummySync())
         # Use the mocked service from ShopifyTestBase
         self.deleter.service._client = self.mock_client

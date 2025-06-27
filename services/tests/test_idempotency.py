@@ -41,6 +41,7 @@ class TestIdempotency(ShopifyTestBase):
 
         # Generate unique SKU to avoid conflicts (must be 4-8 digits)
         import time
+
         self.sku = str(70000 + (int(time.time()) % 10000))  # 7xxxx series
         self.test_product = self.env["product.product"].create(
             {

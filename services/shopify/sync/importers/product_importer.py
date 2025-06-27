@@ -102,7 +102,7 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
                         }
                     )
                     return False
-                
+
                 _logger.debug(f"Creating new product {shopify_product.id} from Shopify")
                 odoo_product = self.save_odoo_product(None, shopify_product)
                 return True
@@ -241,7 +241,9 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
                 "standard_price": float(variant.inventory_item.unit_cost.amount or 0),
                 "mpn": variant.barcode,
                 "bin": bin_location,
-                "weight": float(variant.inventory_item.measurement.weight.value or 0) if variant.inventory_item.measurement.weight else 0,
+                "weight": float(variant.inventory_item.measurement.weight.value or 0)
+                if variant.inventory_item.measurement.weight
+                else 0,
                 "type": "consu",
                 "is_storable": True,
                 "manufacturer": self.get_or_create_manufacturer(shopify_product.vendor).id if shopify_product.vendor else False,
@@ -251,7 +253,7 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
 
             # Store template fields separately
             template_vals = {}
-            
+
             condition_metafield = metafields_by_key.get("condition")
             if condition_metafield:
                 condition = self.env["product.condition"].search([("code", "=", condition_metafield.value)], limit=1)

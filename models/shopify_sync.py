@@ -135,7 +135,7 @@ class ShopifySync(models.TransientModel):
 
                 vals_to_create.append(vals)
         self._safe_commit()
-        
+
         if not vals_to_create:
             return self.browse()
 
@@ -277,7 +277,6 @@ class ShopifySync(models.TransientModel):
 
         if not (healthy_import and healthy_export):
             self.create({"mode": SyncMode.IMPORT_THEN_EXPORT_PRODUCTS.value})
-
 
     def run_async(self) -> None:
         if config["stop_after_init"]:
