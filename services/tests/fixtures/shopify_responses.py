@@ -260,14 +260,20 @@ def create_shopify_shipping_line_response(
     currency_code: str = "USD",
     carrier_identifier: Optional[str] = "ups",
     code: Optional[str] = "STANDARD",
+    delivery_category: Optional[str] = None,
+    is_removed: bool = False,
     **overrides: object,
 ) -> dict[str, Any]:
     base_response = {
         "id": gid,
         "title": title,
         "originalPriceSet": create_money_bag(price, currency_code),
+        "currentDiscountedPriceSet": create_money_bag(price, currency_code),
+        "discountedPriceSet": create_money_bag(price, currency_code),
         "carrierIdentifier": carrier_identifier,
         "code": code,
+        "deliveryCategory": delivery_category,
+        "isRemoved": is_removed,
     }
 
     deep_update(base_response, overrides)
@@ -294,6 +300,9 @@ def create_shopify_order_response(
     discount_applications: Optional[list[dict[str, Any]]] = None,
     tax_lines: Optional[list[dict[str, Any]]] = None,
     metafields: Optional[list[dict[str, Any]]] = None,
+    note: Optional[str] = None,
+    custom_attributes: Optional[list[dict[str, Any]]] = None,
+    payment_gateway_names: Optional[list[str]] = None,
     **overrides: object,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc).isoformat()
@@ -338,6 +347,9 @@ def create_shopify_order_response(
         "totalDiscountsSet": create_money_bag("0.00", currency_code),
         "taxLines": tax_lines,
         "metafields": {"nodes": metafields},
+        "note": note,
+        "customAttributes": custom_attributes or [],
+        "paymentGatewayNames": payment_gateway_names or [],
     }
 
     deep_update(base_response, overrides)

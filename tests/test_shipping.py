@@ -177,7 +177,7 @@ class TestShipping(TransactionCase):
             }
         )
 
-        order.delivery_method_id = ups_carrier.id
+        order.carrier_id = ups_carrier.id
         order.shipping_charge = 15.99
 
         self.assertEqual(order.shipping_charge, 15.99)

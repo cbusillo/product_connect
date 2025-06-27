@@ -146,16 +146,6 @@ class MoneyBagFieldsShopMoney(MoneyFields):
     pass
 
 
-class TaxLineFields(BaseModel):
-    title: str
-    rate_percentage: Optional[float] = Field(alias="ratePercentage")
-    price_set: "TaxLineFieldsPriceSet" = Field(alias="priceSet")
-
-
-class TaxLineFieldsPriceSet(MoneyBagFields):
-    pass
-
-
 class OrderLineItemFields(BaseModel):
     id: str
     sku: Optional[str]
@@ -226,6 +216,16 @@ class ShippingLineFieldsDiscountedPriceSet(MoneyBagFields):
     pass
 
 
+class TaxLineFields(BaseModel):
+    title: str
+    rate_percentage: Optional[float] = Field(alias="ratePercentage")
+    price_set: "TaxLineFieldsPriceSet" = Field(alias="priceSet")
+
+
+class TaxLineFieldsPriceSet(MoneyBagFields):
+    pass
+
+
 class OrderFields(BaseModel):
     id: str
     name: str
@@ -270,6 +270,11 @@ class OrderFields(BaseModel):
     )
     tax_lines: List["OrderFieldsTaxLines"] = Field(alias="taxLines")
     metafields: "OrderFieldsMetafields"
+    note: Optional[str]
+    custom_attributes: List["OrderFieldsCustomAttributes"] = Field(
+        alias="customAttributes"
+    )
+    payment_gateway_names: List[str] = Field(alias="paymentGatewayNames")
 
 
 class OrderFieldsTotalPriceSet(MoneyBagFields):
@@ -369,6 +374,11 @@ class OrderFieldsMetafieldsNodes(MetafieldFields):
     pass
 
 
+class OrderFieldsCustomAttributes(BaseModel):
+    key: str
+    value: Optional[str]
+
+
 class VariantFields(BaseModel):
     id: str
     price: Decimal
@@ -463,9 +473,9 @@ MediaImageFields.model_rebuild()
 MetafieldFields.model_rebuild()
 MoneyFields.model_rebuild()
 MoneyBagFields.model_rebuild()
-TaxLineFields.model_rebuild()
 OrderLineItemFields.model_rebuild()
 ShippingLineFields.model_rebuild()
+TaxLineFields.model_rebuild()
 OrderFields.model_rebuild()
 VariantFields.model_rebuild()
 ProductFields.model_rebuild()

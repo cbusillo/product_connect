@@ -16,13 +16,13 @@ class ShopifyTestBase(TransactionCase):
     def _setup_shopify_mocks(self) -> None:
         self.shopify_service_patcher = patch("odoo.addons.product_connect.services.shopify.sync.base.ShopifyService")
         self.mock_shopify_service_class = self.shopify_service_patcher.start()
-        
+
         self.mock_client = MagicMock()
         self.mock_service_instance = MagicMock()
         self.mock_service_instance.client = self.mock_client
         self.mock_service_instance.first_location_gid = "gid://shopify/Location/12345"
         self.mock_service_instance.get_first_location_gid.return_value = "gid://shopify/Location/12345"
-        
+
         self.mock_shopify_service_class.return_value = self.mock_service_instance
 
     def _setup_base_data(self) -> None:
@@ -38,9 +38,11 @@ class ShopifyTestBase(TransactionCase):
                 {"name": "New York", "code": "NY", "country_id": self.usa_country.id}
             )
 
-        self.shopify_category = self.env["res.partner.category"].create({"name": "Shopify"})
+        self.shopify_category = self.env["res.partner.category"].search([("name", "=", "Shopify")], limit=1)
+        if not self.shopify_category:
+            self.shopify_category = self.env["res.partner.category"].create({"name": "Shopify"})
 
     def tearDown(self) -> None:
-        if hasattr(self, 'shopify_service_patcher') and self.shopify_service_patcher:
+        if hasattr(self, "shopify_service_patcher") and self.shopify_service_patcher:
             self.shopify_service_patcher.stop()
         super().tearDown()

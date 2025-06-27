@@ -72,7 +72,7 @@ class TestOrderShippingImport(ShopifyTestBase):
         self.assertEqual(delivery_lines[0].price_unit, 9.99)
 
         carrier = self.env["delivery.carrier"].search([("name", "=", "Standard Shipping")])
-        self.assertEqual(order.delivery_method_id.id, carrier.id)
+        self.assertEqual(order.carrier_id.id, carrier.id)
 
     @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
     def test_import_order_with_multiple_shipping_lines(self, mock_import_customer: MagicMock) -> None:
@@ -134,7 +134,7 @@ class TestOrderShippingImport(ShopifyTestBase):
             order = self.env["sale.order"].search([("shopify_order_id", "=", shipping_title.replace(" ", ""))])
             self.assertTrue(order, f"Order not found for shipping: {shipping_title}")
 
-            carrier = order.delivery_method_id
+            carrier = order.carrier_id
             self.assertTrue(carrier, f"No carrier set for shipping: {shipping_title}")
             self.assertEqual(carrier.name, expected_carrier_name, f"Wrong carrier for {shipping_title}: got {carrier.name}")
 
@@ -175,7 +175,7 @@ class TestOrderShippingImport(ShopifyTestBase):
         self.assertEqual(order.shipping_charge, 0.00)
 
         free_carrier = self.env["delivery.carrier"].search([("name", "=", "Free Shipping")])
-        self.assertEqual(order.delivery_method_id.id, free_carrier.id)
+        self.assertEqual(order.carrier_id.id, free_carrier.id)
 
     @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
     def test_shipping_charge_updates_on_reimport(self, mock_import_customer: MagicMock) -> None:
@@ -212,7 +212,7 @@ class TestOrderShippingImport(ShopifyTestBase):
         self.assertEqual(delivery_lines[0].price_unit, 20.00)
 
     @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
-    def test_imported_orders_remain_draft(self, mock_import_customer: MagicMock) -> None:
+    def test_imported_orders_are_completed_without_stock_moves(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
         order_data = create_shopify_order_response(
@@ -225,8 +225,42 @@ class TestOrderShippingImport(ShopifyTestBase):
         self.importer._import_one(shopify_order)
 
         order = self.env["sale.order"].search([("shopify_order_id", "=", "123456789")])
-        self.assertEqual(order.state, "draft", "Imported orders should remain in draft state")
+        self.assertEqual(order.state, "sale", "Imported orders should be in sale state")
+        self.assertTrue(order.locked, "Imported orders should be locked")
+        self.assertEqual(order.invoice_status, "invoiced", "Imported orders should be marked as invoiced")
         
-        # Verify no stock pickings were created
         pickings = self.env["stock.picking"].search([("sale_id", "=", order.id)])
-        self.assertEqual(len(pickings), 0, "No delivery orders should be created for draft imported orders")
+        self.assertEqual(len(pickings), 0, "No delivery orders should be created for imported orders")
+
+    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    def test_import_ebay_order_from_shopify(self, mock_import_customer: MagicMock) -> None:
+        mock_import_customer.return_value = True
+
+        ebay_note_attributes = """eBay Sales Record Number: 21478
+eBay Order Id: 14-13240-64196
+eBay Earliest Delivery Date: 2025-06-27T07:00:00.000Z
+eBay Latest Delivery Date: 2025-06-30T07:00:00.000Z
+eBay Handle By Date: 2025-06-27T03:59:59.000Z
+eBay Account: outboardpartswarehouseva"""
+
+        custom_attributes = [
+            {"key": "Note Attributes", "value": ebay_note_attributes}
+        ]
+
+        order_data = create_shopify_order_response(
+            customer=create_shopify_customer_response(),
+            line_items=[create_shopify_order_line_item_response(sku=self.product.default_code)],
+            shipping_lines=[create_shopify_shipping_line_response(title="UPS Ground", price="15.00")],
+            customAttributes=custom_attributes,
+            paymentGatewayNames=["ebay"],
+        )
+
+        shopify_order = OrderFields(**order_data)
+        self.importer._import_one(shopify_order)
+
+        order = self.env["sale.order"].search([("shopify_order_id", "=", "123456789")])
+        self.assertEqual(order.source_platform, "ebay", "Order should be marked as eBay")
+        self.assertTrue(order.commitment_date, "eBay order should have commitment date")
+        self.assertIn("eBay Sales Record: 21478", order.note)
+        self.assertIn("eBay Order ID: 14-13240-64196", order.note)
+        self.assertIn("Payment: ebay", order.note)

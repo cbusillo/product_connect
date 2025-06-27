@@ -288,6 +288,12 @@ fragment OrderFields on Order {
       ...MetafieldFields
     }
   }
+  note
+  customAttributes {
+    key
+    value
+  }
+  paymentGatewayNames
 }
 
 fragment OrderLineItemFields on LineItem {

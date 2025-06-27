@@ -105,7 +105,7 @@ class ShopifyBaseImporter(ShopifyBase[T]):
         last_time = parse_shopify_datetime_to_utc(param) if param else self.default_datetime
         filter_query = f'updated_at:>"{format_datetime_for_shopify(last_time - timedelta(seconds=time_shift_seconds))}"'
         self.run(query=filter_query)
-        return self.sync_record.total_count
+        return self.sync_record.updated_count
 
     def run_by_id(self, resource_id: int | str, *, field: str = "id") -> bool:
         filter_query = f'{field}:"{resource_id}"'

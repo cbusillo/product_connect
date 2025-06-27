@@ -1,5 +1,8 @@
 import logging
+from datetime import datetime
 from decimal import Decimal
+import re
+from typing import TypedDict
 
 from odoo.api import Environment
 
@@ -24,9 +27,46 @@ from .customer_importer import CustomerImporter, AddressRole
 _logger = logging.getLogger(__name__)
 
 
+class EbayOrderData(TypedDict, total=False):
+    sales_record: str
+    order_id: str
+    latest_delivery_date: datetime
+    earliest_delivery_date: datetime
+
+
 class OrderImporter(ShopifyBaseImporter[OrderFields]):
     def __init__(self, env: Environment, sync_record: "odoo.model.shopify_sync") -> None:
         super().__init__(env, sync_record)
+
+    @staticmethod
+    def _parse_ebay_note_attributes(note_attributes: str) -> EbayOrderData:
+        ebay_data: EbayOrderData = {}
+
+        sales_record_match = re.search(r"eBay Sales Record Number:\s*(\S+)", note_attributes)
+        if sales_record_match:
+            ebay_data["sales_record"] = sales_record_match.group(1)
+
+        order_id_match = re.search(r"eBay Order Id:\s*(\S+)", note_attributes)
+        if order_id_match:
+            ebay_data["order_id"] = order_id_match.group(1)
+
+        latest_delivery_match = re.search(r"eBay Latest Delivery Date:\s*(\S+)", note_attributes)
+        if latest_delivery_match:
+            try:
+                date_str = latest_delivery_match.group(1)
+                ebay_data["latest_delivery_date"] = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+            except (ValueError, AttributeError):
+                pass
+
+        earliest_delivery_match = re.search(r"eBay Earliest Delivery Date:\s*(\S+)", note_attributes)
+        if earliest_delivery_match:
+            try:
+                date_str = earliest_delivery_match.group(1)
+                ebay_data["earliest_delivery_date"] = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+            except (ValueError, AttributeError):
+                pass
+
+        return ebay_data
 
     @staticmethod
     def _get_amount_for_order_currency(price_set: MoneyBagFields, order_currency: CurrencyCode) -> Decimal:
@@ -35,7 +75,8 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
         if (
             price_set.shop_money
             and price_set.shop_money.currency_code
-            and price_set.shop_money.currency_code.value == order_currency
+            and price_set.shop_money.currency_code == order_currency
+            and price_set.shop_money.amount > 0
         ):
             return price_set.shop_money.amount
         if price_set.presentment_money:
@@ -101,10 +142,49 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
             "partner_shipping_id": shipping_partner.id,
             "currency_id": currency.id,
             "source_platform": "shopify",
+            "state": "sale",
+            "locked": True,
+            "invoice_status": "invoiced",
         }
 
+        note_parts = []
+
+        if shopify_order.payment_gateway_names:
+            payment_methods = ", ".join(shopify_order.payment_gateway_names)
+            note_parts.append(f"Payment: {payment_methods}")
+
+        if shopify_order.note:
+            note_parts.append(shopify_order.note)
+
+        note_attributes = None
+        if shopify_order.custom_attributes:
+            for attr in shopify_order.custom_attributes:
+                if attr.key == "Note Attributes" and attr.value:
+                    note_attributes = attr.value
+                    break
+
+        if note_attributes:
+            ebay_data = self._parse_ebay_note_attributes(note_attributes)
+            if ebay_data.get("latest_delivery_date"):
+                order_values["commitment_date"] = ebay_data["latest_delivery_date"]
+            if ebay_data:
+                order_values["source_platform"] = "ebay"
+                if ebay_data.get("sales_record"):
+                    note_parts.append(f"eBay Sales Record: {ebay_data['sales_record']}")
+                if ebay_data.get("order_id"):
+                    note_parts.append(f"eBay Order ID: {ebay_data['order_id']}")
+
+        if note_parts:
+            order_values["note"] = "\n".join(note_parts)
+
         if existing_order:
-            changed = write_if_changed(existing_order, order_values)
+            # Don't change lock status of existing orders
+            update_values = order_values.copy()
+            update_values.pop("locked", None)
+            update_values.pop("state", None)  # Don't change state either
+            update_values.pop("invoice_status", None)  # Don't change invoice status
+            
+            changed = write_if_changed(existing_order, update_values)
             changed |= self._sync_order_lines(existing_order, shopify_order)
 
             return changed
@@ -116,6 +196,11 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
     def _sync_order_lines(self, odoo_order: "odoo.model.sale_order", shopify_order: OrderFields) -> bool:
         changed = False
         line_items = shopify_order.line_items.nodes
+
+        # Temporarily unlock the order if it's locked to allow line updates
+        was_locked = odoo_order.locked
+        if was_locked:
+            odoo_order.with_context(skip_shopify_sync=True).write({"locked": False})
 
         existing_by_line_id: dict[str, "odoo.model.sale_order_line"] = {
             line.shopify_order_line_id: line for line in odoo_order.order_line
@@ -161,13 +246,16 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
             if not product:
                 _logger.warning(f"No matching product for SKU {sku} in order {shopify_order.name}")
                 continue
+            
+            if shopify_line.quantity <= 0:
+                raise ShopifyDataError(f"Invalid quantity {shopify_line.quantity} for line {shopify_line.id}")
 
             price_set = shopify_line.original_unit_price_set
-            discount_amount_dec = self._get_discount_allocation_amount(shopify_line, shopify_order.currency_code.value)
+            discount_amount_dec = self._get_discount_allocation_amount(shopify_line, shopify_order.currency_code)
             if not price_set or not price_set.presentment_money:
                 _logger.warning(f"Missing price for line {shopify_line.id} in order {shopify_order.name}; skipping line")
                 continue
-            price_unit_dec = self._get_amount_for_order_currency(price_set, shopify_order.currency_code.value)
+            price_unit_dec = self._get_amount_for_order_currency(price_set, shopify_order.currency_code)
             if discount_amount_dec and shopify_line.quantity:
                 price_unit_dec -= discount_amount_dec / shopify_line.quantity
             price_unit_val = float(price_unit_dec)
@@ -194,7 +282,7 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
         for tax_line in shopify_order.tax_lines:
             if not tax_line or not tax_line.price_set:
                 continue
-            tax_amount_dec = self._get_amount_for_order_currency(tax_line.price_set, shopify_order.currency_code.value)
+            tax_amount_dec = self._get_amount_for_order_currency(tax_line.price_set, shopify_order.currency_code)
             if tax_amount_dec == 0:
                 continue
             tax_product = self._get_special_product("TAX", tax_line.title or "Tax")
@@ -221,6 +309,10 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
             self.env["sale.order.line"].browse(stale_ids).unlink()
             changed = True
 
+        # Re-lock the order if it was locked before
+        if was_locked:
+            odoo_order.with_context(skip_shopify_sync=True).write({"locked": True})
+
         return changed
 
     def _apply_shipping(self, odoo_order: "odoo.model.sale_order", shopify_order: OrderFields) -> bool:
@@ -244,7 +336,7 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
             total_amount = sum(
                 self._get_amount_for_order_currency(
                     (l.discounted_price_set or l.current_discounted_price_set or l.original_price_set),
-                    shopify_order.currency_code.value,
+                    shopify_order.currency_code,
                 )
                 for l in lines
             )
@@ -281,8 +373,8 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
                 changed = True
 
             if first_group:
-                if odoo_order.delivery_method_id != carrier.id:
-                    odoo_order.delivery_method_id = carrier.id
+                if odoo_order.carrier_id.id != carrier.id:
+                    odoo_order.carrier_id = carrier.id
                     changed = True
                 first_group = False
 
@@ -308,7 +400,7 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
             if parts:
                 discount_reason = ", ".join(dict.fromkeys(parts))
 
-        discount_amount = self._get_amount_for_order_currency(shopify_order.total_discounts_set, shopify_order.currency_code.value)
+        discount_amount = self._get_amount_for_order_currency(shopify_order.total_discounts_set, shopify_order.currency_code)
 
         # locate any existing discount line by matching the discount product
         discount_product = self.env["product.product"].search([("default_code", "=", "DISC")], limit=1)
@@ -369,7 +461,7 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
         product = self.env["product.product"].search([("default_code", "=", default_code)], limit=1)
         if product:
             return product
-        return self.env["product.product"].create(
+        return self.env["product.product"].with_context(skip_sku_check=True).create(
             {
                 "name": name,
                 "default_code": default_code,

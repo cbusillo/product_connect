@@ -5,6 +5,7 @@ from typing import Optional
 
 from httpx import HTTPError
 from odoo.api import Environment
+from odoo.tools.mail import html2plaintext
 from pydantic import AnyUrl
 
 from ...gql import (
@@ -90,6 +91,18 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
                 _logger.debug(f"Product {odoo_product.id} is up to date with Shopify")
                 return False
             else:
+                # Check for processing images even for new products
+                images = shopify_product.media.nodes
+                if any(image.status in (MediaStatus.PROCESSING, MediaStatus.UPLOADED) for image in images):
+                    _logger.debug(f"New product {shopify_product.id} has media not yet ready. Flagging for later import.")
+                    self.env["shopify.sync"].create(
+                        {
+                            "mode": SyncMode.IMPORT_ONE_PRODUCT,
+                            "shopify_product_id_to_sync": parse_shopify_id_from_gid(shopify_product.id),
+                        }
+                    )
+                    return False
+                
                 _logger.debug(f"Creating new product {shopify_product.id} from Shopify")
                 odoo_product = self.save_odoo_product(None, shopify_product)
                 return True
@@ -220,7 +233,7 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
                 "shopify_product_id": parse_shopify_id_from_gid(shopify_product.id),
                 "shopify_variant_id": parse_shopify_id_from_gid(variant.id),
                 "shopify_created_at": shopify_product.created_at,
-                "name": shopify_product.title,
+                "name": html2plaintext(shopify_product.title).strip() if shopify_product.title else "",
                 "default_code": sku,
                 "website_description": shopify_product.description_html,
                 "list_price": float(variant.price),

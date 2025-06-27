@@ -51,6 +51,9 @@ fragment OrderFields on Order {
     totalDiscountsSet { ...MoneyBagFields }
     taxLines { ...TaxLineFields }
     metafields(first: 15, namespace: "custom") { nodes { ...MetafieldFields } }
+    note
+    customAttributes { key value }
+    paymentGatewayNames
 }
 fragment FulfillmentTrackingInfoFields on FulfillmentTrackingInfo {
     number

@@ -17,7 +17,7 @@ class DeliveryCarrierServiceMap(models.Model):
     _name = "delivery.carrier.service.map"
     _description = "External ↔ Odoo shipping-service map"
 
-    _CARRIER_PUNCTUATION_PATTERN = re.compile(r"[^\w\s\-]")
+    _CARRIER_PUNCTUATION_PATTERN = re.compile(r"[^\w\s]")
     _sql_constraints = [
         (
             "uniq_platform_service_name",
@@ -37,6 +37,7 @@ class DeliveryCarrierServiceMap(models.Model):
 
     @api.model
     def normalize_service_name(self, name: str) -> str:
-        cleaned = self._CARRIER_PUNCTUATION_PATTERN.sub("", name or "")
+        cleaned = self._CARRIER_PUNCTUATION_PATTERN.sub(" ", name or "")
         # noinspection SpellCheckingInspection
-        return unicodedata.normalize("NFKD", cleaned).strip().casefold()
+        normalized = unicodedata.normalize("NFKD", cleaned)
+        return " ".join(normalized.split()).casefold()
