@@ -63,10 +63,9 @@ class TestTransactionMixin(ProductConnectTransactionCase):
         any_test_mode = registry_test_mode or config_test_enable
         self.assertTrue(
             any_test_mode,
-            f"At least one test detection method should work. "
-            f"Registry: {registry_test_mode}, Config: {config_test_enable}",
+            f"At least one test detection method should work. Registry: {registry_test_mode}, Config: {config_test_enable}",
         )
-        
+
         # _is_test_mode should return True if either detection works
         self.assertTrue(is_test_mode, "_is_test_mode() should return True during tests")
 
@@ -75,10 +74,10 @@ class TestTransactionMixin(ProductConnectTransactionCase):
         with patch.object(self.test_model.env.registry, "cursor") as mock_cursor_factory:
             mock_cursor = MagicMock()
             mock_cursor_factory.return_value = mock_cursor
-            
-            with self.test_model._new_cursor_context(commit=True):
+
+            with self.test_model._new_cursor_context():
                 pass
-            
+
             # Should not commit in test mode
             mock_cursor.commit.assert_not_called()
             mock_cursor.close.assert_called_once()
@@ -87,7 +86,7 @@ class TestTransactionMixin(ProductConnectTransactionCase):
         """Test advisory lock acquisition and release"""
         with self.test_model._advisory_lock(12345) as acquired:
             self.assertTrue(acquired, "Should acquire advisory lock")
-        
+
         # Verify lock was released
         self.env.cr.execute("SELECT pg_try_advisory_lock(%s)", [12345])
         self.assertTrue(self.env.cr.fetchone()[0], "Lock should be released")
