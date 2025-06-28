@@ -38,6 +38,7 @@ def create_shopify_product_response(
     metafields: Optional[list[dict[str, Any]]] = None,
     **overrides: object,
 ) -> dict[str, Any]:
+    # Always use current time to ensure products pass the date filter in tests
     now = datetime.now(timezone.utc).isoformat()
     created_at = created_at or now
     updated_at = updated_at or now
@@ -74,7 +75,7 @@ def create_shopify_product_response(
     base_response = {
         "id": gid,
         "title": title,
-        "descriptionHtml": description,
+        "descriptionHtml": description,  # This will be aliased to description_html in Pydantic
         "vendor": vendor,
         "productType": product_type,
         "status": status,

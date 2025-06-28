@@ -1,4 +1,4 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from odoo.tests import tagged
 
@@ -71,16 +71,22 @@ class TestTransactionMixin(ProductConnectTransactionCase):
 
     def test_new_cursor_context_in_test_mode(self) -> None:
         """Verify _new_cursor_context doesn't commit in test mode"""
-        with patch.object(self.test_model.env.registry, "cursor") as mock_cursor_factory:
-            mock_cursor = MagicMock()
-            mock_cursor_factory.return_value = mock_cursor
+        # Since we're in test mode, the method should create a new cursor
+        # but not commit it when the context exits
 
-            with self.test_model._new_cursor_context():
-                pass
+        # Use the actual method without mocking to test real behavior
+        with self.test_model._new_cursor_context() as new_env:
+            # Verify we got a different environment with a different cursor
+            self.assertIsNotNone(new_env)
+            self.assertNotEqual(new_env.cr, self.test_model.env.cr)
 
-            # Should not commit in test mode
-            mock_cursor.commit.assert_not_called()
-            mock_cursor.close.assert_called_once()
+            # Make a change in the new environment to test commit behavior
+            new_env["res.partner"].create({"name": "Test Partner in New Cursor", "email": "test_new_cursor@example.com"})
+
+        # After exiting, the partner should not exist in our main cursor
+        # because commits don't happen in test mode
+        partner = self.env["res.partner"].search([("email", "=", "test_new_cursor@example.com")])
+        self.assertFalse(partner, "Partner should not exist in main cursor because no commit in test mode")
 
     def test_advisory_lock(self) -> None:
         """Test advisory lock acquisition and release"""

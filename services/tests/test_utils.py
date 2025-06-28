@@ -127,8 +127,13 @@ def create_test_order_data(
 def create_mock_simple_response(nodes: list[Any], has_next_page: bool = False, end_cursor: str | None = None) -> MagicMock:
     mock_response = MagicMock()
     mock_response.nodes = nodes
-    mock_response.page_info.has_next_page = has_next_page
-    mock_response.page_info.end_cursor = end_cursor
+
+    # Create a proper page_info object
+    page_info = MagicMock()
+    page_info.has_next_page = has_next_page
+    page_info.end_cursor = end_cursor
+    mock_response.page_info = page_info
+
     return mock_response
 
 

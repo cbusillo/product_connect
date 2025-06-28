@@ -21,7 +21,7 @@ from ..shopify.gql.fragments import (
     OrderLineItemFieldsDiscountAllocations,
     OrderLineItemFieldsDiscountAllocationsAllocatedAmountSet,
 )
-from ..shopify.sync.importers.order_importer import OrderImporter
+from ..shopify.sync.importers.order_importer import OrderImporter, EbayOrderData
 from ..shopify.sync.importers.customer_importer import CustomerImporter
 from ..shopify.helpers import ShopifyDataError
 
@@ -645,43 +645,50 @@ eBay Latest Delivery Date: 2025-06-30T07:00:00.000Z
 eBay Handle By Date: 2025-06-27T03:59:59.000Z
 eBay Account: outboardpartswarehouseva"""
 
-        result = OrderImporter._parse_ebay_note_attributes(complete_note)
-        self.assertEqual(result["sales_record"], "21478")
-        self.assertEqual(result["order_id"], "14-13240-64196")
-        self.assertEqual(result["latest_delivery_date"].isoformat(), "2025-06-30T07:00:00+00:00")
-        self.assertEqual(result["earliest_delivery_date"].isoformat(), "2025-06-27T07:00:00+00:00")
+        result = EbayOrderData.from_note_attributes(complete_note)
+        self.assertEqual(result.sales_record, "21478")
+        self.assertEqual(result.order_id, "14-13240-64196")
+        # Dates should now be naive datetime (no timezone)
+        self.assertEqual(result.latest_delivery_date.isoformat(), "2025-06-30T07:00:00")
+        self.assertEqual(result.earliest_delivery_date.isoformat(), "2025-06-27T07:00:00")
+        # Verify they are indeed naive datetime
+        self.assertIsNone(result.latest_delivery_date.tzinfo)
+        self.assertIsNone(result.earliest_delivery_date.tzinfo)
 
         # Test partial note attributes
         partial_note = """eBay Sales Record Number: 12345
 eBay Order Id: 22-33333-44444"""
 
-        result = OrderImporter._parse_ebay_note_attributes(partial_note)
-        self.assertEqual(result["sales_record"], "12345")
-        self.assertEqual(result["order_id"], "22-33333-44444")
-        self.assertNotIn("latest_delivery_date", result)
-        self.assertNotIn("earliest_delivery_date", result)
+        result = EbayOrderData.from_note_attributes(partial_note)
+        self.assertEqual(result.sales_record, "12345")
+        self.assertEqual(result.order_id, "22-33333-44444")
+        self.assertIsNone(result.latest_delivery_date)
+        self.assertIsNone(result.earliest_delivery_date)
 
         # Test malformed dates
         bad_date_note = """eBay Sales Record Number: 99999
 eBay Latest Delivery Date: invalid-date
 eBay Earliest Delivery Date: 2025-13-45"""
 
-        result = OrderImporter._parse_ebay_note_attributes(bad_date_note)
-        self.assertEqual(result["sales_record"], "99999")
-        self.assertNotIn("latest_delivery_date", result)
-        self.assertNotIn("earliest_delivery_date", result)
+        result = EbayOrderData.from_note_attributes(bad_date_note)
+        self.assertEqual(result.sales_record, "99999")
+        self.assertIsNone(result.latest_delivery_date)
+        self.assertIsNone(result.earliest_delivery_date)
 
         # Test empty string
-        result = OrderImporter._parse_ebay_note_attributes("")
-        self.assertEqual(result, {})
+        result = EbayOrderData.from_note_attributes("")
+        self.assertIsNone(result.sales_record)
+        self.assertIsNone(result.order_id)
+        self.assertIsNone(result.latest_delivery_date)
+        self.assertIsNone(result.earliest_delivery_date)
 
         # Test with extra whitespace
         whitespace_note = """eBay Sales Record Number:    54321   
 eBay Order Id:   11-22222-33333   """
 
-        result = OrderImporter._parse_ebay_note_attributes(whitespace_note)
-        self.assertEqual(result["sales_record"], "54321")
-        self.assertEqual(result["order_id"], "11-22222-33333")
+        result = EbayOrderData.from_note_attributes(whitespace_note)
+        self.assertEqual(result.sales_record, "54321")
+        self.assertEqual(result.order_id, "11-22222-33333")
 
     @patch.object(CustomerImporter, "import_customer")
     @patch.object(CustomerImporter, "process_address")

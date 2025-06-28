@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 from decimal import Decimal
 import re
-from typing import TypedDict
+from pydantic import BaseModel, field_validator
 
 from odoo.api import Environment
 
@@ -27,46 +27,51 @@ from .customer_importer import CustomerImporter, AddressRole
 _logger = logging.getLogger(__name__)
 
 
-class EbayOrderData(TypedDict, total=False):
-    sales_record: str
-    order_id: str
-    latest_delivery_date: datetime
-    earliest_delivery_date: datetime
+class EbayOrderData(BaseModel):
+    sales_record: str | None = None
+    order_id: str | None = None
+    latest_delivery_date: datetime | None = None
+    earliest_delivery_date: datetime | None = None
+
+    @classmethod
+    @field_validator("latest_delivery_date", "earliest_delivery_date", mode="before")
+    def parse_datetime(cls, v: str | datetime | None) -> datetime | None:
+        if v is None or isinstance(v, datetime):
+            return v
+        try:
+            from ...helpers import parse_shopify_datetime_to_utc
+
+            return parse_shopify_datetime_to_utc(v)
+        except (ValueError, TypeError):
+            # Return None for invalid dates
+            return None
+
+    @classmethod
+    def from_note_attributes(cls, note_attributes: str) -> "EbayOrderData":
+        parsed_fields = {}
+
+        sales_record_match = re.search(r"eBay Sales Record Number:\s*(\S+)", note_attributes)
+        if sales_record_match:
+            parsed_fields["sales_record"] = sales_record_match.group(1)
+
+        order_id_match = re.search(r"eBay Order Id:\s*(\S+)", note_attributes)
+        if order_id_match:
+            parsed_fields["order_id"] = order_id_match.group(1)
+
+        latest_delivery_match = re.search(r"eBay Latest Delivery Date:\s*(\S+)", note_attributes)
+        if latest_delivery_match:
+            parsed_fields["latest_delivery_date"] = latest_delivery_match.group(1)
+
+        earliest_delivery_match = re.search(r"eBay Earliest Delivery Date:\s*(\S+)", note_attributes)
+        if earliest_delivery_match:
+            parsed_fields["earliest_delivery_date"] = earliest_delivery_match.group(1)
+
+        return cls(**parsed_fields)
 
 
 class OrderImporter(ShopifyBaseImporter[OrderFields]):
     def __init__(self, env: Environment, sync_record: "odoo.model.shopify_sync") -> None:
         super().__init__(env, sync_record)
-
-    @staticmethod
-    def _parse_ebay_note_attributes(note_attributes: str) -> EbayOrderData:
-        ebay_data: EbayOrderData = {}
-
-        sales_record_match = re.search(r"eBay Sales Record Number:\s*(\S+)", note_attributes)
-        if sales_record_match:
-            ebay_data["sales_record"] = sales_record_match.group(1)
-
-        order_id_match = re.search(r"eBay Order Id:\s*(\S+)", note_attributes)
-        if order_id_match:
-            ebay_data["order_id"] = order_id_match.group(1)
-
-        latest_delivery_match = re.search(r"eBay Latest Delivery Date:\s*(\S+)", note_attributes)
-        if latest_delivery_match:
-            try:
-                date_str = latest_delivery_match.group(1)
-                ebay_data["latest_delivery_date"] = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-            except (ValueError, AttributeError):
-                pass
-
-        earliest_delivery_match = re.search(r"eBay Earliest Delivery Date:\s*(\S+)", note_attributes)
-        if earliest_delivery_match:
-            try:
-                date_str = earliest_delivery_match.group(1)
-                ebay_data["earliest_delivery_date"] = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-            except (ValueError, AttributeError):
-                pass
-
-        return ebay_data
 
     @staticmethod
     def _get_amount_for_order_currency(price_set: MoneyBagFields, order_currency: CurrencyCode) -> Decimal:
@@ -164,15 +169,15 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
                     break
 
         if note_attributes:
-            ebay_data = self._parse_ebay_note_attributes(note_attributes)
-            if ebay_data.get("latest_delivery_date"):
-                order_values["commitment_date"] = ebay_data["latest_delivery_date"]
-            if ebay_data:
+            ebay_data = EbayOrderData.from_note_attributes(note_attributes)
+            if ebay_data.latest_delivery_date:
+                order_values["commitment_date"] = ebay_data.latest_delivery_date
+            if ebay_data.sales_record or ebay_data.order_id:
                 order_values["source_platform"] = "ebay"
-                if ebay_data.get("sales_record"):
-                    note_parts.append(f"eBay Sales Record: {ebay_data['sales_record']}")
-                if ebay_data.get("order_id"):
-                    note_parts.append(f"eBay Order ID: {ebay_data['order_id']}")
+                if ebay_data.sales_record:
+                    note_parts.append(f"eBay Sales Record: {ebay_data.sales_record}")
+                if ebay_data.order_id:
+                    note_parts.append(f"eBay Order ID: {ebay_data.order_id}")
 
         if note_parts:
             order_values["shopify_note"] = "\n".join(note_parts)
@@ -372,7 +377,9 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
                 if existing_line:
                     changed |= write_if_changed(existing_line, line_values)
                 else:
-                    self.env["sale.order.line"].with_context(skip_shopify_sync=True, skip_procurement=True).create({"order_id": odoo_order.id, **line_values})
+                    self.env["sale.order.line"].with_context(skip_shopify_sync=True, skip_procurement=True).create(
+                        {"order_id": odoo_order.id, **line_values}
+                    )
                     changed = True
 
             if first_group:
