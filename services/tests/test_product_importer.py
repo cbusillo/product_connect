@@ -330,7 +330,7 @@ class TestProductImporter(ShopifyTestBase):
 
         # Mock the date comparison to return an old date
         with patch(
-            "odoo.addons.product_connect.services.shopify.sync.importers.product_importer.determine_latest_odoo_product_modification_time"
+            "odoo.addons.product_connect.services.shopify.helpers.determine_latest_odoo_product_modification_time"
         ) as mock_date:
             mock_date.return_value = datetime(2023, 1, 1)
 
@@ -542,7 +542,7 @@ class TestProductImporter(ShopifyTestBase):
         # Mock the date comparison to return an old date
         with (
             patch(
-                "odoo.addons.product_connect.services.shopify.sync.importers.product_importer.determine_latest_odoo_product_modification_time"
+                "odoo.addons.product_connect.services.shopify.helpers.determine_latest_odoo_product_modification_time"
             ) as mock_date,
             patch.object(self.importer, "_fetch_page") as mock_fetch,
             patch.object(self.importer, "fetch_image_data") as mock_fetch_image,
