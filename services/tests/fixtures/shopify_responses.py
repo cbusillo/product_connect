@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 import threading
 
 # Thread-safe counter for unique SKUs
@@ -31,11 +31,11 @@ def create_shopify_product_response(
     product_type: str = "Test Type",
     status: str = "ACTIVE",
     total_inventory: int = 100,
-    created_at: Optional[str] = None,
-    updated_at: Optional[str] = None,
-    variants: Optional[list[dict[str, Any]]] = None,
-    media: Optional[list[dict[str, Any]]] = None,
-    metafields: Optional[list[dict[str, Any]]] = None,
+    created_at: str | None = None,
+    updated_at: str | None = None,
+    variants: list[dict[str, Any]] | None = None,
+    media: list[dict[str, Any]] | None = None,
+    metafields: list[dict[str, Any]] | None = None,
     **overrides: object,
 ) -> dict[str, Any]:
     # Always use current time to ensure products pass the date filter in tests
@@ -94,8 +94,8 @@ def create_shopify_product_response(
 def create_shopify_variant_response(
     gid: str = "gid://shopify/ProductVariant/987654321",
     price: str = "99.99",
-    sku: Optional[str] = None,
-    barcode: Optional[str] = "123456789012",
+    sku: str | None = None,
+    barcode: str | None = "123456789012",
     weight: float = 1.5,
     unit_cost: str = "50.00",
     currency_code: str = "USD",
@@ -127,17 +127,17 @@ def create_money_bag(amount: str, currency_code: str = "USD") -> dict[str, Any]:
 
 
 def create_shopify_address_response(
-    gid: Optional[str] = "gid://shopify/CustomerAddress/123",
-    name: Optional[str] = "John Doe",
-    company: Optional[str] = None,
-    address1: Optional[str] = "123 Main St",
-    address2: Optional[str] = None,
-    city: Optional[str] = "New York",
-    province_code: Optional[str] = "NY",
-    province: Optional[str] = "New York",
+    gid: str | None = "gid://shopify/CustomerAddress/123",
+    name: str | None = "John Doe",
+    company: str | None = None,
+    address1: str | None = "123 Main St",
+    address2: str | None = None,
+    city: str | None = "New York",
+    province_code: str | None = "NY",
+    province: str | None = "New York",
     country_code: str = "US",
-    zip_code: Optional[str] = "10001",
-    phone: Optional[str] = "+1-555-123-4567",
+    zip_code: str | None = "10001",
+    phone: str | None = "+1-555-123-4567",
     **overrides: object,
 ) -> dict[str, Any]:
     base_response = {
@@ -160,16 +160,16 @@ def create_shopify_address_response(
 
 def create_shopify_customer_response(
     gid: str = "gid://shopify/Customer/123456789",
-    first_name: Optional[str] = "John",
-    last_name: Optional[str] = "Doe",
-    email: Optional[str] = "john.doe@example.com",
-    phone: Optional[str] = "+1-555-123-4567",
+    first_name: str | None = "John",
+    last_name: str | None = "Doe",
+    email: str | None = "john.doe@example.com",
+    phone: str | None = "+1-555-123-4567",
     tax_exempt: bool = False,
-    tags: Optional[list[str]] = None,
-    created_at: Optional[str] = None,
-    updated_at: Optional[str] = None,
-    default_address: Optional[dict[str, Any]] = None,
-    addresses: Optional[list[dict[str, Any]]] = None,
+    tags: list[str] | None = None,
+    created_at: str | None = None,
+    updated_at: str | None = None,
+    default_address: dict[str, Any] | None = None,
+    addresses: list[dict[str, Any]] | None = None,
     **overrides: object,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc).isoformat()
@@ -223,14 +223,14 @@ def create_shopify_customer_response(
 
 def create_shopify_order_line_item_response(
     gid: str = "gid://shopify/LineItem/123456789",
-    sku: Optional[str] = "008002",
+    sku: str | None = "008002",
     quantity: int = 1,
     name: str = "Test Product",
     variant_id: str = "gid://shopify/ProductVariant/987654321",
     unit_price: str = "99.99",
     currency_code: str = "USD",
-    custom_attributes: Optional[list[dict[str, Any]]] = None,
-    discount_allocations: Optional[list[dict[str, Any]]] = None,
+    custom_attributes: list[dict[str, Any]] | None = None,
+    discount_allocations: list[dict[str, Any]] | None = None,
     **overrides: object,
 ) -> dict[str, Any]:
     if custom_attributes is None:
@@ -259,9 +259,9 @@ def create_shopify_shipping_line_response(
     title: str = "Standard Shipping",
     price: str = "10.00",
     currency_code: str = "USD",
-    carrier_identifier: Optional[str] = "ups",
-    code: Optional[str] = "STANDARD",
-    delivery_category: Optional[str] = None,
+    carrier_identifier: str | None = "ups",
+    code: str | None = "STANDARD",
+    delivery_category: str | None = None,
     is_removed: bool = False,
     **overrides: object,
 ) -> dict[str, Any]:
@@ -288,22 +288,22 @@ def create_shopify_order_response(
     total_price: str = "109.99",
     subtotal_price: str = "99.99",
     shipping_price: str = "10.00",
-    created_at: Optional[str] = None,
-    updated_at: Optional[str] = None,
-    processed_at: Optional[str] = None,
-    closed_at: Optional[str] = None,
-    cancelled_at: Optional[str] = None,
-    customer: Optional[dict[str, Any]] = None,
-    shipping_address: Optional[dict[str, Any]] = None,
-    billing_address: Optional[dict[str, Any]] = None,
-    line_items: Optional[list[dict[str, Any]]] = None,
-    shipping_lines: Optional[list[dict[str, Any]]] = None,
-    discount_applications: Optional[list[dict[str, Any]]] = None,
-    tax_lines: Optional[list[dict[str, Any]]] = None,
-    metafields: Optional[list[dict[str, Any]]] = None,
-    note: Optional[str] = None,
-    custom_attributes: Optional[list[dict[str, Any]]] = None,
-    payment_gateway_names: Optional[list[str]] = None,
+    created_at: str | None = None,
+    updated_at: str | None = None,
+    processed_at: str | None = None,
+    closed_at: str | None = None,
+    cancelled_at: str | None = None,
+    customer: dict[str, Any] | None = None,
+    shipping_address: dict[str, Any] | None = None,
+    billing_address: dict[str, Any] | None = None,
+    line_items: list[dict[str, Any]] | None = None,
+    shipping_lines: list[dict[str, Any]] | None = None,
+    discount_applications: list[dict[str, Any]] | None = None,
+    tax_lines: list[dict[str, Any]] | None = None,
+    metafields: list[dict[str, Any]] | None = None,
+    note: str | None = None,
+    custom_attributes: list[dict[str, Any]] | None = None,
+    payment_gateway_names: list[str] | None = None,
     **overrides: object,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc).isoformat()
@@ -360,10 +360,10 @@ def create_shopify_order_response(
 def create_bulk_operation_response(
     gid: str = "gid://shopify/BulkOperation/123456789",
     status: str = "COMPLETED",
-    error_code: Optional[str] = None,
-    created_at: Optional[str] = None,
-    completed_at: Optional[str] = None,
-    url: Optional[str] = "https://storage.googleapis.com/shopify-bulk-data/test.jsonl",
+    error_code: str | None = None,
+    created_at: str | None = None,
+    completed_at: str | None = None,
+    url: str | None = "https://storage.googleapis.com/shopify-bulk-data/test.jsonl",
     **overrides: object,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc).isoformat()
@@ -403,7 +403,7 @@ def create_shopify_metafield(
 
 def create_shopify_product_image(
     gid: str = "gid://shopify/MediaImage/123456789",
-    alt: Optional[str] = None,
+    alt: str | None = None,
     status: str = "READY",
     url: str = "https://example.com/image.jpg",
 ) -> dict[str, Any]:
@@ -423,15 +423,15 @@ def create_shopify_product_image(
 
 def create_shopify_customer(
     gid: str = "gid://shopify/Customer/123456789",
-    first_name: Optional[str] = "John",
-    last_name: Optional[str] = "Doe",
-    email: Optional[str] = "john.doe@example.com",
-    phone: Optional[str] = None,
-    note: Optional[str] = None,
-    tags: Optional[list[str]] = None,
+    first_name: str | None = "John",
+    last_name: str | None = "Doe",
+    email: str | None = "john.doe@example.com",
+    phone: str | None = None,
+    note: str | None = None,
+    tags: list[str] | None = None,
     tax_exempt: bool = False,
-    email_marketing_consent: Optional[dict[str, Any]] = None,
-    sms_marketing_consent: Optional[dict[str, Any]] = None,
+    email_marketing_consent: dict[str, Any] | None = None,
+    sms_marketing_consent: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "id": gid,
@@ -448,12 +448,12 @@ def create_shopify_customer(
 
 
 def create_shopify_motor_metafields(
-    year: Optional[str] = "2023",
-    make: Optional[str] = "Yamaha",
-    model: Optional[str] = "F150",
-    horsepower: Optional[str] = "150",
-    serial_start: Optional[str] = "1000",
-    serial_end: Optional[str] = "9999",
+    year: str | None = "2023",
+    make: str | None = "Yamaha",
+    model: str | None = "F150",
+    horsepower: str | None = "150",
+    serial_start: str | None = "1000",
+    serial_end: str | None = "9999",
 ) -> list[dict[str, Any]]:
     metafields = []
 

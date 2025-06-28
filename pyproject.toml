@@ -40,6 +40,7 @@ packages = []
 
 [tool.ruff]
 line-length = 133
+target-version = "py312"
 exclude = [
     "services/shopify/gql/",
     "graphql/schema/",

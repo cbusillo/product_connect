@@ -1,4 +1,4 @@
-from typing import Callable, Iterator, Tuple, cast
+from typing import Callable, Iterator, cast
 from unittest.mock import patch, MagicMock
 from contextlib import contextmanager
 
@@ -38,7 +38,7 @@ class TestShopifyService(ShopifyTestBase):
         return ShopifyService(self.env, DummySync())
 
     @contextmanager
-    def _client(self, service: ShopifyService, client_cls: type[_BaseDummyClient]) -> Iterator[Tuple[_BaseDummyClient, MagicMock]]:
+    def _client(self, service: ShopifyService, client_cls: type[_BaseDummyClient]) -> Iterator[tuple[_BaseDummyClient, MagicMock]]:
         with patch.object(_service_module, "Client", client_cls), patch.object(_service_module, "sleep") as fake_sleep:
             client = cast(_BaseDummyClient, service._create_http_client("t"))
             yield client, fake_sleep
