@@ -2,11 +2,12 @@ import logging
 from unittest.mock import MagicMock, patch
 from odoo.tests import tagged
 
-from ..services.shopify.gql import OrderFields
-from ..services.shopify.sync.importers.order_importer import OrderImporter
-from ..services.shopify.helpers import ShopifyDataError
-from ..services.tests.test_base import ShopifyTestBase
-from ..services.tests.fixtures.shopify_responses import (
+from ..shopify.gql import OrderFields
+from ..shopify.sync.importers.order_importer import OrderImporter
+from ..shopify.sync.importers.customer_importer import CustomerImporter
+from ..shopify.helpers import ShopifyDataError
+from .test_base import ShopifyTestBase
+from .fixtures.shopify_responses import (
     create_shopify_order_response,
     create_shopify_customer_response,
     create_shopify_shipping_line_response,
@@ -46,7 +47,7 @@ class TestOrderShippingImport(ShopifyTestBase):
             }
         )
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_with_standard_shipping(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
@@ -74,7 +75,7 @@ class TestOrderShippingImport(ShopifyTestBase):
         carrier = self.env["delivery.carrier"].search([("name", "=", "Standard Shipping")])
         self.assertEqual(order.carrier_id.id, carrier.id)
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_with_multiple_shipping_lines(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
@@ -101,7 +102,7 @@ class TestOrderShippingImport(ShopifyTestBase):
         total_delivery = sum(line.price_unit for line in delivery_lines)
         self.assertEqual(total_delivery, 20.00)
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_with_shipping_variation(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
@@ -138,7 +139,7 @@ class TestOrderShippingImport(ShopifyTestBase):
             self.assertTrue(carrier, f"No carrier set for shipping: {shipping_title}")
             self.assertEqual(carrier.name, expected_carrier_name, f"Wrong carrier for {shipping_title}: got {carrier.name}")
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_with_unknown_shipping_method(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
@@ -156,7 +157,7 @@ class TestOrderShippingImport(ShopifyTestBase):
         self.assertIn("Unknown delivery service", str(cm.exception))
         self.assertIn("Super Express Overnight Delivery", str(cm.exception))
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_with_free_shipping(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
@@ -175,9 +176,10 @@ class TestOrderShippingImport(ShopifyTestBase):
         self.assertEqual(order.shipping_charge, 0.00)
 
         free_carrier = self.env["delivery.carrier"].search([("name", "=", "Free Shipping")])
+        self.assertTrue(order.carrier_id, "Order should have a carrier set")
         self.assertEqual(order.carrier_id.id, free_carrier.id)
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_shipping_charge_updates_on_reimport(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
@@ -211,7 +213,7 @@ class TestOrderShippingImport(ShopifyTestBase):
         self.assertEqual(len(delivery_lines), 1)
         self.assertEqual(delivery_lines[0].price_unit, 20.00)
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_imported_orders_are_completed_without_stock_moves(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
@@ -232,7 +234,7 @@ class TestOrderShippingImport(ShopifyTestBase):
         pickings = self.env["stock.picking"].search([("sale_id", "=", order.id)])
         self.assertEqual(len(pickings), 0, "No delivery orders should be created for imported orders")
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_ebay_order_from_shopify(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 

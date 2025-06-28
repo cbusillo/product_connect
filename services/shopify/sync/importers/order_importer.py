@@ -188,7 +188,7 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
             changed |= self._sync_order_lines(existing_order, shopify_order)
 
             return changed
-        new_order = self.env["sale.order"].with_context(skip_shopify_sync=True).create(order_values)
+        new_order = self.env["sale.order"].with_context(skip_shopify_sync=True, skip_procurement=True).create(order_values)
         self._sync_order_lines(new_order, shopify_order)
 
         return True
@@ -200,7 +200,7 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
         # Temporarily unlock the order if it's locked to allow line updates
         was_locked = odoo_order.locked
         if was_locked:
-            odoo_order.with_context(skip_shopify_sync=True).write({"locked": False})
+            odoo_order.with_context(skip_shopify_sync=True, skip_procurement=True).write({"locked": False})
 
         existing_by_line_id: dict[str, "odoo.model.sale_order_line"] = {
             line.shopify_order_line_id: line for line in odoo_order.order_line
@@ -271,7 +271,7 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
             if existing_line:
                 changed |= write_if_changed(existing_line, line_vals)
             else:
-                self.env["sale.order.line"].with_context(skip_shopify_sync=True).create(line_vals)
+                self.env["sale.order.line"].with_context(skip_shopify_sync=True, skip_procurement=True).create(line_vals)
                 changed = True
 
         shipping_changed = self._apply_shipping(odoo_order, shopify_order)
@@ -300,7 +300,7 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
             if existing_tax:
                 changed |= write_if_changed(existing_tax, tax_vals)
             else:
-                self.env["sale.order.line"].with_context(skip_shopify_sync=True).create(tax_vals)
+                self.env["sale.order.line"].with_context(skip_shopify_sync=True, skip_procurement=True).create(tax_vals)
                 changed = True
 
         current_by_line_id = {line.shopify_order_line_id: line for line in odoo_order.order_line if line.shopify_order_line_id}
@@ -311,7 +311,11 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
 
         # Re-lock the order if it was locked before
         if was_locked:
-            odoo_order.with_context(skip_shopify_sync=True).write({"locked": True})
+            # Re-lock and ensure invoice status is set for imported orders
+            write_vals = {"locked": True}
+            if not existing_by_line_id:  # New order (no existing lines)
+                write_vals["invoice_status"] = "invoiced"
+            odoo_order.with_context(skip_shopify_sync=True).write(write_vals)
 
         return changed
 
@@ -340,9 +344,6 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
                 )
                 for l in lines
             )
-            if total_amount == 0:
-                continue
-
             total_shipping_charge += float(total_amount)
 
             mapping = self.env["delivery.carrier.service.map"].search(
@@ -357,20 +358,22 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
             product_id = delivery_product.id
             processed_product_ids.add(product_id)
 
-            line_values: "odoo.values.sale_order_line" = {
-                "product_id": product_id,
-                "product_uom_qty": 1,
-                "price_unit": float(total_amount),
-                "name": lines[0].title or carrier.name,
-                "is_delivery": True,
-            }
+            # Only create delivery line if there's a charge
+            if total_amount > 0:
+                line_values: "odoo.values.sale_order_line" = {
+                    "product_id": product_id,
+                    "product_uom_qty": 1,
+                    "price_unit": float(total_amount),
+                    "name": lines[0].title or carrier.name,
+                    "is_delivery": True,
+                }
 
-            existing_line = existing_by_product_id.get(product_id)
-            if existing_line:
-                changed |= write_if_changed(existing_line, line_values)
-            else:
-                self.env["sale.order.line"].with_context(skip_shopify_sync=True).create({"order_id": odoo_order.id, **line_values})
-                changed = True
+                existing_line = existing_by_product_id.get(product_id)
+                if existing_line:
+                    changed |= write_if_changed(existing_line, line_values)
+                else:
+                    self.env["sale.order.line"].with_context(skip_shopify_sync=True, skip_procurement=True).create({"order_id": odoo_order.id, **line_values})
+                    changed = True
 
             if first_group:
                 if odoo_order.carrier_id.id != carrier.id:

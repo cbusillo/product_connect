@@ -22,6 +22,7 @@ from ..shopify.gql.fragments import (
     OrderLineItemFieldsDiscountAllocationsAllocatedAmountSet,
 )
 from ..shopify.sync.importers.order_importer import OrderImporter
+from ..shopify.sync.importers.customer_importer import CustomerImporter
 from ..shopify.helpers import ShopifyDataError
 
 from .fixtures.shopify_responses import (
@@ -255,7 +256,7 @@ class TestOrderImporter(ShopifyTestBase):
         result = OrderImporter._get_discount_allocation_amount(line_no_discounts, CurrencyCode.USD)
         self.assertEqual(result, Decimal("0"))
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_basic(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
@@ -298,7 +299,7 @@ class TestOrderImporter(ShopifyTestBase):
         result = self.importer._import_one(shopify_order)
         self.assertFalse(result)
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_customer_not_found(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
@@ -308,7 +309,7 @@ class TestOrderImporter(ShopifyTestBase):
         result = self.importer._import_one(shopify_order)
         self.assertFalse(result)
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_unsupported_currency(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
@@ -322,7 +323,7 @@ class TestOrderImporter(ShopifyTestBase):
             self.importer._import_one(shopify_order)
         self.assertIn("Unsupported currency", str(cm.exception))
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_with_discounts(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
@@ -361,7 +362,7 @@ class TestOrderImporter(ShopifyTestBase):
         self.assertEqual(discount_lines[0].price_unit, -10.0)
         self.assertEqual(discount_lines[0].name, "SUMMER10")
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_with_taxes(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
@@ -394,7 +395,7 @@ class TestOrderImporter(ShopifyTestBase):
         county_tax = tax_lines.filtered(lambda l: l.name == "County Tax")
         self.assertEqual(county_tax.price_unit, 2.0)
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_with_tracking(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
@@ -435,7 +436,7 @@ class TestOrderImporter(ShopifyTestBase):
         picking = order.picking_ids[0]
         self.assertEqual(picking.carrier_tracking_ref, "1Z123456789, 1Z987654321")
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_update_existing(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
@@ -496,7 +497,7 @@ class TestOrderImporter(ShopifyTestBase):
         self.assertEqual(line_b.product_uom_qty, 1)
         self.assertEqual(line_b.price_unit, 49.99)
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_missing_product(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
@@ -520,7 +521,7 @@ class TestOrderImporter(ShopifyTestBase):
         self.assertEqual(len(product_lines), 1)
         self.assertEqual(product_lines[0].product_id.id, self.product_a.id)
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_unknown_carrier(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
@@ -536,7 +537,7 @@ class TestOrderImporter(ShopifyTestBase):
             self.importer._import_one(shopify_order)
         self.assertIn("Unknown delivery service", str(cm.exception))
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_sku_with_bin_location(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
@@ -555,7 +556,7 @@ class TestOrderImporter(ShopifyTestBase):
         self.assertEqual(len(product_lines), 1)
         self.assertEqual(product_lines[0].product_id.id, self.product_a.id)
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_multiple_shipping_carriers(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
@@ -682,8 +683,8 @@ eBay Order Id:   11-22222-33333   """
         self.assertEqual(result["sales_record"], "54321")
         self.assertEqual(result["order_id"], "11-22222-33333")
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.process_address")
+    @patch.object(CustomerImporter, "import_customer")
+    @patch.object(CustomerImporter, "process_address")
     def test_resolve_address_creates_new(self, mock_process_address: MagicMock, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
         mock_process_address.return_value = True
@@ -716,7 +717,7 @@ eBay Order Id:   11-22222-33333   """
         product2 = self.importer._get_special_product("SPECIAL", "Different Name")
         self.assertEqual(product.id, product2.id)
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_with_extreme_values(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
         order_data = create_shopify_order_response(
@@ -747,7 +748,7 @@ eBay Order Id:   11-22222-33333   """
         self.assertEqual(len(product_lines), 1)
         self.assertEqual(product_lines[0].product_uom_qty, 9999)
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_with_unicode_characters(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
         # noinspection SpellCheckingInspection
@@ -775,9 +776,9 @@ eBay Order Id:   11-22222-33333   """
         product_lines = order.order_line.filtered(lambda l: not l.is_delivery and l.product_id.id == self.product_a.id)
         self.assertEqual(product_lines[0].name, "Product with émojis 🚀 and Ñiño")
         self.assertEqual(order.partner_id.id, self.customer_partner.id)  # We're mocking customer import
-        self.assertIn("Order note with 中文 and emoji 😊", order.note)
+        self.assertIn("Order note with 中文 and emoji 😊", order.shopify_note)
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_with_null_optional_fields(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
@@ -802,7 +803,7 @@ eBay Order Id:   11-22222-33333   """
         # Note might have default terms from sale order template
         self.assertNotIn("Payment:", order.note or "")  # No payment info since we didn't provide any
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_with_malformed_data(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
         order_data = create_shopify_order_response(
@@ -824,7 +825,7 @@ eBay Order Id:   11-22222-33333   """
     def test_import_order_api_timeout(self) -> None:
         self._mock_fetch_page_with_error(None, TimeoutError("API request timed out"))
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_import_order_with_duplicate_line_items(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
@@ -856,7 +857,7 @@ eBay Order Id:   11-22222-33333   """
         self.assertEqual(len(product_lines), 2)
         self.assertEqual(sum(line.product_uom_qty for line in product_lines), 5)
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_shopify_note_populated_with_payment_and_note(self, mock_import_customer: MagicMock) -> None:
         """Test that shopify_note is populated with payment info and order note"""
         mock_import_customer.return_value = True
@@ -871,7 +872,7 @@ eBay Order Id:   11-22222-33333   """
         order = self._import_order_and_verify_success(order_data)
         self.assertEqual(order.shopify_note, "Payment: credit_card, paypal\nTest order note")
 
-    @patch("odoo.addons.product_connect.services.shopify.sync.importers.customer_importer.CustomerImporter.import_customer")
+    @patch.object(CustomerImporter, "import_customer")
     def test_ebay_order_includes_ebay_info_in_shopify_note(self, mock_import_customer: MagicMock) -> None:
         """eBay orders should include eBay-specific info in shopify_note"""
         mock_import_customer.return_value = True
