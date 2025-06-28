@@ -1,14 +1,13 @@
-from . import test_base, test_motor, test_product_template, test_integration, test_simple, test_transaction_mixin
+import importlib
+from pathlib import Path
 
-# noinspection PyUnresolvedReferences
-from ..services.tests import (
-    test_customer_importer,
-    test_order_importer,
-    test_order_shipping_import,
-    test_product_importer,
-    test_shopify_helpers,
-    test_shopify_service,
-    test_shopify_sync,
-    test_product_deleter,
-    test_product_exporter,
-)
+addon_tests_dir = Path(__file__).parent
+for test_file in addon_tests_dir.glob("test_*.py"):
+    module_name = test_file.stem
+    importlib.import_module(f".{module_name}", package=__name__)
+
+services_test_dir = addon_tests_dir.parent / "services" / "tests"
+if services_test_dir.exists():
+    for test_file in services_test_dir.glob("test_*.py"):
+        module_name = test_file.stem
+        importlib.import_module(f"..services.tests.{module_name}", package=__name__)
