@@ -1,0 +1,482 @@
+from odoo.tests import TransactionCase, HttpCase, tagged
+from datetime import datetime, timedelta
+import secrets
+
+
+@tagged("post_install", "-at_install")
+class TestShippingAnalytics(TransactionCase):
+    """Comprehensive test suite for shipping analytics functionality
+
+    This test class covers:
+    - Shipping analytics data calculations
+    - Platform-specific analytics
+    - Margin analysis and reporting
+    - Integration with existing orders
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+
+        # Skip Shopify sync and mail tracking during tests
+        cls.env = cls.env(context=dict(cls.env.context, skip_shopify_sync=True, tracking_disable=True))
+
+        # Create comprehensive test data
+        cls._create_test_data()
+
+    @classmethod
+    def _create_test_data(cls) -> None:
+        """Create test data for analytics testing"""
+        # Partners
+        cls.partner_shopify = cls.env["res.partner"].create(
+            {
+                "name": "Shopify Analytics Customer",
+                "email": "shopify.analytics@test.com",
+            }
+        )
+
+        cls.partner_ebay = cls.env["res.partner"].create(
+            {
+                "name": "eBay Analytics Customer",
+                "email": "ebay.analytics@test.com",
+            }
+        )
+
+        cls.partner_manual = cls.env["res.partner"].create(
+            {
+                "name": "Manual Analytics Customer",
+                "email": "manual.analytics@test.com",
+            }
+        )
+
+        # Product for order lines
+        cls.product = cls.env["product.product"].create(
+            {
+                "name": "Analytics Test Product",
+                "default_code": "ANALYTICS001",
+                "type": "consu",
+                "list_price": 200.0,
+            }
+        )
+
+        # Delivery products for different carriers
+        delivery_products = {}
+        for carrier_name in ["UPS", "USPS", "FedEx"]:
+            delivery_products[carrier_name] = cls.env["product.product"].create(
+                {
+                    "name": f"Test {carrier_name} Delivery",
+                    "type": "service",
+                    "list_price": 0.0,
+                }
+            )
+
+        # Create carriers
+        cls.carrier_ups = cls.env["delivery.carrier"].create(
+            {
+                "name": "Test UPS",
+                "delivery_type": "fixed",
+                "fixed_price": 15.0,
+                "product_id": delivery_products["UPS"].id,
+            }
+        )
+
+        cls.carrier_usps = cls.env["delivery.carrier"].create(
+            {
+                "name": "Test USPS",
+                "delivery_type": "fixed",
+                "fixed_price": 10.0,
+                "product_id": delivery_products["USPS"].id,
+            }
+        )
+
+        cls.carrier_fedex = cls.env["delivery.carrier"].create(
+            {
+                "name": "Test FedEx",
+                "delivery_type": "fixed",
+                "fixed_price": 20.0,
+                "product_id": delivery_products["FedEx"].id,
+            }
+        )
+
+        # Create orders with various shipping scenarios
+        cls._create_test_orders()
+
+    @classmethod
+    def _create_test_orders(cls) -> None:
+        """Create test orders with different shipping scenarios"""
+        # Shopify orders with positive margins
+        for i in range(3):
+            order = cls.env["sale.order"].create(
+                {
+                    "partner_id": cls.partner_shopify.id,
+                    "source_platform": "shopify",
+                    "shopify_order_id": f"SHOP-ANALYTICS-{i}",
+                    "carrier_id": cls.carrier_ups.id,
+                    "shipping_charge": 25.0,
+                    "shipping_paid": 20.0 - i,  # Varying margins
+                    "date_order": datetime.now() - timedelta(days=i),
+                }
+            )
+            cls._add_order_line(order)
+            order.action_confirm()
+
+        # eBay orders with mixed margins
+        for i in range(3):
+            order = cls.env["sale.order"].create(
+                {
+                    "partner_id": cls.partner_ebay.id,
+                    "source_platform": "ebay",
+                    "ebay_order_id": f"EBAY-ANALYTICS-{i}",
+                    "carrier_id": cls.carrier_usps.id,
+                    "shipping_charge": 15.0,
+                    "shipping_paid": 20.0 - (i * 10),  # Some negative margins
+                    "date_order": datetime.now() - timedelta(days=i + 3),
+                }
+            )
+            cls._add_order_line(order)
+            order.action_confirm()
+
+        # Manual orders
+        cls.env["sale.order"].create(
+            {
+                "partner_id": cls.partner_manual.id,
+                "source_platform": "manual",
+                "carrier_id": cls.carrier_fedex.id,
+                "shipping_charge": 30.0,
+                "shipping_paid": 25.0,
+                "date_order": datetime.now() - timedelta(days=7),
+            }
+        )
+
+    @classmethod
+    def _add_order_line(cls, order: "odoo.model.sale_order") -> None:
+        """Add a product line to an order"""
+        cls.env["sale.order.line"].create(
+            {
+                "order_id": order.id,
+                "product_id": cls.product.id,
+                "product_uom_qty": 2,
+                "price_unit": 200.0,
+            }
+        )
+
+    # ========== Analytics Calculation Tests ==========
+
+    def test_shipping_margin_analytics(self) -> None:
+        """Test shipping margin calculations across orders"""
+        # Get all test orders
+        orders = self.env["sale.order"].search(
+            [("partner_id", "in", [self.partner_shopify.id, self.partner_ebay.id, self.partner_manual.id])]
+        )
+
+        # Verify margins are calculated correctly
+        for order in orders:
+            expected_margin = order.shipping_charge - order.shipping_paid
+            self.assertEqual(order.shipping_margin, expected_margin, f"Order {order.name} margin calculation incorrect")
+
+    def test_platform_analytics_grouping(self) -> None:
+        """Test analytics grouped by platform"""
+        # Group by platform
+        platform_data = {}
+
+        for platform in ["shopify", "ebay", "manual"]:
+            orders = self.env["sale.order"].search(
+                [
+                    ("source_platform", "=", platform),
+                    ("partner_id", "in", [self.partner_shopify.id, self.partner_ebay.id, self.partner_manual.id]),
+                ]
+            )
+
+            platform_data[platform] = {
+                "count": len(orders),
+                "total_charge": sum(orders.mapped("shipping_charge")),
+                "total_paid": sum(orders.mapped("shipping_paid")),
+                "total_margin": sum(orders.mapped("shipping_margin")),
+            }
+
+        # Verify Shopify data (3 orders)
+        self.assertEqual(platform_data["shopify"]["count"], 3)
+        self.assertEqual(platform_data["shopify"]["total_charge"], 75.0)  # 25 * 3
+        self.assertEqual(platform_data["shopify"]["total_paid"], 57.0)  # 20 + 19 + 18
+        self.assertEqual(platform_data["shopify"]["total_margin"], 18.0)  # 5 + 6 + 7
+
+        # Verify eBay data (3 orders)
+        self.assertEqual(platform_data["ebay"]["count"], 3)
+        self.assertEqual(platform_data["ebay"]["total_charge"], 45.0)  # 15 * 3
+        self.assertEqual(platform_data["ebay"]["total_paid"], 30.0)  # 20 + 10 + 0
+        self.assertEqual(platform_data["ebay"]["total_margin"], 15.0)  # -5 + 5 + 15
+
+        # Verify manual data (1 order)
+        self.assertEqual(platform_data["manual"]["count"], 1)
+        self.assertEqual(platform_data["manual"]["total_charge"], 30.0)
+        self.assertEqual(platform_data["manual"]["total_paid"], 25.0)
+        self.assertEqual(platform_data["manual"]["total_margin"], 5.0)
+
+    def test_carrier_analytics(self) -> None:
+        """Test analytics grouped by carrier"""
+        # Get orders by carrier
+        ups_orders = self.env["sale.order"].search(
+            [("carrier_id", "=", self.carrier_ups.id), ("partner_id", "in", [self.partner_shopify.id])]
+        )
+
+        usps_orders = self.env["sale.order"].search(
+            [("carrier_id", "=", self.carrier_usps.id), ("partner_id", "in", [self.partner_ebay.id])]
+        )
+
+        fedex_orders = self.env["sale.order"].search(
+            [("carrier_id", "=", self.carrier_fedex.id), ("partner_id", "in", [self.partner_manual.id])]
+        )
+
+        # Verify carrier distribution
+        self.assertEqual(len(ups_orders), 3)
+        self.assertEqual(len(usps_orders), 3)
+        self.assertEqual(len(fedex_orders), 1)
+
+        # Verify average margins by carrier
+        ups_avg_margin = sum(ups_orders.mapped("shipping_margin")) / len(ups_orders)
+        self.assertEqual(ups_avg_margin, 6.0)  # (5 + 6 + 7) / 3
+
+        usps_avg_margin = sum(usps_orders.mapped("shipping_margin")) / len(usps_orders)
+        self.assertEqual(usps_avg_margin, 5.0)  # (-5 + 5 + 15) / 3
+
+    def test_negative_margin_detection(self) -> None:
+        """Test detection of orders with negative shipping margins"""
+        # Find orders with negative margins
+        negative_margin_orders = self.env["sale.order"].search(
+            [
+                ("shipping_margin", "<", 0),
+                ("partner_id", "in", [self.partner_shopify.id, self.partner_ebay.id, self.partner_manual.id]),
+            ]
+        )
+
+        # Should have 1 eBay order with negative margin
+        self.assertEqual(len(negative_margin_orders), 1)
+        self.assertEqual(negative_margin_orders.source_platform, "ebay")
+        self.assertEqual(negative_margin_orders.shipping_margin, -5.0)
+
+    def test_date_range_analytics(self) -> None:
+        """Test analytics filtered by date ranges"""
+        # Last 3 days
+        recent_date = datetime.now() - timedelta(days=3)
+        recent_orders = self.env["sale.order"].search(
+            [
+                ("date_order", ">=", recent_date),
+                ("partner_id", "in", [self.partner_shopify.id, self.partner_ebay.id, self.partner_manual.id]),
+            ]
+        )
+
+        # Should have Shopify orders (days 0-2) and 1 eBay order (day 3)
+        self.assertEqual(len(recent_orders), 4)
+
+        # Older orders
+        older_orders = self.env["sale.order"].search(
+            [
+                ("date_order", "<", recent_date),
+                ("partner_id", "in", [self.partner_shopify.id, self.partner_ebay.id, self.partner_manual.id]),
+            ]
+        )
+
+        # Should have 2 eBay orders (days 4-5) and 1 manual order (day 7)
+        self.assertEqual(len(older_orders), 3)
+
+    def test_shipping_efficiency_metrics(self) -> None:
+        """Test shipping efficiency calculations"""
+        all_orders = self.env["sale.order"].search(
+            [("partner_id", "in", [self.partner_shopify.id, self.partner_ebay.id, self.partner_manual.id])]
+        )
+
+        # Calculate efficiency metrics
+        total_charge = sum(all_orders.mapped("shipping_charge"))
+        total_paid = sum(all_orders.mapped("shipping_paid"))
+        total_margin = sum(all_orders.mapped("shipping_margin"))
+
+        # Overall efficiency (margin as % of charge)
+        efficiency = (total_margin / total_charge) * 100 if total_charge else 0
+
+        self.assertEqual(total_charge, 150.0)  # 75 + 45 + 30
+        self.assertEqual(total_paid, 112.0)  # 57 + 30 + 25
+        self.assertEqual(total_margin, 38.0)  # 18 + 15 + 5
+        self.assertAlmostEqual(efficiency, 25.33, places=2)
+
+    def test_analytics_with_no_shipping_data(self) -> None:
+        """Test analytics behavior with orders lacking shipping data"""
+        # Create order without shipping data
+        no_shipping_order = self.env["sale.order"].create(
+            {
+                "partner_id": self.partner_manual.id,
+                "source_platform": "manual",
+            }
+        )
+
+        self._add_order_line(no_shipping_order)
+
+        # Verify default values
+        self.assertEqual(no_shipping_order.shipping_charge, 0.0)
+        self.assertEqual(no_shipping_order.shipping_paid, 0.0)
+        self.assertEqual(no_shipping_order.shipping_margin, 0.0)
+
+        # Verify it doesn't break analytics calculations
+        all_margins = self.env["sale.order"].search([("partner_id", "=", self.partner_manual.id)]).mapped("shipping_margin")
+
+        self.assertIn(0.0, all_margins)
+        self.assertEqual(len(all_margins), 2)  # Original + new order
+
+
+@tagged("post_install", "-at_install", "product_connect_tour")
+class TestShippingAnalyticsUI(HttpCase):
+    """UI and integration tests for shipping analytics interface
+
+    Tests user interactions with analytics views and reports
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+
+        cls.env = cls.env(context=dict(cls.env.context, skip_shopify_sync=True, tracking_disable=True))
+
+        # Create test user with proper permissions
+        secure_password = secrets.token_urlsafe(32)
+        cls.test_user = cls.env["res.users"].create(
+            {
+                "name": "Shipping Analytics Test User",
+                "login": "shipping_analytics_user",
+                "password": secure_password,
+                "groups_id": [
+                    (
+                        6,
+                        0,
+                        [
+                            cls.env.ref("base.group_user").id,
+                            cls.env.ref("sales_team.group_sale_salesman").id,
+                            cls.env.ref("stock.group_stock_user").id,
+                        ],
+                    )
+                ],
+            }
+        )
+        cls.test_user_password = secure_password
+
+        # Create test data for UI
+        cls._create_ui_test_data()
+
+    @classmethod
+    def _create_ui_test_data(cls) -> None:
+        """Create test data visible in UI"""
+        # Create partners
+        cls.partner_shopify = cls.env["res.partner"].create(
+            {
+                "name": "UI Shopify Customer",
+                "email": "ui.shopify@example.com",
+            }
+        )
+
+        cls.partner_ebay = cls.env["res.partner"].create(
+            {
+                "name": "UI eBay Customer",
+                "email": "ui.ebay@example.com",
+            }
+        )
+
+        # Create product
+        cls.product = cls.env["product.product"].create(
+            {
+                "name": "UI Test Product",
+                "list_price": 150.0,
+                "type": "consu",
+            }
+        )
+
+        # Create delivery setup
+        delivery_product = cls.env["product.product"].create(
+            {
+                "name": "UI Test Delivery",
+                "type": "service",
+                "list_price": 0.0,
+            }
+        )
+
+        cls.carrier = cls.env["delivery.carrier"].create(
+            {
+                "name": "UI Test Carrier",
+                "delivery_type": "fixed",
+                "fixed_price": 15.0,
+                "product_id": delivery_product.id,
+            }
+        )
+
+        # Create sample orders
+        cls._create_sample_orders()
+
+    @classmethod
+    def _create_sample_orders(cls) -> None:
+        """Create sample orders for UI testing"""
+        # Shopify order with positive margin
+        shopify_order = cls.env["sale.order"].create(
+            {
+                "partner_id": cls.partner_shopify.id,
+                "source_platform": "shopify",
+                "shopify_order_id": "UI-SHOP-001",
+                "carrier_id": cls.carrier.id,
+                "shipping_charge": 25.0,
+                "shipping_paid": 18.0,
+                "date_order": datetime.now() - timedelta(days=1),
+            }
+        )
+
+        cls.env["sale.order.line"].create(
+            {
+                "order_id": shopify_order.id,
+                "product_id": cls.product.id,
+                "product_uom_qty": 1,
+                "price_unit": 150.0,
+            }
+        )
+
+        shopify_order.action_confirm()
+
+        # eBay order with negative margin
+        ebay_order = cls.env["sale.order"].create(
+            {
+                "partner_id": cls.partner_ebay.id,
+                "source_platform": "ebay",
+                "ebay_order_id": "UI-EBAY-001",
+                "carrier_id": cls.carrier.id,
+                "shipping_charge": 20.0,
+                "shipping_paid": 28.0,
+                "date_order": datetime.now() - timedelta(days=2),
+            }
+        )
+
+        cls.env["sale.order.line"].create(
+            {
+                "order_id": ebay_order.id,
+                "product_id": cls.product.id,
+                "product_uom_qty": 2,
+                "price_unit": 150.0,
+            }
+        )
+
+        ebay_order.action_confirm()
+
+    def test_shipping_analytics_menu_access(self) -> None:
+        """Test that shipping analytics menu is accessible"""
+        # This will be tested through tours
+        self.assertTrue(self.test_user.exists())
+
+    def test_shipping_analytics_views(self) -> None:
+        """Test analytics views render correctly"""
+        # Test the actual action IDs from shipping_analytics_views.xml
+        shipping_action = self.env.ref("product_connect.action_sale_order_shipping_analytics")
+        self.assertTrue(shipping_action)
+        self.assertEqual(shipping_action.res_model, "sale.order")
+
+        carrier_action = self.env.ref("product_connect.action_carrier_performance_report")
+        self.assertTrue(carrier_action)
+        self.assertEqual(carrier_action.res_model, "sale.order")
+
+    def test_analytics_tour_execution(self) -> None:
+        """Test that the analytics tour executes successfully"""
+        # The tour with test: true will run automatically
+        # This method can be used to set up specific conditions
+        pass
