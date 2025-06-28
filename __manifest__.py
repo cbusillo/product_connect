@@ -63,6 +63,7 @@
         "views/res_partner_views.xml",
         "views/res_users_views.xml",
         "views/sale_order_views.xml",
+        "views/shipping_analytics_views.xml",
         "views/shopify_sync_views.xml",
         "security/ir.model.access.csv",
     ],
