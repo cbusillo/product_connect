@@ -355,7 +355,21 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
                 limit=1,
             )
             if not mapping:
-                raise ShopifyDataError(f"Unknown delivery service '{lines[0].title}'", shopify_record=shopify_order)
+                service_name = lines[0].title or "Unknown"
+
+                shop_url_key = self.env["ir.config_parameter"].sudo().get_param("shopify.shop_url_key", "")
+                shopify_order_id = parse_shopify_id_from_gid(shopify_order.id)
+                order_url = f"https://{shop_url_key}/admin/orders/{shopify_order_id}" if shop_url_key else ""
+
+                base_url = self.env["ir.config_parameter"].sudo().get_param("web.base.url", "")
+                mapping_url = f"{base_url}/web#action=&model=delivery.carrier.service.map&view_type=list" if base_url else ""
+
+                error_msg = (
+                    f"Unknown delivery service '{service_name}' in order {shopify_order.name}. "
+                    f"Order: {order_url} | "
+                    f"Add mapping for '{normalised_name}' here: {mapping_url}"
+                )
+                raise ShopifyDataError(error_msg, shopify_record=shopify_order)
 
             carrier = mapping.carrier
             delivery_product = carrier.product_id

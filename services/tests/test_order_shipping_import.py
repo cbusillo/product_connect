@@ -293,6 +293,10 @@ class TestOrderShippingImport(ShopifyTestBase):
         except ShopifyDataError as e:
             self.assertIn("Unknown delivery service", str(e))
             self.assertIn("Super Express Overnight Delivery", str(e))
+        except Exception as e:
+            # Log the actual exception type and message for debugging
+            _logger.error(f"Unexpected exception type: {type(e).__name__}: {str(e)}")
+            raise
 
     @patch.object(CustomerImporter, "import_customer")
     def test_import_order_with_free_shipping(self, mock_import_customer: MagicMock) -> None:
@@ -366,6 +370,42 @@ class TestOrderShippingImport(ShopifyTestBase):
 
         pickings = self.env["stock.picking"].search([("sale_id", "=", order.id)])
         self.assertEqual(len(pickings), 0, "No delivery orders should be created for imported orders")
+
+    @patch.object(CustomerImporter, "import_customer")
+    def test_import_order_unknown_shipping_with_urls(self, mock_import_customer: MagicMock) -> None:
+        mock_import_customer.return_value = True
+
+        # Set up config parameters for URL generation
+        self.env["ir.config_parameter"].sudo().set_param("shopify.shop_url_key", "test-shop.myshopify.com")
+        self.env["ir.config_parameter"].sudo().set_param("web.base.url", "https://odoo.example.com")
+
+        order_data = create_shopify_order_response(
+            gid="gid://shopify/Order/5555555555",
+            name="#TEST-URL",
+            customer=create_shopify_customer_response(),
+            line_items=[create_shopify_order_line_item_response(sku=self.product.default_code)],
+            shipping_lines=[create_shopify_shipping_line_response(title="New Express Service", price="25.00")],
+        )
+
+        shopify_order = OrderFields(**order_data)
+
+        try:
+            self.importer._import_one(shopify_order)
+            self.fail("Expected ShopifyDataError to be raised")
+        except ShopifyDataError as e:
+            error_msg = str(e)
+            # Check basic error message
+            self.assertIn("Unknown delivery service 'New Express Service'", error_msg)
+            self.assertIn("#TEST-URL", error_msg)
+
+            # Check Shopify order URL
+            self.assertIn("https://test-shop.myshopify.com/admin/orders/5555555555", error_msg)
+
+            # Check Odoo mapping URL
+            self.assertIn("https://odoo.example.com/web#action=&model=delivery.carrier.service.map&view_type=list", error_msg)
+
+            # Check normalized name is mentioned
+            self.assertIn("new express service", error_msg.lower())
 
     @patch.object(CustomerImporter, "import_customer")
     def test_import_ebay_order_from_shopify(self, mock_import_customer: MagicMock) -> None:
