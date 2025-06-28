@@ -65,19 +65,14 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
             )
             .with_context(skip_shopify_sync=True)
         )
+
+        if self._has_processing_images(shopify_product, odoo_product):
+            return False
+
         try:
             if odoo_product:
                 latest_write_date = determine_latest_odoo_product_modification_time(odoo_product)
                 images = shopify_product.media.nodes
-                if any(image.status in (MediaStatus.PROCESSING, MediaStatus.UPLOADED) for image in images):
-                    _logger.debug(f"Product {odoo_product.id} has media not yet ready. Flagging for re‑import.")
-                    self.env["shopify.sync"].create(
-                        {
-                            "mode": SyncMode.IMPORT_ONE_PRODUCT,
-                            "shopify_product_id_to_sync": parse_shopify_id_from_gid(shopify_product.id),
-                        }
-                    )
-                    return False
 
                 if any(image.status == MediaStatus.FAILED for image in images):
                     _logger.debug(f"Product {odoo_product.id} has media failed. Flagging for re‑import.")
@@ -88,21 +83,17 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
                     _logger.debug(f"Updating existing product {odoo_product.id} from Shopify")
                     odoo_product = self.save_odoo_product(odoo_product, shopify_product)
                     return True
+
+                # Check if images have changed order even if timestamp hasn't changed
+                shopify_images = [image for image in shopify_product.media.nodes if image.status == MediaStatus.READY]
+                if not self._images_are_in_sync(odoo_product, shopify_images):
+                    _logger.debug(f"Product {odoo_product.id} has image order changes, updating from Shopify")
+                    odoo_product = self.save_odoo_product(odoo_product, shopify_product)
+                    return True
+
                 _logger.debug(f"Product {odoo_product.id} is up to date with Shopify")
                 return False
             else:
-                # Check for processing images even for new products
-                images = shopify_product.media.nodes
-                if any(image.status in (MediaStatus.PROCESSING, MediaStatus.UPLOADED) for image in images):
-                    _logger.debug(f"New product {shopify_product.id} has media not yet ready. Flagging for later import.")
-                    self.env["shopify.sync"].create(
-                        {
-                            "mode": SyncMode.IMPORT_ONE_PRODUCT,
-                            "shopify_product_id_to_sync": parse_shopify_id_from_gid(shopify_product.id),
-                        }
-                    )
-                    return False
-
                 _logger.debug(f"Creating new product {shopify_product.id} from Shopify")
                 odoo_product = self.save_odoo_product(None, shopify_product)
                 return True
@@ -113,6 +104,20 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
                 shopify_record=shopify_product,
                 odoo_record=odoo_product,
             ) from error
+
+    def _has_processing_images(self, shopify_product: ProductFields, odoo_product: Optional["odoo.model.product_product"]) -> bool:
+        images = shopify_product.media.nodes
+        if any(image.status in (MediaStatus.PROCESSING, MediaStatus.UPLOADED) for image in images):
+            product_desc = f"Product {odoo_product.id}" if odoo_product else f"New product {shopify_product.id}"
+            _logger.debug(f"{product_desc} has media not yet ready. Flagging for re-import.")
+            self.env["shopify.sync"].create(
+                {
+                    "mode": SyncMode.IMPORT_ONE_PRODUCT,
+                    "shopify_product_id_to_sync": parse_shopify_id_from_gid(shopify_product.id),
+                }
+            )
+            return True
+        return False
 
     def _images_are_in_sync(
         self, odoo_product: "odoo.model.product_product", shopify_images: list[ProductFieldsMediaNodesMediaImage]
@@ -191,7 +196,7 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
         odoo_product.product_tmpl_id.images = [(6, 0, [image.id for image in ordered_images])]
 
         for sequence, image in enumerate(ordered_images):
-            image.sequence = sequence
+            image.with_context(skip_shopify_sync=True).sequence = sequence
 
     def fetch_image_data(self, image_url: AnyUrl) -> str:
         client = self.service.client.http_client

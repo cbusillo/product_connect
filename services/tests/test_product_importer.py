@@ -169,6 +169,16 @@ class TestProductImporter(ShopifyTestBase):
         )
         return product
 
+    def _import_product_and_verify(self, product_data: dict, sku: str) -> "odoo.model.product_product":
+        """Helper method to import a product and verify it was created with the given SKU."""
+        product_fields = ProductFields(**product_data)
+        result = self.importer._import_one(product_fields)
+        self.assertTrue(result)
+
+        product = self.env["product.product"].search([("default_code", "=", sku)])
+        self.assertTrue(product, f"Product with SKU {sku} not found")
+        return product
+
     def test_import_basic_product(self) -> None:
         sku = self._get_unique_sku()
         product_data = create_shopify_product_response(
@@ -229,13 +239,7 @@ class TestProductImporter(ShopifyTestBase):
             ],
         )
 
-        # Import using _import_one directly
-        product_fields = ProductFields(**product_data)
-        result = self.importer._import_one(product_fields)
-        self.assertTrue(result)
-
-        product = self.env["product.product"].search([("default_code", "=", sku)])
-        self.assertTrue(product, f"Product with SKU {sku} not found")
+        product = self._import_product_and_verify(product_data, sku)
         template = product.product_tmpl_id
 
         self.assertTrue(template.condition, "Product template should have a condition")
@@ -455,13 +459,7 @@ class TestProductImporter(ShopifyTestBase):
             ],
         )
 
-        # Import using _import_one directly
-        product_fields = ProductFields(**product_data)
-        result = self.importer._import_one(product_fields)
-        self.assertTrue(result)
-
-        product = self.env["product.product"].search([("default_code", "=", sku)])
-        self.assertTrue(product, f"Product with SKU {sku} not found")
+        product = self._import_product_and_verify(product_data, sku)
         self.assertFalse(product.is_published)
 
     def test_create_manufacturer_if_not_exists(self) -> None:
@@ -627,13 +625,7 @@ class TestProductImporter(ShopifyTestBase):
             ],
         )
 
-        # Import using _import_one directly
-        product_fields = ProductFields(**product_data)
-        result = self.importer._import_one(product_fields)
-        self.assertTrue(result)
-
-        product = self.env["product.product"].search([("default_code", "=", sku)])
-        self.assertTrue(product, f"Product with SKU {sku} not found")
+        product = self._import_product_and_verify(product_data, sku)
         self.assertEqual(product.weight, 0.0)
 
     def test_product_data_error_handling(self) -> None:
@@ -667,13 +659,7 @@ class TestProductImporter(ShopifyTestBase):
             ],
         )
 
-        # Import using _import_one directly
-        product_fields = ProductFields(**product_data)
-        result = self.importer._import_one(product_fields)
-        self.assertTrue(result)
-
-        product = self.env["product.product"].search([("default_code", "=", sku)])
-        self.assertTrue(product, f"Product with SKU {sku} not found")
+        product = self._import_product_and_verify(product_data, sku)
         self.assertEqual(product.list_price, 9999999.99)
         self.assertEqual(product.standard_price, 0.01)
 
@@ -688,13 +674,7 @@ class TestProductImporter(ShopifyTestBase):
             ],
         )
 
-        # Import using _import_one directly
-        product_fields = ProductFields(**product_data)
-        result = self.importer._import_one(product_fields)
-        self.assertTrue(result)
-
-        product = self.env["product.product"].search([("default_code", "=", sku)])
-        self.assertTrue(product, f"Product with SKU {sku} not found")
+        product = self._import_product_and_verify(product_data, sku)
         # HTML should be preserved for website_description
         self.assertIn("<p>Product", product.website_description)
         # But title should be text only
@@ -901,12 +881,82 @@ class TestProductImporter(ShopifyTestBase):
             ],
         )
 
-        # Import using _import_one directly
-        product_fields = ProductFields(**product_data)
-        result = self.importer._import_one(product_fields)
-        self.assertTrue(result)
-
-        product = self.env["product.product"].search([("default_code", "=", sku)])
-        self.assertTrue(product, f"Product with SKU {sku} not found")
+        product = self._import_product_and_verify(product_data, sku)
         self.assertEqual(product.standard_price, 0.0)
         self.assertEqual(product.weight, 0.0)
+
+    def test_import_product_with_reordered_images(self) -> None:
+        """Test that image order changes are detected even if product updated_at hasn't changed"""
+        sku = self._get_unique_sku()
+        existing_product = self.env["product.product"].create(
+            {
+                "name": "Product with Images",
+                "default_code": sku,
+                "shopify_product_id": "444",
+                "type": "consu",
+            }
+        )
+
+        # Create images in specific order
+        self.env["product.image"].create(
+            {
+                "name": "Image 1",
+                "shopify_media_id": "111",
+                "image_1920": self._get_valid_image_base64(),
+                "product_tmpl_id": existing_product.product_tmpl_id.id,
+                "sequence": 0,
+            }
+        )
+        self.env["product.image"].create(
+            {
+                "name": "Image 2",
+                "shopify_media_id": "222",
+                "image_1920": self._get_valid_image_base64(),
+                "product_tmpl_id": existing_product.product_tmpl_id.id,
+                "sequence": 1,
+            }
+        )
+
+        # Product data with images in reversed order but same updated_at
+        product_data = create_shopify_product_response(
+            gid="gid://shopify/Product/444",
+            updated_at=datetime(2020, 1, 1).isoformat(),  # Old date
+            variants=[
+                create_shopify_product_variant(sku=sku),
+            ],
+            media=[
+                # Images in reversed order
+                create_shopify_product_image(
+                    gid="gid://shopify/MediaImage/222",
+                    status=MediaStatus.READY,
+                    alt="Image 2 Updated",
+                ),
+                create_shopify_product_image(
+                    gid="gid://shopify/MediaImage/111",
+                    status=MediaStatus.READY,
+                    alt="Image 1 Updated",
+                ),
+            ],
+        )
+
+        with patch.object(self.importer, "fetch_image_data") as mock_fetch_image:
+            mock_fetch_image.return_value = self._get_valid_image_base64()
+
+            # Import using _import_one directly
+            product_fields = ProductFields(**product_data)
+            result = self.importer._import_one(product_fields)
+
+            # Should return True because image order changed
+            self.assertTrue(result, "Import should detect image order change")
+
+        # Verify images were reordered
+        existing_product.invalidate_recordset()
+        images = sorted(existing_product.images, key=lambda x: x.sequence)
+        self.assertEqual(len(images), 2)
+        self.assertEqual(images[0].shopify_media_id, "222")
+        self.assertEqual(images[0].sequence, 0)
+        self.assertEqual(images[1].shopify_media_id, "111")
+        self.assertEqual(images[1].sequence, 1)
+        # Alt text should be updated
+        self.assertEqual(images[0].name, "Image 2 Updated")
+        self.assertEqual(images[1].name, "Image 1 Updated")
