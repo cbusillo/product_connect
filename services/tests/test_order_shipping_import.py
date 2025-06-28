@@ -146,7 +146,7 @@ class TestOrderShippingImport(ShopifyTestBase):
         # Create service mappings - need to normalize the names
         service_map_model = self.env["delivery.carrier.service.map"]
 
-        def create_service_map(carrier, service_name: str) -> None:
+        def create_service_map(carrier: "odoo.model.delivery_carrier", service_name: str) -> None:
             """Create service mapping if it doesn't exist"""
             normalized_name = service_map_model.normalize_service_name(service_name)
             existing = service_map_model.search(
@@ -316,20 +316,25 @@ class TestOrderShippingImport(ShopifyTestBase):
         self.assertTrue(order.carrier_id, "Order should have a carrier set")
         self.assertEqual(order.carrier_id.id, free_carrier.id)
 
-    @patch.object(CustomerImporter, "import_customer")
-    def test_shipping_charge_updates_on_reimport(self, mock_import_customer: MagicMock) -> None:
-        mock_import_customer.return_value = True
-
+    def _create_and_import_order(self, shipping_price: str = "15.00") -> "odoo.model.sale_order":
+        """Helper method to create and import an order with shipping."""
         order_data = create_shopify_order_response(
             customer=create_shopify_customer_response(),
             line_items=[create_shopify_order_line_item_response(sku=self.product.default_code)],
-            shipping_lines=[create_shopify_shipping_line_response(title="UPS Ground", price="15.00")],
+            shipping_lines=[create_shopify_shipping_line_response(title="UPS Ground", price=shipping_price)],
         )
 
         shopify_order = OrderFields(**order_data)
         self.importer._import_one(shopify_order)
 
         order = self.env["sale.order"].search([("shopify_order_id", "=", "123456789")])
+        return order
+
+    @patch.object(CustomerImporter, "import_customer")
+    def test_shipping_charge_updates_on_reimport(self, mock_import_customer: MagicMock) -> None:
+        mock_import_customer.return_value = True
+
+        order = self._create_and_import_order()
         self.assertEqual(order.shipping_charge, 15.00)
 
         updated_data = create_shopify_order_response(
@@ -354,16 +359,7 @@ class TestOrderShippingImport(ShopifyTestBase):
     def test_imported_orders_are_completed_without_stock_moves(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
-        order_data = create_shopify_order_response(
-            customer=create_shopify_customer_response(),
-            line_items=[create_shopify_order_line_item_response(sku=self.product.default_code)],
-            shipping_lines=[create_shopify_shipping_line_response(title="UPS Ground", price="15.00")],
-        )
-
-        shopify_order = OrderFields(**order_data)
-        self.importer._import_one(shopify_order)
-
-        order = self.env["sale.order"].search([("shopify_order_id", "=", "123456789")])
+        order = self._create_and_import_order()
         self.assertEqual(order.state, "sale", "Imported orders should be in sale state")
         self.assertTrue(order.locked, "Imported orders should be locked")
         self.assertEqual(order.invoice_status, "invoiced", "Imported orders should be marked as invoiced")

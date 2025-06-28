@@ -33,17 +33,16 @@ class EbayOrderData(BaseModel):
     latest_delivery_date: datetime | None = None
     earliest_delivery_date: datetime | None = None
 
-    @classmethod
+    # noinspection PyMethodParameters
     @field_validator("latest_delivery_date", "earliest_delivery_date", mode="before")
-    def parse_datetime(cls, v: str | datetime | None) -> datetime | None:
-        if v is None or isinstance(v, datetime):
-            return v
+    def parse_datetime(cls, value: str | datetime | None) -> datetime | None:
+        if value is None or isinstance(value, datetime):
+            return value
         try:
             from ...helpers import parse_shopify_datetime_to_utc
 
-            return parse_shopify_datetime_to_utc(v)
+            return parse_shopify_datetime_to_utc(value)
         except (ValueError, TypeError):
-            # Return None for invalid dates
             return None
 
     @classmethod
