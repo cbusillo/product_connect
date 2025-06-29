@@ -10,7 +10,7 @@ from httpx import RequestError
 from odoo import api, models, fields
 from odoo.tools import config
 from psycopg2 import OperationalError, InterfaceError
-from psycopg2.errors import TransactionRollbackError
+from psycopg2.errors import TransactionRollbackError, SerializationFailure, InFailedSqlTransaction
 from pydantic import BaseModel
 
 from ..services.shopify.helpers import (
@@ -254,10 +254,11 @@ class ShopifySync(models.TransientModel):
             try:
                 next_sync._execute_mode()
             except (ShopifyApiError, OdooDataError, ShopifySyncRunFailed):
+                self._safe_rollback()
                 self._safe_commit()
                 continue
             except Exception:
-                self._safe_commit()
+                self._safe_rollback()
                 raise
 
         if self.search([("state", "in", ["running", "queued"])], limit=1):
@@ -406,12 +407,17 @@ class ShopifySync(models.TransientModel):
                 self.env["ir.config_parameter"].set_param(config_key, format_datetime_for_shopify(self.last_import_start_time))
             self._safe_commit()
         except Exception as error:
+            self._safe_rollback()
             self._mark_failed(error)
             self._safe_commit()
             raise ShopifySyncRunFailed()
         finally:
             self.end_time = fields.Datetime.now()
-            self._safe_commit()
+            try:
+                self._safe_commit()
+            except (SerializationFailure, InFailedSqlTransaction, TransactionRollbackError):
+                _logger.debug("Final commit failed due to transaction state, rolling back")
+                self._safe_rollback()
 
     @property
     def completed_str(self) -> str:

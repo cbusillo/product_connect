@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from datetime import timedelta
 from typing import Generic, TypeVar, Sequence, Callable, Protocol
 
+import psycopg2
 from odoo.api import Environment
 
 from ..gql import Client
@@ -50,8 +51,12 @@ class ShopifyBase(ABC, Generic[T]):
             self.sync_record._safe_commit()
             _logger.info(f"Processed {processed_count} records so far.")
         if time.monotonic() - self._last_heartbeat > HEARTBEAT_SECONDS:
-            self.sync_record.write({})
-            self.sync_record._safe_commit()
+            try:
+                self.sync_record.write({})
+                self.sync_record._safe_commit()
+            except psycopg2.errors.SerializationFailure:
+                _logger.warning("Heartbeat update skipped due to concurrent access")
+                self.sync_record._safe_rollback()
             self._last_heartbeat = time.monotonic()
 
     def _iterate_pages(
@@ -121,8 +126,7 @@ class ShopifyBaseExporter(ShopifyBase[T]):
             return
         self.sync_record.total_count = self.sync_record.total_count or len(records)
         for index, record in enumerate(records, 1):
-            with self.env.cr.savepoint():
-                self._export_one(record)
+            self._export_one(record)
             self.sync_record.updated_count += 1
             self._maybe_commit(index)
 
