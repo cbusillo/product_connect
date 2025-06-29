@@ -286,7 +286,6 @@ class TestOrderShippingImport(ShopifyTestBase):
 
         shopify_order = OrderFields(**order_data)
 
-        # Manually catch the exception to avoid savepoint issues
         try:
             self.importer._import_one(shopify_order)
             self.fail("Expected ShopifyDataError to be raised")
