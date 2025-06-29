@@ -48,8 +48,13 @@ class ShopifyBase(ABC, Generic[T]):
 
     def _maybe_commit(self, processed_count: int) -> None:
         if processed_count % self.commit_size == 0:
-            self.sync_record._safe_commit()
-            _logger.info(f"Processed {processed_count} records so far.")
+            try:
+                self.sync_record._safe_commit()
+                _logger.info(f"Processed {processed_count} records so far.")
+            except psycopg2.errors.SerializationFailure:
+                _logger.warning(f"Commit at {processed_count} records skipped due to concurrent access")
+                self.sync_record._safe_rollback()
+                raise
         if time.monotonic() - self._last_heartbeat > HEARTBEAT_SECONDS:
             try:
                 self.sync_record.write({})

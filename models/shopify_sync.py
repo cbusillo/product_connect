@@ -40,6 +40,7 @@ class ShopifySync(models.TransientModel):
         ShopifyApiError,
         OdooDataError,
         TransactionRollbackError,
+        SerializationFailure,
         OperationalError,
         InterfaceError,
         RequestError,
@@ -255,7 +256,10 @@ class ShopifySync(models.TransientModel):
                 next_sync._execute_mode()
             except (ShopifyApiError, OdooDataError, ShopifySyncRunFailed):
                 self._safe_rollback()
-                self._safe_commit()
+                try:
+                    self._safe_commit()
+                except (SerializationFailure, InFailedSqlTransaction, TransactionRollbackError):
+                    _logger.debug("Commit after rollback failed, continuing")
                 continue
             except Exception:
                 self._safe_rollback()
