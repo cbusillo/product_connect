@@ -18,7 +18,7 @@ _logger = logging.getLogger(__name__)
 HEARTBEAT_SECONDS = 30
 DEFAULT_DATETIME = datetime(2000, 1, 1)
 SHOPIFY_PAGE_SIZE = 250
-COMMIT_SIZE = SHOPIFY_PAGE_SIZE // 2
+COMMIT_SIZE = SHOPIFY_PAGE_SIZE // 10
 PUBLICATION_CHANNELS: dict[str, int] = {
     "online_store": 19453116480,
     "pos": 42683596853,
