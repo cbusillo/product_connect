@@ -146,6 +146,16 @@ class MoneyBagFieldsShopMoney(MoneyFields):
     pass
 
 
+class TaxLineFields(BaseModel):
+    title: str
+    rate_percentage: Optional[float] = Field(alias="ratePercentage")
+    price_set: "TaxLineFieldsPriceSet" = Field(alias="priceSet")
+
+
+class TaxLineFieldsPriceSet(MoneyBagFields):
+    pass
+
+
 class OrderLineItemFields(BaseModel):
     id: str
     sku: Optional[str]
@@ -213,16 +223,6 @@ class ShippingLineFieldsCurrentDiscountedPriceSet(MoneyBagFields):
 
 
 class ShippingLineFieldsDiscountedPriceSet(MoneyBagFields):
-    pass
-
-
-class TaxLineFields(BaseModel):
-    title: str
-    rate_percentage: Optional[float] = Field(alias="ratePercentage")
-    price_set: "TaxLineFieldsPriceSet" = Field(alias="priceSet")
-
-
-class TaxLineFieldsPriceSet(MoneyBagFields):
     pass
 
 
@@ -473,9 +473,9 @@ MediaImageFields.model_rebuild()
 MetafieldFields.model_rebuild()
 MoneyFields.model_rebuild()
 MoneyBagFields.model_rebuild()
+TaxLineFields.model_rebuild()
 OrderLineItemFields.model_rebuild()
 ShippingLineFields.model_rebuild()
-TaxLineFields.model_rebuild()
 OrderFields.model_rebuild()
 VariantFields.model_rebuild()
 ProductFields.model_rebuild()
