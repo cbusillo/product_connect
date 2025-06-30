@@ -3,6 +3,7 @@ import re
 
 from odoo.api import Environment
 from odoo.addons.phone_validation.tools.phone_validation import phone_format
+from odoo.exceptions import UserError
 
 from ...gql import (
     Client,
@@ -60,6 +61,19 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
         phone_code = int(country.phone_code or 0)
         formatted = phone_format(phone, country.code, phone_code, force_format="E164", raise_exception=False)
         return formatted or phone.strip()
+
+    @staticmethod
+    def _geolocalize_partner(partner: "odoo.model.res_partner") -> None:
+        if not partner or not partner.exists():
+            return
+
+        if not any((partner.street, partner.city, partner.zip, partner.country_id)):
+            return
+
+        try:
+            partner.geo_localize()
+        except UserError as error:
+            _logger.warning(f"Failed to geolocalize partner {partner.name} (ID: {partner.id}): {str(error)}", exc_info=True)
 
     def import_customer(self, shopify_customer: CustomerFields) -> bool:
         shopify_customer_id = parse_shopify_id_from_gid(shopify_customer.id)
@@ -135,6 +149,8 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
             changed = True
         else:
             changed = write_if_changed(partner, partner_vals)
+
+        self._geolocalize_partner(partner)
 
         # Always ensure Shopify category is assigned
         shopify_category = self._get_or_create_category("Shopify")
@@ -281,6 +297,7 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
             if formatted_phone:
                 main_address_vals["phone"] = formatted_phone
             changed = write_if_changed(partner, main_address_vals)
+            self._geolocalize_partner(partner)
             return changed
 
         address_type: AddressType = "invoice" if role == "billing" else "delivery"
@@ -318,6 +335,7 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
                 # We need to explicitly set it again if it was provided
                 if company_name_to_set and not copied_address.company_name:
                     copied_address.write({"company_name": company_name_to_set})
+                self._geolocalize_partner(copied_address)
                 return True
             changed = write_if_changed(existing_address, address_vals)
             return changed
@@ -329,5 +347,6 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
             # We need to explicitly set it again if it was provided
             if company_name_to_set and not created_address.company_name:
                 created_address.write({"company_name": company_name_to_set})
+            self._geolocalize_partner(created_address)
             return True
         return False
