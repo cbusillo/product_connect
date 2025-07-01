@@ -1,11 +1,12 @@
 from unittest.mock import patch
 
-from odoo.tests import TransactionCase
+from odoo.tests import TransactionCase, tagged
 from odoo.exceptions import ValidationError
-from odoo.addons.product_connect.services.shopify.helpers import SyncMode
-from odoo.addons.product_connect.models.shopify_sync import ShopifySync
+from ..services.shopify.helpers import SyncMode
+from ..models.shopify_sync import ShopifySync
 
 
+@tagged("post_install", "-at_install")
 class TestProductTemplate(TransactionCase):
     def setUp(self) -> None:
         super().setUp()

@@ -4,13 +4,13 @@ from odoo.tests import tagged
 from odoo import fields
 from datetime import timedelta
 
-from ..shopify.sync.exporters.product_exporter import ProductExporter
-from ..shopify import helpers as _helpers_module
-from ..shopify.gql import (
+from ..services.shopify.sync.exporters.product_exporter import ProductExporter
+from ..services.shopify import helpers as _helpers_module
+from ..services.shopify.gql import (
     ProductSetProductSetProductResourcePublicationsV2NodesPublication,
     ProductSetProductSetProductResourcePublicationsV2Nodes,
 )
-from .test_base import ShopifyTestBase
+from .fixtures.test_service_base import ShopifyTestBase
 
 
 class DummySync:

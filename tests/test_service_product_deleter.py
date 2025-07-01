@@ -3,10 +3,10 @@ from unittest.mock import MagicMock, patch
 
 from odoo.tests import tagged
 
-from ..shopify.sync.deleters.product_deleter import ProductDeleter
-from ..shopify import service as _service_module
+from ..services.shopify.sync.deleters.product_deleter import ProductDeleter
+from ..services.shopify import service as _service_module
 from ariadne_codegen.client_generators.dependencies.exceptions import GraphQLClientGraphQLMultiError, GraphQLClientGraphQLError
-from .test_base import ShopifyTestBase
+from .fixtures.test_service_base import ShopifyTestBase
 
 
 class DummySync:

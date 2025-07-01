@@ -4,8 +4,8 @@ from unittest.mock import patch, MagicMock
 
 from odoo.exceptions import UserError
 from odoo.tests import TransactionCase, tagged
-from ..shopify import helpers
-from ..shopify.gql.base_model import BaseModel
+from ..services.shopify import helpers
+from ..services.shopify.gql.base_model import BaseModel
 
 
 @tagged("post_install", "-at_install")

@@ -5,10 +5,10 @@ from contextlib import contextmanager
 from httpx import Request, Response
 from odoo.tests import tagged
 
-from ..shopify.service import ShopifyService
-from ..shopify import service as _service_module
-from ..shopify.helpers import ShopifyApiError
-from .test_base import ShopifyTestBase
+from ..services.shopify.service import ShopifyService
+from ..services.shopify import service as _service_module
+from ..services.shopify.helpers import ShopifyApiError
+from .fixtures.test_service_base import ShopifyTestBase
 
 
 class DummySync:

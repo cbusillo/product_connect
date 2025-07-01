@@ -5,11 +5,11 @@ from unittest.mock import patch, MagicMock
 
 from odoo.tests import tagged
 
-from ..shopify.gql import (
+from ..services.shopify.gql import (
     OrderFields,
     CurrencyCode,
 )
-from ..shopify.gql.fragments import (
+from ..services.shopify.gql.fragments import (
     OrderFieldsFulfillments,
     OrderFieldsFulfillmentsTrackingInfo,
     MoneyBagFields,
@@ -21,9 +21,9 @@ from ..shopify.gql.fragments import (
     OrderLineItemFieldsDiscountAllocations,
     OrderLineItemFieldsDiscountAllocationsAllocatedAmountSet,
 )
-from ..shopify.sync.importers.order_importer import OrderImporter, EbayOrderData
-from ..shopify.sync.importers.customer_importer import CustomerImporter
-from ..shopify.helpers import ShopifyDataError
+from ..services.shopify.sync.importers.order_importer import OrderImporter, EbayOrderData
+from ..services.shopify.sync.importers.customer_importer import CustomerImporter
+from ..services.shopify.helpers import ShopifyDataError
 
 from .fixtures.shopify_responses import (
     create_shopify_order_response,
@@ -33,7 +33,7 @@ from .fixtures.shopify_responses import (
     create_shopify_shipping_line_response,
     create_money_bag,
 )
-from .test_base import ShopifyTestBase
+from .fixtures.test_service_base import ShopifyTestBase
 
 _logger = logging.getLogger(__name__)
 

@@ -4,10 +4,10 @@ from unittest.mock import MagicMock
 from odoo.api import Environment
 from odoo.tests import tagged
 
-from ..shopify.sync.base import ShopifyBaseImporter, ShopifyBaseExporter, ShopifyBaseDeleter
-from ..shopify.helpers import format_datetime_for_shopify, parse_shopify_datetime_to_utc
-from ..shopify.gql import Client
-from .test_base import ShopifyTestBase
+from ..services.shopify.sync.base import ShopifyBaseImporter, ShopifyBaseExporter, ShopifyBaseDeleter
+from ..services.shopify.helpers import format_datetime_for_shopify, parse_shopify_datetime_to_utc
+from ..services.shopify.gql import Client
+from .fixtures.test_service_base import ShopifyTestBase
 
 
 class DummySync:

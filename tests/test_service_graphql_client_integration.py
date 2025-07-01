@@ -4,14 +4,14 @@ from unittest.mock import patch, MagicMock, Mock
 from odoo.tests import tagged
 from httpx import Request, Response
 
-from ..shopify.gql import (
+from ..services.shopify.gql import (
     ProductFields,
 )
-from ..shopify.gql.client import Client
-from ..shopify.gql.input_types import ProductSetInput, ProductSetIdentifiers
-from ..shopify.service import ShopifyService
-from ..shopify.helpers import ShopifyApiError
-from .test_base import ShopifyTestBase
+from ..services.shopify.gql.client import Client
+from ..services.shopify.gql.input_types import ProductSetInput, ProductSetIdentifiers
+from ..services.shopify.service import ShopifyService
+from ..services.shopify.helpers import ShopifyApiError
+from .fixtures.test_service_base import ShopifyTestBase
 
 
 class ThrottleStatus(TypedDict):
@@ -287,7 +287,7 @@ class TestGraphQLClientIntegration(ShopifyTestBase):
                 self.assertEqual(all_products[1].id, "gid://shopify/Product/2")
 
     def test_graphql_mutation_handling(self) -> None:
-        from ..shopify.gql import ProductSetProductSet, ProductSetProductSetProduct
+        from ..services.shopify.gql import ProductSetProductSet, ProductSetProductSetProduct
 
         mutation_response = {
             "data": {
@@ -328,7 +328,7 @@ class TestGraphQLClientIntegration(ShopifyTestBase):
                 self.assertEqual(len(result.user_errors), 0)
 
     def test_graphql_user_errors(self) -> None:
-        from ..shopify.gql import ProductSetProductSet, ProductSetProductSetUserErrors
+        from ..services.shopify.gql import ProductSetProductSet, ProductSetProductSetUserErrors
 
         user_error_response = {
             "data": {
@@ -376,7 +376,7 @@ class TestGraphQLClientIntegration(ShopifyTestBase):
                 self.assertEqual(result.user_errors[0].message, "Title can't be blank")
 
     def test_graphql_bulk_operations(self) -> None:
-        from ..shopify.gql import (
+        from ..services.shopify.gql import (
             ProductSetBulkRunBulkOperationRunMutation,
             ProductSetBulkRunBulkOperationRunMutationBulkOperation,
         )

@@ -3,14 +3,14 @@ from typing import TYPE_CHECKING
 
 from odoo.tests import tagged
 
-from ..shopify.gql import OrderFields, CustomerFields, ProductFields
-from ..shopify.sync.importers.order_importer import OrderImporter
-from ..shopify.sync.importers.customer_importer import CustomerImporter
-from ..shopify.sync.importers.product_importer import ProductImporter
-from .test_base import ShopifyTestBase
+from ..services.shopify.gql import OrderFields, CustomerFields, ProductFields
+from ..services.shopify.sync.importers.order_importer import OrderImporter
+from ..services.shopify.sync.importers.customer_importer import CustomerImporter
+from ..services.shopify.sync.importers.product_importer import ProductImporter
+from .fixtures.test_service_base import ShopifyTestBase
 
 if TYPE_CHECKING:
-    from ..shopify.sync.base import ShopifyBaseImporter
+    from ..services.shopify.sync.base import ShopifyBaseImporter
 
 from .fixtures.shopify_responses import (
     create_shopify_order_response,
@@ -20,7 +20,7 @@ from .fixtures.shopify_responses import (
     create_shopify_variant_response,
     create_shopify_address_response,
 )
-from .test_utils import create_mock_fetch_page_function
+from .fixtures.test_service_utils import create_mock_fetch_page_function
 
 
 @tagged("post_install", "-at_install")

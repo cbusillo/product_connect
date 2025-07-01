@@ -4,17 +4,17 @@ from unittest.mock import patch
 
 from odoo.tests import tagged
 
-from ..shopify.gql import MediaStatus, ProductStatus, ProductFields
-from ..shopify.helpers import ShopifyDataError
-from ..shopify.sync.importers.product_importer import ProductImporter
+from ..services.shopify.gql import MediaStatus, ProductStatus, ProductFields
+from ..services.shopify.helpers import ShopifyDataError
+from ..services.shopify.sync.importers.product_importer import ProductImporter
 from .fixtures.shopify_responses import (
     create_shopify_metafield,
     create_shopify_product_image,
     create_shopify_product_response,
     create_shopify_variant_response as create_shopify_product_variant,
 )
-from .test_utils import create_mock_simple_response
-from .test_base import ShopifyTestBase
+from .fixtures.test_service_utils import create_mock_simple_response
+from .fixtures.test_service_base import ShopifyTestBase
 
 
 @tagged("post_install", "-at_install")

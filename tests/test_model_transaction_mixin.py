@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 from odoo.tests import tagged
 
-from ..tests.test_base import ProductConnectTransactionCase
+from .fixtures.test_base import ProductConnectTransactionCase
 
 
 @tagged("post_install", "-at_install")

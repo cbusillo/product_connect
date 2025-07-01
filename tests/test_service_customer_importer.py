@@ -5,18 +5,18 @@ from unittest.mock import patch
 
 from odoo.tests import tagged
 
-from ..shopify.gql import (
+from ..services.shopify.gql import (
     CustomerFields,
     AddressFields,
 )
-from ..shopify.helpers import parse_shopify_id_from_gid
-from ..shopify.sync.importers.customer_importer import CustomerImporter
+from ..services.shopify.helpers import parse_shopify_id_from_gid
+from ..services.shopify.sync.importers.customer_importer import CustomerImporter
 
 from .fixtures.shopify_responses import (
     create_shopify_customer_response,
     create_shopify_address_response,
 )
-from .test_base import ShopifyTestBase
+from .fixtures.test_service_base import ShopifyTestBase
 
 _logger = logging.getLogger(__name__)
 
@@ -771,7 +771,7 @@ class TestCustomerImporter(ShopifyTestBase):
 
     def test_import_customer_api_rate_limit(self) -> None:
         # Test that rate limit errors are handled properly
-        from ..shopify.helpers import ShopifyApiError
+        from ..services.shopify.helpers import ShopifyApiError
 
         with patch.object(self.importer, "_fetch_page") as mock_fetch:
             mock_fetch.side_effect = ShopifyApiError("Rate limit exceeded")

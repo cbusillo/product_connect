@@ -2,11 +2,11 @@ import logging
 from unittest.mock import MagicMock, patch
 from odoo.tests import tagged
 
-from ..shopify.gql import OrderFields
-from ..shopify.sync.importers.order_importer import OrderImporter
-from ..shopify.sync.importers.customer_importer import CustomerImporter
-from ..shopify.helpers import ShopifyDataError
-from .test_base import ShopifyTestBase
+from ..services.shopify.gql import OrderFields
+from ..services.shopify.sync.importers.order_importer import OrderImporter
+from ..services.shopify.sync.importers.customer_importer import CustomerImporter
+from ..services.shopify.helpers import ShopifyDataError
+from .fixtures.test_service_base import ShopifyTestBase
 from .fixtures.shopify_responses import (
     create_shopify_order_response,
     create_shopify_customer_response,

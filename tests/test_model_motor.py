@@ -1,9 +1,10 @@
 import base64
 
-from odoo.tests import TransactionCase
+from odoo.tests import TransactionCase, tagged
 from odoo.exceptions import ValidationError
 
 
+@tagged("post_install", "-at_install")
 class TestMotor(TransactionCase):
     def setUp(self) -> None:
         super().setUp()

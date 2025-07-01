@@ -1,9 +1,10 @@
 """Base test classes for product_connect module tests."""
 
 import secrets
-from odoo.tests import TransactionCase, HttpCase
+from odoo.tests import TransactionCase, HttpCase, tagged
 
 
+@tagged("post_install", "-at_install")
 class ProductConnectTransactionCase(TransactionCase):
     """Base class for transaction-based tests with common setup."""
 
@@ -22,6 +23,7 @@ class ProductConnectTransactionCase(TransactionCase):
         pass
 
 
+@tagged("post_install", "-at_install")
 class ProductConnectHttpCase(HttpCase):
     """Base class for HTTP/browser tests with secure test user creation."""
 
@@ -38,7 +40,7 @@ class ProductConnectHttpCase(HttpCase):
         cls._setup_test_data()
 
     @classmethod
-    def _create_test_user(cls, name: str | None = "Test User", login_prefix: str | None = "test_user") -> "odoo.model.res_users":
+    def _create_test_user(cls, name: str = "Test User", login_prefix: str = "test_user") -> "odoo.model.res_users":
         """Create a test user with secure password and basic permissions."""
         # Generate unique login to avoid conflicts when tests run in parallel
         unique_suffix = secrets.token_hex(4)
@@ -80,6 +82,7 @@ class ProductConnectHttpCase(HttpCase):
         self.authenticate(self.test_user.login, self.test_user_password)
 
 
+@tagged("post_install", "-at_install")
 class ProductConnectIntegrationCase(ProductConnectHttpCase):
     """Base class for integration tests (JS/tours) with common motor test data."""
 
