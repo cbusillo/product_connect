@@ -57,6 +57,7 @@
         "views/product_inventory_wizard_views.xml",
         "views/product_product_views.xml",
         "views/product_template_views.xml",
+        "views/product_processing_dashboard.xml",
         "views/product_image_views.xml",
         "views/product_type_views.xml",
         "views/product_manufacturer_views.xml",

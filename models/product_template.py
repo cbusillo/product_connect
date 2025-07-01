@@ -275,6 +275,7 @@ class ProductTemplate(models.Model):
         for product in self:
             product.initial_cost_total = product.initial_quantity * product.standard_price
 
+
     @api.depends("list_price", "standard_price")
     def _compute_is_price_or_cost_missing(self) -> None:
         for product in self:
@@ -285,11 +286,14 @@ class ProductTemplate(models.Model):
         for product in self:
             product.is_ready_for_sale_last_enabled_date = False
             if product.is_ready_for_sale:
-                tracking_msgs = product.message_ids.filtered(
-                    lambda m: any(trk.field_id.name == "is_ready_for_sale" for trk in m.tracking_value_ids)
-                ).sorted(lambda m: m.create_date, reverse=True)
-                if tracking_msgs:
-                    product.is_ready_for_sale_last_enabled_date = tracking_msgs[0].create_date
+                tracking_messages = product.message_ids.filtered(
+                    lambda message: any(
+                        tracking.field_id.name == "is_ready_for_sale" and tracking.new_value_integer == 1
+                        for tracking in message.tracking_value_ids
+                    )
+                ).sorted(lambda message: message.create_date, reverse=True)
+                if tracking_messages:
+                    product.is_ready_for_sale_last_enabled_date = tracking_messages[0].create_date
 
     def _compute_name_with_tags_length(self) -> None:
         for product in self:
