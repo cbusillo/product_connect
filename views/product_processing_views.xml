@@ -1,8 +1,9 @@
 <odoo>
-    <!-- Graph View for Product Processing by Period -->
+    <!-- Multi-measure Graph View for Product Processing -->
     <record id="view_product_processing_graph" model="ir.ui.view">
         <field name="name">product.processing.graph</field>
         <field name="model">product.template</field>
+        <field name="type">graph</field>
         <field name="arch" type="xml">
             <graph string="Product Processing Report" type="line">
                 <field name="is_ready_for_sale_last_enabled_date" interval="month"/>
@@ -73,7 +74,7 @@
         <field name="context">{
             'search_default_processed_month': 1,
             'search_default_ready_for_sale': 1,
-            'graph_measures': ['initial_price_total', 'initial_cost_total'],
+            'graph_measures': ['initial_price_total', 'initial_cost_total', 'initial_quantity'],
             'pivot_measures': ['initial_price_total', 'initial_cost_total'],
         }</field>
         <field name="search_view_id" ref="view_product_processing_search"/>

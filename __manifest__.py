@@ -57,7 +57,7 @@
         "views/product_inventory_wizard_views.xml",
         "views/product_product_views.xml",
         "views/product_template_views.xml",
-        "views/product_processing_dashboard.xml",
+        "views/product_processing_views.xml",
         "views/product_image_views.xml",
         "views/product_type_views.xml",
         "views/product_manufacturer_views.xml",
@@ -78,6 +78,7 @@
             "product_connect/static/src/js/utils/*",
             "product_connect/static/src/js/widgets/*",
             "product_connect/static/src/xml/*",
+            "product_connect/static/src/views/**/*",
         ],
         "web.assets_unit_tests": [
             "product_connect/static/tests/**/*.test.js",
