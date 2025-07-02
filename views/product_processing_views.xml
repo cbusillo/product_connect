@@ -29,6 +29,21 @@
         </field>
     </record>
 
+    <!-- Multi-Axis Graph View (Multigraph) -->
+    <record id="view_product_processing_multigraph" model="ir.ui.view">
+        <field name="name">product.processing.multigraph</field>
+        <field name="model">product.template</field>
+        <field name="arch" type="xml">
+            <multigraph string="Product Processing Analytics">
+                <!-- Multigraph fields -->
+                <field name="is_ready_for_sale_last_enabled_date" interval="day"/>
+                <field name="initial_price_total" type="measure" axis="y" widget="monetary" string="Revenue Value"/>
+                <field name="initial_cost_total" type="measure" axis="y" widget="monetary" string="Cost Value"/>
+                <field name="initial_quantity" type="measure" axis="y1" string="Units Processed"/>
+            </multigraph>
+        </field>
+    </record>
+
     <!-- Search View with Predefined Filters -->
     <record id="view_product_processing_search" model="ir.ui.view">
         <field name="name">product.processing.search</field>
@@ -40,22 +55,32 @@
                 <field name="source"/>
                 <field name="is_ready_for_sale_last_enabled_date"/>
 
-                <filter string="Ready for Sale" name="ready_for_sale" domain="[('is_ready_for_sale', '=', True)]"/>
-                <filter string="Processed Today" name="processed_today"
-                        domain="[('is_ready_for_sale_last_enabled_date', '&gt;=', context_today().strftime('%Y-%m-%d'))]"/>
-                <filter string="Processed This Week" name="processed_week"
-                        domain="[('is_ready_for_sale_last_enabled_date', '&gt;=', (context_today() - relativedelta(days=7)).strftime('%Y-%m-%d'))]"/>
-                <filter string="Processed This Month" name="processed_month"
-                        domain="[('is_ready_for_sale_last_enabled_date', '&gt;=', context_today().strftime('%Y-%m-01'))]"/>
+                <!-- Date Filters -->
+                <filter name="ready_for_sale" string="Ready for Sale" domain="[('is_ready_for_sale', '=', True)]"/>
+                <filter name="last_7_days" string="Last 7 Days"
+                        domain="[('is_ready_for_sale_last_enabled_date', '>=', (context_today() - datetime.timedelta(days=7)).strftime('%Y-%m-%d'))]"/>
+                <filter name="last_30_days" string="Last 30 Days"
+                        domain="[('is_ready_for_sale_last_enabled_date', '>=', (context_today() - datetime.timedelta(days=30)).strftime('%Y-%m-%d'))]"/>
+                <filter name="last_90_days" string="Last 90 Days"
+                        domain="[('is_ready_for_sale_last_enabled_date', '>=', (context_today() - datetime.timedelta(days=90)).strftime('%Y-%m-%d'))]"/>
+                <filter name="last_365_days" string="Last 365 Days"
+                        domain="[('is_ready_for_sale_last_enabled_date', '>=', (context_today() - datetime.timedelta(days=365)).strftime('%Y-%m-%d'))]"/>
+                <filter name="mtd" string="MTD (Month to Date)"
+                        domain="[('is_ready_for_sale_last_enabled_date', '>=', (context_today().strftime('%Y-%m-01')))]"/>
+                <filter name="ytd" string="YTD (Year to Date)"
+                        domain="[('is_ready_for_sale_last_enabled_date', '>=', (context_today().strftime('%Y-01-01')))]"/>
 
                 <separator/>
 
-                <filter string="Motor Products" name="motor_products" domain="[('source', '=', 'motor')]"/>
-                <filter string="Import Products" name="import_products" domain="[('source', '=', 'import')]"/>
-                <filter string="Shopify Products" name="shopify_products" domain="[('source', '=', 'shopify')]"/>
+                <!-- Product Type Filters -->
+                <filter name="motor_products" string="Motor Products" domain="[('source', '=', 'motor')]"/>
+                <filter name="import_products" string="Import Products" domain="[('source', '=', 'import')]"/>
+                <filter name="shopify_products" string="Shopify Products" domain="[('source', '=', 'shopify')]"/>
+                <filter name="standard_products" string="Standard Products" domain="[('source', '=', 'standard')]"/>
 
                 <separator/>
 
+                <!-- Traditional Group By -->
                 <filter string="Processed Date" name="groupby_processed_date"
                         context="{'group_by': 'is_ready_for_sale_last_enabled_date:month'}"/>
                 <filter string="Source" name="groupby_source" context="{'group_by': 'source'}"/>
@@ -66,42 +91,27 @@
 
     <!-- Action for Product Processing Analytics -->
     <record id="action_product_processing_analytics" model="ir.actions.act_window">
-        <field name="name">Product Processing Report</field>
+        <field name="name">Product Processing Analytics</field>
         <field name="res_model">product.template</field>
-        <field name="view_mode">graph,pivot,list</field>
+        <field name="view_mode">multigraph,graph,pivot,list</field>
         <field name="domain">[('is_ready_for_sale', '=', True),
                               ('is_ready_for_sale_last_enabled_date', '!=', False)]</field>
         <field name="context">{
-            'search_default_processed_month': 1,
-            'search_default_ready_for_sale': 1,
+            'search_default_last_7_days': True,
+            'graph_groupbys': ['is_ready_for_sale_last_enabled_date:day'],
             'graph_measures': ['initial_price_total', 'initial_cost_total', 'initial_quantity'],
-            'pivot_measures': ['initial_price_total', 'initial_cost_total'],
+            'pivot_measures': ['initial_price_total', 'initial_cost_total']
         }</field>
         <field name="search_view_id" ref="view_product_processing_search"/>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
-                No products have been processed yet
+                No processed products found
             </p>
             <p>
-                This report shows the value of products that have been processed and marked as ready for sale.
-                You can analyze by time period, source, and product type to track your processing efficiency.
+                This view shows revenue, cost, and quantity trends for processed products over time.
+                Use the multigraph view for multi-axis analysis, or switch to graph/pivot for detailed analysis.
             </p>
         </field>
-    </record>
-
-    <!-- Set specific views for the action -->
-    <record id="action_product_processing_analytics_graph" model="ir.actions.act_window.view">
-        <field name="sequence" eval="1"/>
-        <field name="view_mode">graph</field>
-        <field name="view_id" ref="view_product_processing_graph"/>
-        <field name="act_window_id" ref="action_product_processing_analytics"/>
-    </record>
-
-    <record id="action_product_processing_analytics_pivot" model="ir.actions.act_window.view">
-        <field name="sequence" eval="2"/>
-        <field name="view_mode">pivot</field>
-        <field name="view_id" ref="view_product_processing_pivot"/>
-        <field name="act_window_id" ref="action_product_processing_analytics"/>
     </record>
 
     <!-- Menu Items -->
