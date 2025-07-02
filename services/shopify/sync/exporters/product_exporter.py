@@ -68,6 +68,7 @@ class ProductExporter(ShopifyBaseExporter["odoo.model.product_product"]):
             [
                 ("sale_ok", "=", True),
                 ("is_ready_for_sale", "=", True),
+                ("is_published", "=", True),
                 ("website_description", "!=", False),
                 ("website_description", "!=", ""),
                 ("type", "=", "consu"),
