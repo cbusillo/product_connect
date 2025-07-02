@@ -278,12 +278,12 @@ def parse_shopify_sku_field_to_sku_and_bin(sku_field: str) -> tuple[str, str]:
     return sku, bin_location
 
 
-def format_sku_bin_for_shopify(sku: str, bin_location: str) -> str:
-    sku = sku.strip()
-    if not sku:
+def format_sku_bin_for_shopify(sku: str | None, bin_location: str | None) -> str:
+    if sku is None or sku.strip() == "":
         raise OdooMissingSkuError("No SKU to format for Shopify")
+    sku = sku.strip()
 
-    bin_location = bin_location.strip()
+    bin_location = (bin_location or "").strip()
     return f"{sku} - {bin_location}"
 
 

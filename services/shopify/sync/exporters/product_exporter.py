@@ -232,7 +232,7 @@ class ProductExporter(ShopifyBaseExporter["odoo.model.product_product"]):
                 else None
             ),
             price=Decimal(odoo_product.list_price),
-            sku=format_sku_bin_for_shopify(odoo_product.default_code, odoo_product.bin or ""),
+            sku=format_sku_bin_for_shopify(odoo_product.default_code, odoo_product.bin),
             barcode=odoo_product.mpn or "",
             inventoryItem=shopify_inventory_item_input,
             optionValues=[VariantOptionValueInput(optionName="Title", name="Default Title")],

@@ -52,7 +52,7 @@
                         invisible="not is_ready_to_list" title="Upload" width="18"/>
                 <field name="is_qty_listing" widget="boolean" string="Qty" class="green_checkmark"
                        invisible="not is_qty_listing" width="30"/>
-                <field name="default_code" width="80px"/>
+                <field name="default_code" width="80px" readonly="1"/>
                 <field name="images" widget="file_drop" optional="show" width="90"/>
                 <field name="image_count" column_invisible="1"/>
                 <field name="manufacturer" options="{'no_create': True}"/>
@@ -136,7 +136,7 @@
                 <field name="sequence" column_invisible="1"/>
                 <field name="is_qty_listing" widget="boolean" string="Qty Listing" class="green_checkmark"
                        invisible="not is_qty_listing"/>
-                <field name="default_code" width="80px"/>
+                <field name="default_code" width="80px" readonly="1"/>
                 <field name="images" widget="file_drop"/>
                 <field name="images"/>
                 <field name="image_count" column_invisible="1"/>
@@ -165,7 +165,7 @@
             <list string="Motor Products" editable="bottom" open_form_view="1" create="0" delete="0"
                   default_order="bin, weight, sequence">
                 <field name="sequence" column_invisible="1"/>
-                <field name="default_code" width="80px"/>
+                <field name="default_code" width="80px" readonly="1"/>
                 <field name="initial_quantity" widget="integer" width="50"/>
                 <field name="motor_product_template_name"/>
                 <field name="bin" width="60px" placeholder="A01A1"/>
@@ -261,7 +261,7 @@
                                     <field name="reference_product"/>
                                     <field name="motor_product_template"/>
                                     <field name="part_type"/>
-                                    <field name="default_code"/>
+                                    <field name="default_code" readonly="1"/>
                                     <field name="initial_quantity" widget="integer"/>
                                     <field name="weight" widget="integer"/>
                                 </group>

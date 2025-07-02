@@ -243,12 +243,10 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
                 "default_code": sku,
                 "website_description": shopify_product.description_html,
                 "list_price": float(variant.price),
-                "standard_price": float(variant.inventory_item.unit_cost.amount or 0),
+                "standard_price": float(variant.inventory_item.unit_cost.amount or 0 if variant.inventory_item.unit_cost else 0),
                 "mpn": variant.barcode,
                 "bin": bin_location,
-                "weight": float(variant.inventory_item.measurement.weight.value or 0)
-                if variant.inventory_item.measurement.weight
-                else 0,
+                "weight": variant.inventory_item.measurement.weight.value if variant.inventory_item.measurement.weight else 0,
                 "type": "consu",
                 "is_storable": True,
                 "manufacturer": self.get_or_create_manufacturer(shopify_product.vendor).id if shopify_product.vendor else False,

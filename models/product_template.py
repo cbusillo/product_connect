@@ -37,7 +37,7 @@ class ProductTemplate(models.Model):
 
     motor = fields.Many2one("motor", ondelete="restrict", readonly=True, index=True)
     motor_tests = fields.One2many("motor.test", related="motor.tests")
-    default_code = fields.Char("SKU", index=True, copy=False, readonly=True)
+    default_code = fields.Char("SKU", index=True, copy=False)
     standard_price = fields.Float(
         string="Cost",
         tracking=True,
@@ -120,6 +120,16 @@ class ProductTemplate(models.Model):
     shopify_product_url = fields.Char(compute="_compute_shopify_urls", store=True, string="Shopify Product Link")
     shopify_product_admin_url = fields.Char(compute="_compute_shopify_urls", store=True, string="Shopify Product Admin Link")
 
+    @api.model
+    def default_get(self, fields_list: list[str]) -> dict[str, Any]:
+        defaults = super().default_get(fields_list)
+
+        source = self.env.context.get("default_source")
+        if "default_code" in fields_list and source == "import":
+            defaults["default_code"] = self.get_next_sku()
+
+        return defaults
+
     # noinspection PyShadowingNames
     @api.model
     def read_group(
@@ -150,6 +160,17 @@ class ProductTemplate(models.Model):
     @api.model_create_multi
     def create(self, vals_list: list["odoo.values.product_template"]) -> "odoo.model.product_template":
         for vals in vals_list:
+            source = self._context.get("default_source") or vals.get("source")
+            if source:
+                vals["source"] = source
+                if source == "import":
+                    vals["type"] = "consu"
+                    vals["is_ready_for_sale"] = False
+                    vals["is_ready_to_list"] = True
+                    vals["is_storable"] = True
+                if source == "motor":
+                    vals["is_ready_for_sale"] = False
+
             if "type" in vals and vals["type"] == "service":
                 vals["is_ready_for_sale"] = False
                 vals["is_ready_to_list"] = False
@@ -158,23 +179,15 @@ class ProductTemplate(models.Model):
             if "default_code" not in vals and vals.get("type") == "consu":
                 vals["default_code"] = self.get_next_sku()
 
-            source = self._context.get("default_source")
-            if source:
-                vals["source"] = source
-
         products = super().create(vals_list)
         for product in products:
             if product.source == "motor":
                 product.name = product.motor_product_computed_name
-            elif product.source == "import":
-                product.is_ready_for_sale = False
-                product.is_ready_to_list = True
-                product.is_storable = True
 
         if self.env.context.get("skip_shopify_sync"):
             return products
 
-        if consumable_products := products.filtered(lambda p: p.type == "consu"):
+        if consumable_products := products.filtered(lambda p: p.type == "consu" and p.is_ready_for_sale):
             variant_ids = consumable_products.mapped("product_variant_ids").ids
             self.env["shopify.sync"].create_and_run_async(
                 {"mode": SyncMode.EXPORT_BATCH_PRODUCTS, "odoo_products_to_sync": [(6, 0, variant_ids)]}
@@ -239,11 +252,11 @@ class ProductTemplate(models.Model):
                 product.motor.notify_changes()
 
         if not self.env.context.get("skip_shopify_sync"):
-            variant_ids = self.filtered(lambda p: p.type == "consu").mapped("product_variant_ids").ids
-            commands = [(4, vid) for vid in variant_ids]
-            self.env["shopify.sync"].create_and_run_async(
-                {"mode": SyncMode.EXPORT_BATCH_PRODUCTS, "odoo_products_to_sync": commands}
-            )
+            if variant_ids := self.filtered(lambda p: p.type == "consu" and p.is_ready_for_sale).mapped("product_variant_ids").ids:
+                commands = [(4, vid) for vid in variant_ids]
+                self.env["shopify.sync"].create_and_run_async(
+                    {"mode": SyncMode.EXPORT_BATCH_PRODUCTS, "odoo_products_to_sync": commands}
+                )
 
         return all(write_results)
 
@@ -274,7 +287,6 @@ class ProductTemplate(models.Model):
     def _compute_initial_cost_total(self) -> None:
         for product in self:
             product.initial_cost_total = product.initial_quantity * product.standard_price
-
 
     @api.depends("list_price", "standard_price")
     def _compute_is_price_or_cost_missing(self) -> None:
