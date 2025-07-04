@@ -405,7 +405,7 @@ class TestProductImporter(ShopifyTestBase):
 
     def test_skip_up_to_date_product(self) -> None:
         sku = self._get_unique_sku()
-        self.env["product.product"].create(
+        existing_product = self.env["product.product"].create(
             {
                 "name": "Current Product",
                 "default_code": sku,
@@ -417,13 +417,22 @@ class TestProductImporter(ShopifyTestBase):
         product_data = create_shopify_product_response(
             gid="gid://shopify/Product/666",
             updated_at=datetime(2020, 1, 1).isoformat(),
+            media=[],  # Explicitly set empty media
             variants=[
                 create_shopify_product_variant(sku=sku),
             ],
         )
 
-        with patch.object(self.importer, "_fetch_page") as mock_fetch:
+        # Mock the date comparison to ensure our product is considered newer
+        with (
+            patch.object(self.importer, "_fetch_page") as mock_fetch,
+            patch(
+                "odoo.addons.product_connect.services.shopify.sync.importers.product_importer.determine_latest_odoo_product_modification_time"
+            ) as mock_date,
+        ):
             mock_fetch.return_value = create_mock_simple_response([ProductFields(**product_data)])
+            # Return a date newer than the Shopify product's updated_at (2020)
+            mock_date.return_value = datetime(2023, 1, 1)
             imported_count = self.importer.import_products_since_last_import()
 
         self.assertEqual(imported_count, 0)

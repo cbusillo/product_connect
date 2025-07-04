@@ -1,11 +1,12 @@
 import base64
 
-from odoo.tests import TransactionCase, tagged
+from odoo.tests import tagged
+from .fixtures.test_base import ProductConnectTransactionCase
 from odoo.exceptions import ValidationError
 
 
 @tagged("post_install", "-at_install")
-class TestMotor(TransactionCase):
+class TestMotor(ProductConnectTransactionCase):
     def setUp(self) -> None:
         super().setUp()
         # Use context to skip Shopify sync during tests

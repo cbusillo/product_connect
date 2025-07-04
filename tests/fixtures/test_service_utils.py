@@ -8,37 +8,24 @@ def create_mock_fetch_page_function(
     field_class: type,
     has_page_info: bool = True,
 ) -> Any:
-    def mock_fetch_page(after: str = None) -> MagicMock:
-        mock_response = MagicMock()
-
-        if after is None and data_list:
+    def mock_fetch_page(client: Any, query: str | None, cursor: str | None) -> MagicMock:
+        # _fetch_page returns what client.get_orders() returns, which is already the .orders object
+        # So we return a mock that has nodes and page_info directly
+        mock_page = MagicMock()
+        
+        if cursor is None and data_list:
             # First page with data
-            if entity_type in ["orders", "customers"]:
-                # Nested structure for orders and customers
-                entity_mock = MagicMock()
-                entity_mock.nodes = [field_class(**data) for data in data_list]
-                entity_mock.page_info.has_next_page = False
-                setattr(mock_response, entity_type, entity_mock)
-            else:
-                # Direct structure for products
-                mock_response.nodes = [field_class(**data) for data in data_list]
-                if has_page_info:
-                    mock_response.page_info.has_next_page = False
-                    mock_response.page_info.end_cursor = None
+            mock_page.nodes = [field_class(**data) for data in data_list]
         else:
-            # Empty page or after cursor
-            if entity_type in ["orders", "customers"]:
-                entity_mock = MagicMock()
-                entity_mock.nodes = []
-                entity_mock.page_info.has_next_page = False
-                setattr(mock_response, entity_type, entity_mock)
-            else:
-                mock_response.nodes = []
-                if has_page_info:
-                    mock_response.page_info.has_next_page = False
-                    mock_response.page_info.end_cursor = None
+            # Empty page or cursor provided
+            mock_page.nodes = []
+            
+        # Always set page_info
+        mock_page.page_info = MagicMock()
+        mock_page.page_info.has_next_page = False
+        mock_page.page_info.end_cursor = None
 
-        return mock_response
+        return mock_page
 
     return mock_fetch_page
 

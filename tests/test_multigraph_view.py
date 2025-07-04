@@ -1,8 +1,8 @@
-from odoo.tests.common import TransactionCase
 from lxml import etree
+from .fixtures.test_base import ProductConnectTransactionCase
 
 
-class TestMultigraphView(TransactionCase):
+class TestMultigraphView(ProductConnectTransactionCase):
     def setUp(self) -> None:
         super().setUp()
         self.View = self.env["ir.ui.view"]

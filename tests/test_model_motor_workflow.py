@@ -1,16 +1,16 @@
-from odoo.tests import TransactionCase, tagged
+from odoo.tests import tagged
+from .fixtures.test_base import ProductConnectTransactionCase
 
 
 @tagged("post_install", "-at_install")
-class TestMotorWorkflow(TransactionCase):
+class TestMotorWorkflow(ProductConnectTransactionCase):
     """Unit tests for motor workflow and product creation"""
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
 
-        # Skip Shopify sync but keep other functionality
-        cls.env = cls.env(context=dict(cls.env.context, skip_shopify_sync=True))
+        # Context is already set by base class
 
         # Create test data
         cls.manufacturer = cls.env["product.manufacturer"].create(

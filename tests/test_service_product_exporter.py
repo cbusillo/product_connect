@@ -73,28 +73,30 @@ class TestProductExporter(ShopifyTestBase):
         self.exporter.service.client.update_publications.assert_not_called()
 
     def test_find_products_to_export(self) -> None:
-        tmpl1 = (
-            self.env["product.template"]
-            .with_context(skip_shopify_sync=True)
-            .create({"name": "P1", "type": "consu", "website_description": "d"})
-        )
-        prod1 = tmpl1.product_variant_id
-        prod1.shopify_next_export = True
+        # Use and modify the pre-created test products from base class
+        # Product 1: Should be exported (has shopify_next_export=True)
+        prod1 = self.test_products[0]
+        prod1.write({
+            'is_ready_for_sale': True,
+            'is_published': True,
+            'shopify_next_export': True,
+        })
 
-        tmpl2 = (
-            self.env["product.template"]
-            .with_context(skip_shopify_sync=True)
-            .create({"name": "P2", "type": "consu", "sale_ok": False, "website_description": "d"})
-        )
-        prod2 = tmpl2.product_variant_id
+        # Product 2: Should NOT be exported (not for sale)
+        prod2 = self.test_products[1]
+        prod2.write({
+            'is_ready_for_sale': True,
+            'is_published': True,
+            'sale_ok': False,
+        })
 
-        tmpl3 = (
-            self.env["product.template"]
-            .with_context(skip_shopify_sync=True)
-            .create({"name": "P3", "type": "consu", "website_description": "d"})
-        )
-        prod3 = tmpl3.product_variant_id
-        prod3.shopify_last_exported_at = fields.Datetime.now() + timedelta(days=1)
+        # Product 3: Should NOT be exported (recently exported)
+        prod3 = self.test_products[2]
+        prod3.write({
+            'is_ready_for_sale': True,
+            'is_published': True,
+            'shopify_last_exported_at': fields.Datetime.now() + timedelta(days=1),
+        })
 
         result = self.exporter._find_products_to_export()
         self.assertIn(prod1, result)

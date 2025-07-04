@@ -1,11 +1,12 @@
-from odoo.tests import TransactionCase, tagged
+from odoo.tests import tagged
+from .fixtures.test_base import ProductConnectTransactionCase
 import logging
 
 _logger = logging.getLogger(__name__)
 
 
 @tagged("post_install", "-at_install")
-class TestShipping(TransactionCase):
+class TestShipping(ProductConnectTransactionCase):
     """Comprehensive test suite for shipping functionality
 
     This test class covers:

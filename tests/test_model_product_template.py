@@ -1,13 +1,14 @@
 from unittest.mock import patch
 
-from odoo.tests import TransactionCase, tagged
+from odoo.tests import tagged
+from .fixtures.test_base import ProductConnectTransactionCase
 from odoo.exceptions import ValidationError
 from ..services.shopify.helpers import SyncMode
 from ..models.shopify_sync import ShopifySync
 
 
 @tagged("post_install", "-at_install")
-class TestProductTemplate(TransactionCase):
+class TestProductTemplate(ProductConnectTransactionCase):
     def setUp(self) -> None:
         super().setUp()
         # Use context to skip Shopify sync during tests
@@ -29,7 +30,14 @@ class TestProductTemplate(TransactionCase):
             )
 
         with patch.object(ShopifySync, "create_and_run_async") as create_sync:
-            product = env_without_skip["product.template"].create({"name": "Test", "type": "consu"})
+            # Create product that meets the sync criteria: consumable, ready for sale, and published
+            product = env_without_skip["product.template"].create({
+                "name": "Test",
+                "type": "consu",
+                "is_ready_for_sale": True,
+                "is_published": True,
+                "default_code": "1234"  # Add valid SKU to pass validation
+            })
             variant_ids = product.product_variant_ids.ids
             create_sync.assert_any_call({"mode": SyncMode.EXPORT_BATCH_PRODUCTS, "odoo_products_to_sync": [(6, 0, variant_ids)]})
 

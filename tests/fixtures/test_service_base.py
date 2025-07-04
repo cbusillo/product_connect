@@ -1,8 +1,8 @@
 from unittest.mock import patch, MagicMock
-from odoo.tests import TransactionCase
+from .test_base import ProductConnectTransactionCase
 
 
-class ShopifyTestBase(TransactionCase):
+class ShopifyTestBase(ProductConnectTransactionCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()

@@ -1,9 +1,10 @@
-from odoo.tests import HttpCase, tagged
+from odoo.tests import tagged
+from .fixtures.test_base import ProductConnectHttpCase
 import secrets
 
 
 @tagged("post_install", "-at_install", "product_connect_tour")
-class TestShippingAnalyticsTour(HttpCase):
+class TestShippingAnalyticsTour(ProductConnectHttpCase):
     """Tour test runner for shipping analytics UI tests"""
 
     @classmethod
