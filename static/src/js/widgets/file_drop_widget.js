@@ -42,11 +42,11 @@ export class FileDropWidget extends BinaryField {
     }
 
     async getHighestIndex(productId) {
-        const existingImages = await this.orm.searchRead(this.imageModelName, [['product_tmpl_id', '=', productId]], ['initial_index']);
-        if (!existingImages.length) return -1
+        const existingImages = await this.orm.searchRead(this.imageModelName, [['product_tmpl_id', '=', productId]], ['sequence']);
+        if (!existingImages.length) return 0
 
-        return Math.max(...existingImages.map(record => record.initial_index));
-
+        const maxSequence = Math.max(...existingImages.map(record => record.sequence || 0));
+        return Math.floor(maxSequence / 10);  // Convert back to index
     }
 
 
@@ -56,15 +56,15 @@ export class FileDropWidget extends BinaryField {
         ev.stopPropagation()
         if (ev.dataTransfer) {
             const { files } = ev.dataTransfer
-            const sortedUploadFiles = [...files].sort((a, b) =>
-                a.name.localeCompare(b.name),
+            const uploadFiles = [...files].sort((a, b) =>
+                a.name.localeCompare(b.name)
             )
             try {
-                this.notification.add(`Resizing ${sortedUploadFiles.length} Image(s)`, {
+                this.notification.add(`Resizing ${uploadFiles.length} Image(s)`, {
                     type: 'info',
                 })
-                const sortedUploadedImageBase = await Promise.all(
-                    sortedUploadFiles.map(async (file) => {
+                const uploadedImageBase = await Promise.all(
+                    uploadFiles.map(async (file) => {
                         if (!(file instanceof Blob)) {
                             throw new Error("The file is not a Blob.")
                         }
@@ -73,16 +73,18 @@ export class FileDropWidget extends BinaryField {
                 )
                 const highestIndex = await this.getHighestIndex(this.props.record.resId);
 
-                const recordsToSend = sortedUploadedImageBase.map((image, index) => ({
+                const recordsToSend = uploadedImageBase.map((image, index) => ({
                     product_tmpl_id: this.props.record.resId,
                     image_1920: image,
                     initial_index: index + highestIndex + 1,
+                    sequence: (index + highestIndex + 1) * 10,  // Use sequence for proper ordering
                     name: index + highestIndex + 1,
                 }))
                 this.notification.add(`Uploading ${recordsToSend.length} Image(s)`, {
                     type: 'info',
                 })
                 await this.batchUpload(recordsToSend)
+                await this.orm.call('shopify.sync', 'create_and_run_async', [{ mode: 'export_changed_products' }])
                 await this.props.record.load()
                 this.notification.add(`${recordsToSend.length} Image(s) uploaded successfully`, {
                     type: 'success',
@@ -109,7 +111,7 @@ export class FileDropWidget extends BinaryField {
         for (let i = 0; i < records.length; i += batchSize) {
             const batch = records.slice(i, i + batchSize);
 
-            const uploadPromise = this.orm.create(this.imageModelName, batch)
+            const uploadPromise = this.orm.create(this.imageModelName, batch, { context: { skip_immediate_sync: true } })
                 .then(() => {
                     activePromises.delete(uploadPromise);
                 })

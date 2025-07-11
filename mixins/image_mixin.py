@@ -24,10 +24,16 @@ class ImageMixin(models.AbstractModel):
     shopify_media_id = fields.Char(string="Shopify Media ID")
 
     def _mark_for_shopify_product_export(self) -> None:
+        products_to_mark = self.env["product.product"]
         for record in self:
             if isinstance(record, type(self.env["product.image"])):
-                record.product_variant_id.shopify_next_export = True
-                record.product_variant_id.shopify_next_export_images = True
+                products_to_mark |= record.product_variant_id
+
+        if products_to_mark:
+            products_to_mark.write({"shopify_next_export": True, "shopify_next_export_images": True})
+
+            # Only create sync job if not in batch mode
+            if not self.env.context.get("skip_immediate_sync"):
                 self.env["shopify.sync"].create_and_run_async({"mode": SyncMode.EXPORT_CHANGED_PRODUCTS})
 
     @api.model_create_multi
