@@ -32,7 +32,6 @@ class ImageMixin(models.AbstractModel):
         if products_to_mark:
             products_to_mark.write({"shopify_next_export": True, "shopify_next_export_images": True})
 
-            # Only create sync job if not in batch mode
             if not self.env.context.get("skip_immediate_sync"):
                 self.env["shopify.sync"].create_and_run_async({"mode": SyncMode.EXPORT_CHANGED_PRODUCTS})
 

@@ -84,7 +84,7 @@ export class FileDropWidget extends BinaryField {
                     type: 'info',
                 })
                 await this.batchUpload(recordsToSend)
-                await this.orm.call('shopify.sync', 'create_and_run_async', [{ mode: 'export_changed_products' }])
+                await this.orm.call('shopify.sync', 'create_and_run_async', [[{ mode: 'export_changed_products' }]])
                 await this.props.record.load()
                 this.notification.add(`${recordsToSend.length} Image(s) uploaded successfully`, {
                     type: 'success',
