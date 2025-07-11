@@ -1,8 +1,12 @@
+import logging
 from contextlib import contextmanager
 from typing import Generator
 
+from psycopg2.errors import InFailedSqlTransaction
 from odoo import api, models
 from odoo.tools import config
+
+_logger = logging.getLogger(__name__)
 
 
 class TransactionMixin(models.AbstractModel):
@@ -41,4 +45,7 @@ class TransactionMixin(models.AbstractModel):
         try:
             yield True
         finally:
-            cr.execute("SELECT pg_advisory_unlock(%s)", [lock_id])
+            try:
+                cr.execute("SELECT pg_advisory_unlock(%s)", [lock_id])
+            except InFailedSqlTransaction:
+                _logger.debug(f"Advisory lock {lock_id} will be released on session end due to aborted transaction")

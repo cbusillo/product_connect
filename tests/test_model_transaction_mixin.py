@@ -1,5 +1,6 @@
 from unittest.mock import patch
 
+from psycopg2.errors import InFailedSqlTransaction
 from odoo.tests import tagged
 
 from .fixtures.test_base import ProductConnectTransactionCase
@@ -97,3 +98,41 @@ class TestTransactionMixin(ProductConnectTransactionCase):
         self.env.cr.execute("SELECT pg_try_advisory_lock(%s)", [12345])
         self.assertTrue(self.env.cr.fetchone()[0], "Lock should be released")
         self.env.cr.execute("SELECT pg_advisory_unlock(%s)", [12345])
+
+    def test_advisory_lock_with_failed_transaction(self) -> None:
+        """Test advisory lock handles transaction failure gracefully"""
+        # Mock the cursor to simulate transaction failure on unlock
+        original_execute = self.env.cr.execute
+        unlock_call_count = 0
+
+        def mock_execute(query, params=None):
+            nonlocal unlock_call_count
+            # Let the lock acquisition succeed
+            if "pg_try_advisory_lock" in query:
+                return original_execute(query, params)
+            # Simulate transaction failure on unlock
+            elif "pg_advisory_unlock" in query:
+                unlock_call_count += 1
+                raise InFailedSqlTransaction("current transaction is aborted")
+            else:
+                return original_execute(query, params)
+
+        with patch.object(self.env.cr, "execute", side_effect=mock_execute):
+            # The lock should still work even if unlock fails
+            with self.test_model._advisory_lock(12346) as acquired:
+                self.assertTrue(acquired, "Should acquire advisory lock")
+
+            # Verify the unlock was attempted
+            self.assertEqual(unlock_call_count, 1, "Should have attempted to unlock")
+
+        # In a real scenario, the lock would be released when the session ends
+        # For testing, manually verify and release it
+        self.env.cr.execute("SELECT pg_try_advisory_lock(%s)", [12346])
+        lock_available = self.env.cr.fetchone()[0]
+        if lock_available:
+            # Lock was already released (good)
+            self.env.cr.execute("SELECT pg_advisory_unlock(%s)", [12346])
+        else:
+            # Lock is still held by our session - this is expected behavior
+            # It will be released when the session ends
+            pass

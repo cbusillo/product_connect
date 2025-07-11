@@ -120,7 +120,6 @@ class ShopifySync(models.TransientModel):
         with self._advisory_lock(self.LOCK_ID) as lock_acquired:
             if lock_acquired:
                 self._fail_stale_runs()
-                self.env.cr.flush()
 
             for vals in vals_list:
                 existing = [
