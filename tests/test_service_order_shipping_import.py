@@ -54,13 +54,9 @@ class TestOrderShippingImport(ShopifyTestBase):
         )
 
     def _setup_delivery_carriers(self) -> None:
-        """Create delivery carriers and service mappings for tests"""
-        # First, clean up any existing test data to avoid conflicts
         self.env["delivery.carrier.service.map"].search([("platform", "=", "shopify")]).unlink()
 
-        # Find or create delivery carriers
         def get_or_create_carrier(name: str, product_vals: dict) -> tuple:
-            """Get existing carrier or create new one with product"""
             carrier = self.env["delivery.carrier"].search([("name", "=", name)], limit=1)
             if carrier:
                 return carrier, carrier.product_id

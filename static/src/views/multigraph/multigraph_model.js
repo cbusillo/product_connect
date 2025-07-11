@@ -7,6 +7,7 @@ export class MultigraphModel extends GraphModel {
         super.setup(params);
         this.measures = this.metaData.measures || [];
         this.axisConfig = this.metaData.axisConfig || {};
+        this.resModel = this.metaData.resModel;
         this.dataPoints = [];
         this.data = null;
     }
