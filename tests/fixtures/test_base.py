@@ -22,29 +22,33 @@ class ProductConnectTransactionCase(TransactionCase):
         """Override this method to set up test-specific data."""
         # Skip Shopify sync during tests
         cls.env = cls.env(context=dict(cls.env.context, skip_shopify_sync=True))
-        
+
         # Create test tags for data isolation
         cls._create_test_tags()
-        
+
         # Create default test products with valid SKUs
         cls._create_default_test_products()
-    
+
     @classmethod
     def _create_test_tags(cls) -> None:
         """Create test tags for data isolation."""
         # Create product tag for test products
-        cls.test_product_tag = cls.env["product.tag"].create({
-            "name": "Test Suite Data",
-            "sequence": 999,
-            "color": 10,  # Red color for visibility
-        })
-        
+        cls.test_product_tag = cls.env["product.tag"].create(
+            {
+                "name": "Test Suite Data",
+                "sequence": 999,
+                "color": 10,  # Red color for visibility
+            }
+        )
+
         # Create CRM tag for test sales orders
-        cls.test_order_tag = cls.env["crm.tag"].create({
-            "name": "Test Suite Data",
-            "color": 10,  # Red color for visibility
-        })
-    
+        cls.test_order_tag = cls.env["crm.tag"].create(
+            {
+                "name": "Test Suite Data",
+                "color": 10,  # Red color for visibility
+            }
+        )
+
     @classmethod
     def _get_default_product_vals(cls) -> dict:
         """Get default values for test products."""
@@ -57,7 +61,7 @@ class ProductConnectTransactionCase(TransactionCase):
             "website_description": "Test product description",
             "product_tag_ids": [(4, cls.test_product_tag.id)],
         }
-    
+
     @classmethod
     def _get_default_order_vals(cls) -> dict:
         """Get default values for test sales orders."""
@@ -65,7 +69,7 @@ class ProductConnectTransactionCase(TransactionCase):
             "partner_id": cls.test_partner.id,
             "tag_ids": [(4, cls.test_order_tag.id)],
         }
-    
+
     @classmethod
     def _get_default_partner_vals(cls) -> dict:
         """Get default values for test partners."""
@@ -73,89 +77,107 @@ class ProductConnectTransactionCase(TransactionCase):
             "email": "test@example.com",
             "is_company": False,
         }
-    
+
     @classmethod
     def _create_default_test_products(cls) -> None:
         """Create default test products that can be used across tests."""
         # First create test partner that products might need
-        cls.test_partner = cls.env["res.partner"].create({
-            **cls._get_default_partner_vals(),
-            "name": "Test Customer",
-        })
-        
+        cls.test_partner = cls.env["res.partner"].create(
+            {
+                **cls._get_default_partner_vals(),
+                "name": "Test Customer",
+            }
+        )
+
         # Additional test partners
         cls.test_partners = []
         for i in range(3):
-            partner = cls.env["res.partner"].create({
-                **cls._get_default_partner_vals(),
-                "name": f"Test Customer {i+1}",
-                "email": f"test{i+1}@example.com",
-            })
+            partner = cls.env["res.partner"].create(
+                {
+                    **cls._get_default_partner_vals(),
+                    "name": f"Test Customer {i + 1}",
+                    "email": f"test{i + 1}@example.com",
+                }
+            )
             cls.test_partners.append(partner)
-        
+
         # Standard consumable product with valid SKU
-        cls.test_product = cls.env["product.product"].create({
-            **cls._get_default_product_vals(),
-            "name": "Test Product",
-            "default_code": "10000001",  # Valid 8-digit SKU
-        })
-        
+        cls.test_product = cls.env["product.product"].create(
+            {
+                **cls._get_default_product_vals(),
+                "name": "Test Product",
+                "default_code": "10000001",  # Valid 8-digit SKU
+            }
+        )
+
         # Service product (no SKU validation)
-        cls.test_service = cls.env["product.product"].create({
-            **cls._get_default_product_vals(),
-            "name": "Test Service",
-            "default_code": "SERVICE-001",  # Services can have any SKU
-            "type": "service",
-            "list_price": 50.0,
-        })
-        
+        cls.test_service = cls.env["product.product"].create(
+            {
+                **cls._get_default_product_vals(),
+                "name": "Test Service",
+                "default_code": "SERVICE-001",  # Services can have any SKU
+                "type": "service",
+                "list_price": 50.0,
+            }
+        )
+
         # Ready-to-sell product for Shopify sync tests
-        cls.test_product_ready = cls.env["product.product"].create({
-            **cls._get_default_product_vals(),
-            "name": "Test Product Ready",
-            "default_code": "20000001",  # Valid 8-digit SKU
-            "list_price": 200.0,
-            "is_ready_for_sale": True,
-            "is_published": True,
-        })
-        
+        cls.test_product_ready = cls.env["product.product"].create(
+            {
+                **cls._get_default_product_vals(),
+                "name": "Test Product Ready",
+                "default_code": "20000001",  # Valid 8-digit SKU
+                "list_price": 200.0,
+                "is_ready_for_sale": True,
+                "is_published": True,
+            }
+        )
+
         # Create a pool of generic test products for various test scenarios
         cls.test_products = []
         for i in range(10):
             sku_number = 30000001 + i
-            product = cls.env["product.product"].create({
-                **cls._get_default_product_vals(),
-                "name": f"Test Product {i + 1}",
-                "default_code": str(sku_number),  # Valid 8-digit SKUs: 30000001-30000010
-                "list_price": 50.0 + (i * 10),  # Varying prices
-            })
+            product = cls.env["product.product"].create(
+                {
+                    **cls._get_default_product_vals(),
+                    "name": f"Test Product {i + 1}",
+                    "default_code": str(sku_number),  # Valid 8-digit SKUs: 30000001-30000010
+                    "list_price": 50.0 + (i * 10),  # Varying prices
+                }
+            )
             cls.test_products.append(product)
-        
+
         # Create test products with different states for specific scenarios
-        cls.test_product_not_for_sale = cls.env["product.product"].create({
-            **cls._get_default_product_vals(),
-            "name": "Test Product Not For Sale",
-            "default_code": "40000001",
-            "list_price": 150.0,
-            "sale_ok": False,  # Not available for sale
-        })
-        
-        cls.test_product_unpublished = cls.env["product.product"].create({
-            **cls._get_default_product_vals(),
-            "name": "Test Product Unpublished",
-            "default_code": "40000002",
-            "list_price": 175.0,
-            "is_published": False,  # Not published
-            "is_ready_for_sale": True,
-        })
-        
-        cls.test_product_motor = cls.env["product.product"].create({
-            **cls._get_default_product_vals(),
-            "name": "Test Motor Product",
-            "default_code": "50000001",
-            "list_price": 500.0,
-            "source": "motor",  # Motor-sourced product
-        })
+        cls.test_product_not_for_sale = cls.env["product.product"].create(
+            {
+                **cls._get_default_product_vals(),
+                "name": "Test Product Not For Sale",
+                "default_code": "40000001",
+                "list_price": 150.0,
+                "sale_ok": False,  # Not available for sale
+            }
+        )
+
+        cls.test_product_unpublished = cls.env["product.product"].create(
+            {
+                **cls._get_default_product_vals(),
+                "name": "Test Product Unpublished",
+                "default_code": "40000002",
+                "list_price": 175.0,
+                "is_published": False,  # Not published
+                "is_ready_for_sale": True,
+            }
+        )
+
+        cls.test_product_motor = cls.env["product.product"].create(
+            {
+                **cls._get_default_product_vals(),
+                "name": "Test Motor Product",
+                "default_code": "50000001",
+                "list_price": 500.0,
+                "source": "motor",  # Motor-sourced product
+            }
+        )
 
 
 @tagged("post_install", "-at_install")

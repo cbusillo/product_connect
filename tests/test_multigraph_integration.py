@@ -6,25 +6,27 @@ from odoo.tests import HttpCase, tagged
 @tagged("post_install", "-at_install", "product_connect_integration")
 class TestMultigraphIntegration(HttpCase):
     """Test multigraph view with real browser automation"""
-    
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
         # Create test data
-        cls.test_products = cls.env["product.template"].create([
-            {
-                "name": f"Test Product {i}",
-                "list_price": 100 * i,
-                "standard_price": 60 * i,
-                "type": "consu",
-            }
-            for i in range(1, 5)
-        ])
-    
+        cls.test_products = cls.env["product.template"].create(
+            [
+                {
+                    "name": f"Test Product {i}",
+                    "list_price": 100 * i,
+                    "standard_price": 60 * i,
+                    "type": "consu",
+                }
+                for i in range(1, 5)
+            ]
+        )
+
     def test_multigraph_chart_click_no_error(self):
         """Test that clicking multigraph chart doesn't throw resModel error"""
         self.authenticate("admin", "admin")
-        
+
         # Use browser_js to run JavaScript in a real browser
         result = self.browser_js(
             "/web",
@@ -83,13 +85,13 @@ class TestMultigraphIntegration(HttpCase):
             login="admin",
             timeout=30,
         )
-        
+
         self.assertTrue(result["success"], f"Chart click caused error: {result.get('error', 'Unknown')}")
-    
+
     def test_multigraph_view_switching(self):
         """Test switching between multigraph and other view types"""
         self.authenticate("admin", "admin")
-        
+
         result = self.browser_js(
             "/web",
             """
@@ -117,5 +119,5 @@ class TestMultigraphIntegration(HttpCase):
             login="admin",
             timeout=30,
         )
-        
+
         self.assertTrue(result["success"], "View switching failed")

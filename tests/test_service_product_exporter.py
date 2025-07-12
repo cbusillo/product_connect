@@ -76,27 +76,33 @@ class TestProductExporter(ShopifyTestBase):
         # Use and modify the pre-created test products from base class
         # Product 1: Should be exported (has shopify_next_export=True)
         prod1 = self.test_products[0]
-        prod1.write({
-            'is_ready_for_sale': True,
-            'is_published': True,
-            'shopify_next_export': True,
-        })
+        prod1.write(
+            {
+                "is_ready_for_sale": True,
+                "is_published": True,
+                "shopify_next_export": True,
+            }
+        )
 
         # Product 2: Should NOT be exported (not for sale)
         prod2 = self.test_products[1]
-        prod2.write({
-            'is_ready_for_sale': True,
-            'is_published': True,
-            'sale_ok': False,
-        })
+        prod2.write(
+            {
+                "is_ready_for_sale": True,
+                "is_published": True,
+                "sale_ok": False,
+            }
+        )
 
         # Product 3: Should NOT be exported (recently exported)
         prod3 = self.test_products[2]
-        prod3.write({
-            'is_ready_for_sale': True,
-            'is_published': True,
-            'shopify_last_exported_at': fields.Datetime.now() + timedelta(days=1),
-        })
+        prod3.write(
+            {
+                "is_ready_for_sale": True,
+                "is_published": True,
+                "shopify_last_exported_at": fields.Datetime.now() + timedelta(days=1),
+            }
+        )
 
         result = self.exporter._find_products_to_export()
         self.assertIn(prod1, result)

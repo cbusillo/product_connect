@@ -252,7 +252,11 @@ class ProductTemplate(models.Model):
                 product.motor.notify_changes()
 
         if not self.env.context.get("skip_shopify_sync"):
-            if variant_ids := self.filtered(lambda p: p.type == "consu" and p.is_ready_for_sale and p.is_published).mapped("product_variant_ids").ids:
+            if (
+                variant_ids := self.filtered(lambda p: p.type == "consu" and p.is_ready_for_sale and p.is_published)
+                .mapped("product_variant_ids")
+                .ids
+            ):
                 commands = [(4, vid) for vid in variant_ids]
                 self.env["shopify.sync"].create_and_run_async(
                     {"mode": SyncMode.EXPORT_BATCH_PRODUCTS, "odoo_products_to_sync": commands}

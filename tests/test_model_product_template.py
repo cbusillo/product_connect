@@ -31,13 +31,15 @@ class TestProductTemplate(ProductConnectTransactionCase):
 
         with patch.object(ShopifySync, "create_and_run_async") as create_sync:
             # Create product that meets the sync criteria: consumable, ready for sale, and published
-            product = env_without_skip["product.template"].create({
-                "name": "Test",
-                "type": "consu",
-                "is_ready_for_sale": True,
-                "is_published": True,
-                "default_code": "1234"  # Add valid SKU to pass validation
-            })
+            product = env_without_skip["product.template"].create(
+                {
+                    "name": "Test",
+                    "type": "consu",
+                    "is_ready_for_sale": True,
+                    "is_published": True,
+                    "default_code": "1234",  # Add valid SKU to pass validation
+                }
+            )
             variant_ids = product.product_variant_ids.ids
             create_sync.assert_any_call({"mode": SyncMode.EXPORT_BATCH_PRODUCTS, "odoo_products_to_sync": [(6, 0, variant_ids)]})
 

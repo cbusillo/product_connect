@@ -12,14 +12,14 @@ def create_mock_fetch_page_function(
         # _fetch_page returns what client.get_orders() returns, which is already the .orders object
         # So we return a mock that has nodes and page_info directly
         mock_page = MagicMock()
-        
+
         if cursor is None and data_list:
             # First page with data
             mock_page.nodes = [field_class(**data) for data in data_list]
         else:
             # Empty page or cursor provided
             mock_page.nodes = []
-            
+
         # Always set page_info
         mock_page.page_info = MagicMock()
         mock_page.page_info.has_next_page = False

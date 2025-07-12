@@ -7,7 +7,7 @@ from .fixtures.test_base import ProductConnectTransactionCase
 @tagged("post_install", "-at_install", "test_basic")
 class TestTemplate(ProductConnectTransactionCase):
     """Template test demonstrating best practices using base test class
-    
+
     This template shows how to use the pre-created test data from the base class:
     - Products with valid SKUs (self.test_product, self.test_products, etc.)
     - Test partners (self.test_partner, self.test_partners)
@@ -20,12 +20,12 @@ class TestTemplate(ProductConnectTransactionCase):
         self.assertEqual(self.test_product.default_code, "10000001")
         self.assertEqual(self.test_product.type, "consu")
         self.assertTrue(self.test_product.website_description)
-        
+
         # Use one of the pool products
         product = self.test_products[0]
-        product.write({'shopify_next_export': True})
+        product.write({"shopify_next_export": True})
         self.assertEqual(product.default_code, "30000001")
-        
+
         # Use specialized products
         self.assertFalse(self.test_product_not_for_sale.sale_ok)
         self.assertFalse(self.test_product_unpublished.is_published)
@@ -34,30 +34,42 @@ class TestTemplate(ProductConnectTransactionCase):
     def test_creating_product_variants(self) -> None:
         """Example creating product with variants using valid SKUs"""
         # Create a product template with attributes
-        size_attr = self.env['product.attribute'].create({
-            'name': 'Test Size',
-            'display_type': 'radio',
-        })
-        
+        size_attr = self.env["product.attribute"].create(
+            {
+                "name": "Test Size",
+                "display_type": "radio",
+            }
+        )
+
         size_values = []
-        for size in ['S', 'M', 'L']:
-            val = self.env['product.attribute.value'].create({
-                'name': size,
-                'attribute_id': size_attr.id,
-            })
+        for size in ["S", "M", "L"]:
+            val = self.env["product.attribute.value"].create(
+                {
+                    "name": size,
+                    "attribute_id": size_attr.id,
+                }
+            )
             size_values.append(val)
-        
-        template = self.env['product.template'].create({
-            'name': 'Test T-Shirt',
-            'type': 'consu',
-            'default_code': '60000001',  # Valid SKU
-            'website_description': 'Test T-shirt with sizes',
-            'attribute_line_ids': [(0, 0, {
-                'attribute_id': size_attr.id,
-                'value_ids': [(6, 0, [v.id for v in size_values])],
-            })],
-        })
-        
+
+        template = self.env["product.template"].create(
+            {
+                "name": "Test T-Shirt",
+                "type": "consu",
+                "default_code": "60000001",  # Valid SKU
+                "website_description": "Test T-shirt with sizes",
+                "attribute_line_ids": [
+                    (
+                        0,
+                        0,
+                        {
+                            "attribute_id": size_attr.id,
+                            "value_ids": [(6, 0, [v.id for v in size_values])],
+                        },
+                    )
+                ],
+            }
+        )
+
         # Variants are created automatically
         self.assertEqual(len(template.product_variant_ids), 3)
 

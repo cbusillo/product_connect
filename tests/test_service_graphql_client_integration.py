@@ -107,7 +107,7 @@ class TestGraphQLClientIntegration(ShopifyTestBase):
 
             with patch.object(self.service, "_client", mock_shopify_client):
                 # Trigger a GraphQL query
-                self.service.client.get_products(first=10)
+                self.service.client.get_products(limit=200, first=10)
 
             # Verify the query was called
             mock_shopify_client.get_products.assert_called_once_with(first=10)
@@ -529,7 +529,7 @@ class TestGraphQLClientIntegration(ShopifyTestBase):
         # Test handling of minimal/empty values in GraphQL responses
         # This test verifies that the ProductFields model can handle empty strings
         # and zero values which are common in real Shopify API responses
-        
+
         # First test a working product to ensure our test setup is correct
         working_product_data = {
             "id": "gid://shopify/Product/123",
@@ -542,25 +542,27 @@ class TestGraphQLClientIntegration(ShopifyTestBase):
             "updatedAt": "2023-01-01T00:00:00Z",
             "descriptionHtml": "<p>Test</p>",
             "variants": {
-                "nodes": [{
-                    "id": "gid://shopify/ProductVariant/456",
-                    "sku": "TEST123",
-                    "price": "99.99",
-                    "barcode": "123456789",
-                    "inventoryItem": {
-                        "unitCost": {"amount": "50.00", "currencyCode": "USD"},
-                        "measurement": {"weight": {"value": 1.5, "unit": "KILOGRAMS"}},
-                    },
-                }]
+                "nodes": [
+                    {
+                        "id": "gid://shopify/ProductVariant/456",
+                        "sku": "TEST123",
+                        "price": "99.99",
+                        "barcode": "123456789",
+                        "inventoryItem": {
+                            "unitCost": {"amount": "50.00", "currencyCode": "USD"},
+                            "measurement": {"weight": {"value": 1.5, "unit": "KILOGRAMS"}},
+                        },
+                    }
+                ]
             },
             "media": {"nodes": []},
             "metafields": {"nodes": []},
         }
-        
+
         # Verify the basic structure works
         product = ProductFields(**working_product_data)
         self.assertEqual(product.title, "Test Product")
-        
+
         # Now test with empty/minimal values
         minimal_product_data = {
             "id": "gid://shopify/Product/124",
@@ -573,21 +575,23 @@ class TestGraphQLClientIntegration(ShopifyTestBase):
             "updatedAt": "2023-01-01T00:00:00Z",
             "descriptionHtml": "",  # Empty description
             "variants": {
-                "nodes": [{
-                    "id": "gid://shopify/ProductVariant/457",
-                    "sku": "",  # Empty SKU is allowed (Optional field)
-                    "price": "0.00",
-                    "barcode": None,  # Null barcode is allowed (Optional field)
-                    "inventoryItem": {
-                        "unitCost": None,  # Null unit cost is allowed (Optional field)
-                        "measurement": {"weight": None},  # Null weight is allowed (Optional field)
-                    },
-                }]
+                "nodes": [
+                    {
+                        "id": "gid://shopify/ProductVariant/457",
+                        "sku": "",  # Empty SKU is allowed (Optional field)
+                        "price": "0.00",
+                        "barcode": None,  # Null barcode is allowed (Optional field)
+                        "inventoryItem": {
+                            "unitCost": None,  # Null unit cost is allowed (Optional field)
+                            "measurement": {"weight": None},  # Null weight is allowed (Optional field)
+                        },
+                    }
+                ]
             },
             "media": {"nodes": []},
             "metafields": {"nodes": []},
         }
-        
+
         # Ensure ProductFields can handle minimal values
         minimal_product = ProductFields(**minimal_product_data)
         self.assertEqual(minimal_product.vendor, "")

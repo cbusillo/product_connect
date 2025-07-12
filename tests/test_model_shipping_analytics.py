@@ -96,7 +96,7 @@ class TestShippingAnalytics(ProductConnectTransactionCase):
         """Create test orders with different shipping scenarios"""
         # Get default order values from base class
         default_order_vals = cls._get_default_order_vals()
-        
+
         # Shopify orders with positive margins
         for i in range(3):
             order = cls.env["sale.order"].create(
@@ -162,9 +162,7 @@ class TestShippingAnalytics(ProductConnectTransactionCase):
     def test_shipping_margin_analytics(self) -> None:
         """Test shipping margin calculations across orders"""
         # Get all test orders using tag
-        orders = self.env["sale.order"].search(
-            [("tag_ids", "in", [self.test_order_tag.id])]
-        )
+        orders = self.env["sale.order"].search([("tag_ids", "in", [self.test_order_tag.id])])
 
         # Verify margins are calculated correctly
         for order in orders:
@@ -254,11 +252,13 @@ class TestShippingAnalytics(ProductConnectTransactionCase):
     def test_date_range_analytics(self) -> None:
         """Test analytics filtered by date ranges"""
         # Get only the orders created in setUpClass
-        all_test_orders = self.env["sale.order"].search([
-            ("tag_ids", "in", [self.test_order_tag.id]),
-            ("carrier_id", "!=", False),
-        ])
-        
+        all_test_orders = self.env["sale.order"].search(
+            [
+                ("tag_ids", "in", [self.test_order_tag.id]),
+                ("carrier_id", "!=", False),
+            ]
+        )
+
         # Group orders by platform to verify we have test data
         by_platform = {}
         for order in all_test_orders:
@@ -266,41 +266,33 @@ class TestShippingAnalytics(ProductConnectTransactionCase):
             if platform not in by_platform:
                 by_platform[platform] = []
             by_platform[platform].append(order)
-        
+
         # Basic verification that we have orders from multiple platforms
         self.assertIn("shopify", by_platform, "Should have Shopify orders")
         self.assertIn("ebay", by_platform, "Should have eBay orders")
         self.assertGreaterEqual(len(all_test_orders), 6, "Should have at least 6 test orders")
-        
+
         # Test that we can filter by date ranges
         now = datetime.now()
         three_days_ago = now - timedelta(days=3)
-        
-        recent_orders = all_test_orders.filtered(
-            lambda o: o.date_order and o.date_order >= three_days_ago
-        )
-        older_orders = all_test_orders.filtered(
-            lambda o: o.date_order and o.date_order < three_days_ago
-        )
-        
+
+        recent_orders = all_test_orders.filtered(lambda o: o.date_order and o.date_order >= three_days_ago)
+        older_orders = all_test_orders.filtered(lambda o: o.date_order and o.date_order < three_days_ago)
+
         # Basic sanity checks
         self.assertGreater(len(recent_orders), 0, "Should have some recent orders")
         self.assertGreater(len(older_orders), 0, "Should have some older orders")
-        
+
         # Verify date filtering works correctly
         for order in recent_orders:
-            self.assertGreaterEqual(order.date_order, three_days_ago,
-                                  "Recent orders should be within last 3 days")
-        
+            self.assertGreaterEqual(order.date_order, three_days_ago, "Recent orders should be within last 3 days")
+
         for order in older_orders:
-            self.assertLess(order.date_order, three_days_ago,
-                          "Older orders should be more than 3 days old")
+            self.assertLess(order.date_order, three_days_ago, "Older orders should be more than 3 days old")
 
     def test_shipping_efficiency_metrics(self) -> None:
         """Test shipping efficiency calculations"""
-        all_orders = self.env["sale.order"].search(
-            [("tag_ids", "in", [self.test_order_tag.id])]
-        )
+        all_orders = self.env["sale.order"].search([("tag_ids", "in", [self.test_order_tag.id])])
 
         # Calculate efficiency metrics
         total_charge = sum(all_orders.mapped("shipping_charge"))
@@ -334,10 +326,11 @@ class TestShippingAnalytics(ProductConnectTransactionCase):
         self.assertEqual(no_shipping_order.shipping_margin, 0.0)
 
         # Verify it doesn't break analytics calculations
-        all_margins = self.env["sale.order"].search([
-            ("tag_ids", "in", [self.test_order_tag.id]),
-            ("partner_id", "=", self.partner_manual.id)
-        ]).mapped("shipping_margin")
+        all_margins = (
+            self.env["sale.order"]
+            .search([("tag_ids", "in", [self.test_order_tag.id]), ("partner_id", "=", self.partner_manual.id)])
+            .mapped("shipping_margin")
+        )
 
         self.assertIn(0.0, all_margins)
         self.assertEqual(len(all_margins), 2)  # Original + new order
