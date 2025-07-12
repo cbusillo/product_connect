@@ -1203,10 +1203,17 @@ from .operations import (
     GET_ORDERS_GQL,
     GET_PRODUCT_IDS_GQL,
     GET_PRODUCTS_GQL,
+    PRODUCT_REORDER_MEDIA_GQL,
     PRODUCT_SET_BULK_RUN_GQL,
     PRODUCT_SET_GQL,
     STAGED_UPLOADS_CREATE_GQL,
     UPDATE_PUBLICATIONS_GQL,
+)
+from .product_reorder_media import (
+    ProductReorderMedia,
+    ProductReorderMediaProductReorderMedia,
+    ProductReorderMediaProductReorderMediaJob,
+    ProductReorderMediaProductReorderMediaMediaUserErrors,
 )
 from .product_set import (
     ProductSet,
@@ -2039,6 +2046,7 @@ __all__ = [
     "OrderTransactionInput",
     "OrderTransactionKind",
     "OrderTransactionStatus",
+    "PRODUCT_REORDER_MEDIA_GQL",
     "PRODUCT_SET_BULK_RUN_GQL",
     "PRODUCT_SET_GQL",
     "PageCreateInput",
@@ -2129,6 +2137,10 @@ __all__ = [
     "ProductOptionsReorderUserErrorCode",
     "ProductPublicationInput",
     "ProductPublishInput",
+    "ProductReorderMedia",
+    "ProductReorderMediaProductReorderMedia",
+    "ProductReorderMediaProductReorderMediaJob",
+    "ProductReorderMediaProductReorderMediaMediaUserErrors",
     "ProductResourceFeedbackInput",
     "ProductSet",
     "ProductSetBulkRun",

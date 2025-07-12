@@ -21,6 +21,7 @@ from ...helpers import (
     ShopifyDataError,
     ShopifyMissingSkuFieldError,
     determine_latest_odoo_product_modification_time,
+    get_latest_image_write_date,
     image_order_key,
     parse_shopify_id_from_gid,
     parse_shopify_sku_field_to_sku_and_bin,
@@ -163,6 +164,11 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
 
         if self._images_are_in_sync(odoo_product, shopify_images):
             _logger.debug(f"Images already in sync for product {odoo_product.id}")
+            return
+
+        latest_image_date = get_latest_image_write_date(odoo_product)
+        if shopify_product.updated_at <= latest_image_date:
+            _logger.debug(f"Odoo images are more recent than Shopify for product {odoo_product.id}, skipping import")
             return
 
         existing_by_mid = {image.shopify_media_id: image for image in odoo_product.product_tmpl_id.images if image.shopify_media_id}

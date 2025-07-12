@@ -12,6 +12,7 @@ from ...gql import (
     ProductSetProductSetProductResourcePublicationsV2Nodes,
     GraphQLClientGraphQLMultiError,
     MediaStatus,
+    MoveInput,
 )
 from ...gql.enums import ProductStatus, WeightUnit, LocalizableContentType
 from ...gql.input_types import (
@@ -33,6 +34,7 @@ from ...helpers import (
     ShopifyApiError,
     format_shopify_gid_from_id,
     format_sku_bin_for_shopify,
+    get_latest_image_write_date,
     image_order_key,
     parse_shopify_id_from_gid,
     write_if_changed,
@@ -94,7 +96,29 @@ class ProductExporter(ShopifyBaseExporter["odoo.model.product_product"]):
 
     def _export_one(self, odoo_product: "odoo.model.product_product") -> None:
         client = self.service.client
-        shopify_product_set_input = self._map_odoo_product_to_shopify_product_set_input(odoo_product)
+
+        latest_image_date = get_latest_image_write_date(odoo_product)
+        images_need_update = latest_image_date > (odoo_product.shopify_last_exported_at or datetime.min)
+        all_images_have_media_id = all(img.shopify_media_id for img in odoo_product.images) if odoo_product.images else False
+
+        _logger.info(
+            f"Exporting product {odoo_product.id} - images need update: {images_need_update}, "
+            f"all have media IDs: {all_images_have_media_id}"
+        )
+
+        if (
+            images_need_update
+            and all_images_have_media_id
+            and odoo_product.shopify_product_id
+            and not odoo_product.shopify_next_export
+        ):
+            ordered_odoo_images = sorted(odoo_product.images, key=image_order_key)
+            shopify_product_gid = format_shopify_gid_from_id("Product", odoo_product.shopify_product_id)
+            self._reorder_shopify_media(odoo_product, shopify_product_gid, ordered_odoo_images)
+            odoo_product.shopify_last_exported_at = fields.Datetime.now()
+            return
+
+        shopify_product_set_input = self._map_odoo_product_to_shopify_product_set_input(odoo_product, images_need_update)
 
         shopify_product_gid = (
             format_shopify_gid_from_id("Product", odoo_product.shopify_product_id) if odoo_product.shopify_product_id else None
@@ -168,7 +192,7 @@ class ProductExporter(ShopifyBaseExporter["odoo.model.product_product"]):
 
         for odoo_image, shopify_image in zip(ordered_odoo_images, shopify_images):
             media_id = parse_shopify_id_from_gid(shopify_image.id)
-            if odoo_image.shopify_media_id != media_id:
+            if not odoo_image.shopify_media_id:
                 odoo_image.shopify_media_id = media_id
 
             if shopify_image.alt and odoo_image.name != shopify_image.alt:
@@ -210,7 +234,9 @@ class ProductExporter(ShopifyBaseExporter["odoo.model.product_product"]):
             type=field_type,
         )
 
-    def _map_odoo_product_to_shopify_product_set_input(self, odoo_product: "odoo.model.product_product") -> ProductSetInput:
+    def _map_odoo_product_to_shopify_product_set_input(
+        self, odoo_product: "odoo.model.product_product", images_need_update: bool = False
+    ) -> ProductSetInput:
         shopify_inventory_item_measurement_input = InventoryItemMeasurementInput(
             weight=WeightInput(
                 value=odoo_product.weight,
@@ -248,7 +274,7 @@ class ProductExporter(ShopifyBaseExporter["odoo.model.product_product"]):
             productOptions=[OptionSetInput(name="Title", values=[OptionValueSetInput(name="Default Title")])],
         )
 
-        if not odoo_product.shopify_product_id or odoo_product.shopify_next_export_images:
+        if not odoo_product.shopify_product_id or images_need_update:
             shopify_product_set_input.files = [
                 FileSetInput(
                     alt=odoo_product.name,
@@ -287,3 +313,38 @@ class ProductExporter(ShopifyBaseExporter["odoo.model.product_product"]):
             ]
 
         return shopify_product_set_input
+
+    def _reorder_shopify_media(
+        self,
+        odoo_product: "odoo.model.product_product",
+        shopify_product_gid: str,
+        ordered_odoo_images: list["odoo.model.product_image"],
+    ) -> None:
+        client = self.service.client
+
+        moves = []
+        for new_position, odoo_image in enumerate(ordered_odoo_images):
+            if odoo_image.shopify_media_id:
+                moves.append(
+                    MoveInput(
+                        id=format_shopify_gid_from_id("MediaImage", odoo_image.shopify_media_id),
+                        new_position=str(new_position),
+                    )
+                )
+
+        if not moves:
+            return
+
+        try:
+            response = client.product_reorder_media(id=shopify_product_gid, moves=moves)
+
+            if response.media_user_errors:
+                errors_str = ", ".join([f"{err.field}: {err.message}" for err in response.media_user_errors])
+                _logger.error(f"Failed to reorder media for product {odoo_product.id}: {errors_str}")
+                odoo_product.shopify_next_export = True
+            else:
+                _logger.info(f"Successfully reordered {len(moves)} images for product {odoo_product.id}")
+
+        except Exception as error:
+            _logger.error(f"Error reordering media for product {odoo_product.id}: {error}")
+            odoo_product.shopify_next_export = True

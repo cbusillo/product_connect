@@ -2970,7 +2970,7 @@ class MoneyInput(BaseModel):
 
 class MoveInput(BaseModel):
     id: str
-    new_position: int = Field(alias="newPosition")
+    new_position: str = Field(alias="newPosition")  # UnsignedInt64 must be string
 
 
 class ObjectDimensionsInput(BaseModel):

@@ -10,6 +10,7 @@ __all__ = [
     "GET_ORDER_IDS_GQL",
     "GET_PRODUCTS_GQL",
     "GET_PRODUCT_IDS_GQL",
+    "PRODUCT_REORDER_MEDIA_GQL",
     "PRODUCT_SET_BULK_RUN_GQL",
     "PRODUCT_SET_GQL",
     "STAGED_UPLOADS_CREATE_GQL",
@@ -554,5 +555,20 @@ mutation DeleteProduct($input: ProductDeleteInput!, $synchronous: Boolean = fals
 fragment UserErrorFields on UserError {
   field
   message
+}
+"""
+
+PRODUCT_REORDER_MEDIA_GQL = """
+mutation ProductReorderMedia($id: ID!, $moves: [MoveInput!]!) {
+  productReorderMedia(id: $id, moves: $moves) {
+    job {
+      id
+      done
+    }
+    mediaUserErrors {
+      field
+      message
+    }
+  }
 }
 """

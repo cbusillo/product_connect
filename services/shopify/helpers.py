@@ -295,3 +295,10 @@ def determine_latest_odoo_product_modification_time(product: "odoo.model.product
         DEFAULT_DATETIME,
     ]
     return max(filter(None, dates))
+
+
+def get_latest_image_write_date(product: "odoo.model.product_product") -> datetime:
+    if not product.images:
+        return DEFAULT_DATETIME
+    image_dates = product.images.mapped("write_date")
+    return max(image_dates) if image_dates else DEFAULT_DATETIME

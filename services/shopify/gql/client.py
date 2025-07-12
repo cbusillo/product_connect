@@ -17,6 +17,7 @@ from .get_orders import GetOrders, GetOrdersOrders
 from .get_product_ids import GetProductIds, GetProductIdsProducts
 from .get_products import GetProducts, GetProductsProducts
 from .input_types import (
+    MoveInput,
     ProductDeleteInput,
     ProductSetIdentifiers,
     ProductSetInput,
@@ -32,10 +33,15 @@ from .operations import (
     GET_ORDERS_GQL,
     GET_PRODUCT_IDS_GQL,
     GET_PRODUCTS_GQL,
+    PRODUCT_REORDER_MEDIA_GQL,
     PRODUCT_SET_BULK_RUN_GQL,
     PRODUCT_SET_GQL,
     STAGED_UPLOADS_CREATE_GQL,
     UPDATE_PUBLICATIONS_GQL,
+)
+from .product_reorder_media import (
+    ProductReorderMedia,
+    ProductReorderMediaProductReorderMedia,
 )
 from .product_set import ProductSet, ProductSetProductSet
 from .product_set_bulk_run import (
@@ -259,3 +265,16 @@ class Client(BaseClient):
         )
         data = self.get_data(response)
         return DeleteProduct.model_validate(data).product_delete
+
+    def product_reorder_media(
+        self, id: str, moves: List[MoveInput], **kwargs: Any
+    ) -> Optional[ProductReorderMediaProductReorderMedia]:
+        variables: Dict[str, object] = {"id": id, "moves": moves}
+        response = self.execute(
+            query=PRODUCT_REORDER_MEDIA_GQL,
+            operation_name="ProductReorderMedia",
+            variables=variables,
+            **kwargs
+        )
+        data = self.get_data(response)
+        return ProductReorderMedia.model_validate(data).product_reorder_media
