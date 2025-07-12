@@ -3,7 +3,7 @@ import threading
 import traceback
 from contextlib import contextmanager
 from time import sleep
-from typing import Generator
+from typing import Generator, Union
 
 from babel.dates import format_timedelta
 from httpx import RequestError
@@ -16,7 +16,6 @@ from pydantic import BaseModel
 from ..services.shopify.helpers import (
     DEFAULT_DATETIME,
     SyncMode,
-    SyncVals,
     ShopifyApiError,
     ShopifyStaleRunTimeout,
     OdooDataError,
@@ -104,7 +103,7 @@ class ShopifySync(models.TransientModel):
         return resource
 
     @staticmethod
-    def _is_duplicate(vals: "odoo.values.shopify_sync", duplicates: SyncVals) -> bool:
+    def _is_duplicate(vals: "odoo.values.shopify_sync", duplicates: "odoo.model.shopify_sync") -> bool:
         if vals["mode"] == SyncMode.EXPORT_BATCH_PRODUCTS:
             command = vals.get("odoo_products_to_sync") or []
             ids = tuple(sorted(command[0][2])) if command and command[0][0] == 6 else ()
@@ -112,7 +111,7 @@ class ShopifySync(models.TransientModel):
         return bool(duplicates)
 
     @api.model_create_multi
-    def create(self, vals_list: SyncVals) -> "odoo.model.shopify_sync":
+    def create(self, vals_list: Union["odoo.values.shopify_sync", list["odoo.values.shopify_sync"]]) -> "odoo.model.shopify_sync":
         if isinstance(vals_list, dict):
             vals_list = [vals_list]
 
@@ -297,7 +296,9 @@ class ShopifySync(models.TransientModel):
 
         threading.Thread(target=run_in_thread, daemon=True).start()
 
-    def create_and_run_async(self, vals_list: SyncVals) -> "odoo.model.shopify_sync":
+    def create_and_run_async(
+        self, vals_list: Union["odoo.values.shopify_sync", list["odoo.values.shopify_sync"]]
+    ) -> "odoo.model.shopify_sync":
         if isinstance(vals_list, dict):
             vals_list = [vals_list]
 

@@ -2,7 +2,7 @@ import logging
 import re
 from datetime import datetime, UTC
 from enum import StrEnum
-from typing import TypeVar, Self, Union, Any
+from typing import TypeVar, Self, Any
 
 from odoo import models
 from odoo.exceptions import UserError
@@ -47,9 +47,6 @@ def image_order_key(image: "odoo.model.product_image") -> tuple[int, datetime]:
 
 def last_import_config_key(resource_type: str) -> str:
     return f"shopify.last_{resource_type}_import_time"
-
-
-SyncVals = Union[list["odoo.values.shopify_sync"], "odoo.values.shopify_sync"]
 
 
 class SyncMode(StrEnum):
