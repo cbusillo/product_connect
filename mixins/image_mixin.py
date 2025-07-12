@@ -30,7 +30,7 @@ class ImageMixin(models.AbstractModel):
                 products_to_mark |= record.product_variant_id
 
         if products_to_mark:
-            products_to_mark.write({"shopify_next_export": True, "shopify_next_export_images": True})
+            products_to_mark.write({"shopify_next_export": True})
 
             if not self.env.context.get("skip_immediate_sync"):
                 self.env["shopify.sync"].create_and_run_async({"mode": SyncMode.EXPORT_CHANGED_PRODUCTS})

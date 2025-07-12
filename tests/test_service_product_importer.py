@@ -338,7 +338,6 @@ class TestProductImporter(ShopifyTestBase):
 
         existing_product.invalidate_recordset()
         self.assertTrue(existing_product.shopify_next_export)
-        self.assertTrue(existing_product.shopify_next_export_images)
 
     def test_import_product_missing_sku(self) -> None:
         product_data = create_shopify_product_response(

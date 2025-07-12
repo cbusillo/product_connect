@@ -436,7 +436,6 @@ class ShopifySync(models.TransientModel):
         products.shopify_product_id = False
         products.shopify_next_export = False
         products.shopify_last_exported_at = False
-        products.shopify_next_export_images = False
         products.shopify_next_export_quantity_change_amount = 0
         products.shopify_created_at = False
         products.shopify_variant_id = False

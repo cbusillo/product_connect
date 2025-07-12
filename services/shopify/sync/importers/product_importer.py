@@ -77,14 +77,12 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
                 if any(image.status == MediaStatus.FAILED for image in images):
                     _logger.debug(f"Product {odoo_product.id} has media failed. Flagging for re‑import.")
                     odoo_product.shopify_next_export = True
-                    odoo_product.shopify_next_export_images = True
 
                 if shopify_product.updated_at > latest_write_date:
                     _logger.debug(f"Updating existing product {odoo_product.id} from Shopify")
                     odoo_product = self.save_odoo_product(odoo_product, shopify_product)
                     return True
 
-                # Check if images have changed order even if timestamp hasn't changed
                 shopify_images = [image for image in shopify_product.media.nodes if image.status == MediaStatus.READY]
                 if not self._images_are_in_sync(odoo_product, shopify_images):
                     _logger.debug(f"Product {odoo_product.id} has image order changes, updating from Shopify")
@@ -254,7 +252,6 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
                 "is_ready_for_sale": True,
             }
 
-            # Store template fields separately
             template_vals = {}
 
             condition_metafield = metafields_by_key.get("condition")
@@ -272,7 +269,6 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
 
             if odoo_product:
                 write_if_changed(odoo_product, odoo_product_input)
-                # Update template fields if any
                 if template_vals:
                     write_if_changed(odoo_product.product_tmpl_id, template_vals)
             else:
@@ -280,7 +276,6 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
                 odoo_product = (
                     self.env["product.product"].with_context(skip_shopify_sync=True, force_sku_check=True).create(odoo_product_input)
                 )
-                # Update template fields after creation
                 if template_vals:
                     write_if_changed(odoo_product.product_tmpl_id, template_vals)
 

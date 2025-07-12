@@ -16,7 +16,6 @@ class ProductProduct(models.Model):
     shopify_ebay_category_id = fields.Char(copy=False)
     shopify_last_exported_at = fields.Datetime(string="Last Exported Time")
     shopify_next_export = fields.Boolean(string="Export Next Sync?")
-    shopify_next_export_images = fields.Boolean(string="Export Images Next Sync?")
     shopify_next_export_quantity_change_amount = fields.Integer()
     shopify_created_at = fields.Datetime()
 

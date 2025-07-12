@@ -146,7 +146,6 @@ class ProductExporter(ShopifyBaseExporter["odoo.model.product_product"]):
                 parse_shopify_id_from_gid(ebay_category_id_metafield.id) if ebay_category_id_metafield else None
             ),
             "shopify_next_export": False,
-            "shopify_next_export_images": False,
             "shopify_next_export_quantity_change_amount": 0,
         }
         write_if_changed(odoo_product, flags_and_ids)
@@ -165,7 +164,6 @@ class ProductExporter(ShopifyBaseExporter["odoo.model.product_product"]):
                 f"Mismatch immediately after export ({len(ordered_odoo_images)} Odoo vs {len(shopify_images)} Shopify). Scheduling retry."
             )
             odoo_product.shopify_next_export = True
-            odoo_product.shopify_next_export_images = True
             return
 
         for odoo_image, shopify_image in zip(ordered_odoo_images, shopify_images):
