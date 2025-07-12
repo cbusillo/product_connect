@@ -404,7 +404,7 @@ class TestProductImporter(ShopifyTestBase):
 
     def test_skip_up_to_date_product(self) -> None:
         sku = self._get_unique_sku()
-        existing_product = self.env["product.product"].create(
+        self.env["product.product"].create(
             {
                 "name": "Current Product",
                 "default_code": sku,

@@ -25,7 +25,7 @@ from ..services.shopify.sync.importers.product_importer import ProductImporter
 class TestImportIdempotencyUnit(ShopifyTestBase):
     """Unit tests for import idempotency at the record level"""
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
         self._setup_shopify_mocks()
         self.sync_record = self.env["shopify.sync"].create(
@@ -43,7 +43,7 @@ class TestImportIdempotencyUnit(ShopifyTestBase):
             }
         )
 
-    def test_order_import_creates_new_order(self):
+    def test_order_import_creates_new_order(self) -> None:
         """Test that importing a new order creates it and returns True"""
         importer = OrderImporter(self.env, self.sync_record)
 
@@ -71,7 +71,7 @@ class TestImportIdempotencyUnit(ShopifyTestBase):
         self.assertEqual(len(orders), 1)
         self.assertEqual(orders[0].name, "#NEW-001")
 
-    def test_order_import_existing_unchanged_returns_false(self):
+    def test_order_import_existing_unchanged_returns_false(self) -> None:
         """Test that importing an existing unchanged order returns False"""
         importer = OrderImporter(self.env, self.sync_record)
 
@@ -102,7 +102,7 @@ class TestImportIdempotencyUnit(ShopifyTestBase):
         orders = self.env["sale.order"].search([("shopify_order_id", "=", "existing_order_1")])
         self.assertEqual(len(orders), 1)
 
-    def test_order_import_with_updates_returns_true(self):
+    def test_order_import_with_updates_returns_true(self) -> None:
         """Test that importing an order with updates returns True"""
         importer = OrderImporter(self.env, self.sync_record)
 
@@ -115,7 +115,6 @@ class TestImportIdempotencyUnit(ShopifyTestBase):
                 create_shopify_order_line_item_response(
                     sku=self.test_product.default_code,
                     variant_id="987654321",
-                    quantity=1,
                 )
             ],
         )
@@ -151,7 +150,7 @@ class TestImportIdempotencyUnit(ShopifyTestBase):
         self.assertEqual(len(orders), 1)
         self.assertEqual(orders[0].order_line[0].product_uom_qty, 2)
 
-    def test_customer_import_creates_new_customer(self):
+    def test_customer_import_creates_new_customer(self) -> None:
         """Test that importing a new customer creates it and returns True"""
         importer = CustomerImporter(self.env, self.sync_record)
 
@@ -174,7 +173,7 @@ class TestImportIdempotencyUnit(ShopifyTestBase):
         self.assertEqual(len(customers), 1)
         self.assertEqual(customers[0].email, "newcustomer@test.com")
 
-    def test_customer_import_existing_unchanged_returns_false(self):
+    def test_customer_import_existing_unchanged_returns_false(self) -> None:
         """Test that importing an existing unchanged customer returns False"""
         importer = CustomerImporter(self.env, self.sync_record)
 
@@ -200,7 +199,7 @@ class TestImportIdempotencyUnit(ShopifyTestBase):
         customers = self.env["res.partner"].search([("shopify_customer_id", "=", "existing_customer_1")])
         self.assertEqual(len(customers), 1)
 
-    def test_customer_import_with_new_address_returns_true(self):
+    def test_customer_import_with_new_address_returns_true(self) -> None:
         """Test that adding an address to a customer returns True"""
         importer = CustomerImporter(self.env, self.sync_record)
 
@@ -253,7 +252,7 @@ class TestImportIdempotencyUnit(ShopifyTestBase):
         self.assertEqual(len(customers), 1)
         self.assertEqual(customers[0].street, "123 New Street")
 
-    def test_product_import_creates_new_product(self):
+    def test_product_import_creates_new_product(self) -> None:
         """Test that importing a new product creates it and returns True"""
         importer = ProductImporter(self.env, self.sync_record)
 
@@ -284,7 +283,7 @@ class TestImportIdempotencyUnit(ShopifyTestBase):
         self.assertEqual(products[0].name, "New Product")
         self.assertEqual(products[0].default_code, "NEW001")
 
-    def test_product_import_existing_with_old_timestamp_returns_false(self):
+    def test_product_import_existing_with_old_timestamp_returns_false(self) -> None:
         """Test that importing a product with old timestamp returns False"""
         importer = ProductImporter(self.env, self.sync_record)
 
@@ -320,7 +319,7 @@ class TestImportIdempotencyUnit(ShopifyTestBase):
         products = self.env["product.product"].search([("shopify_product_id", "=", "timestamp_product_1")])
         self.assertEqual(len(products), 1)
 
-    def test_product_import_uses_first_variant(self):
+    def test_product_import_uses_first_variant(self) -> None:
         """Test that importing a product with multiple variants only uses the first one"""
         importer = ProductImporter(self.env, self.sync_record)
 
@@ -333,7 +332,6 @@ class TestImportIdempotencyUnit(ShopifyTestBase):
                 create_shopify_variant_response(
                     gid="gid://shopify/ProductVariant/variant_1",
                     sku="MULTI001",
-                    price="99.99",
                 ),
                 create_shopify_variant_response(
                     gid="gid://shopify/ProductVariant/variant_2",

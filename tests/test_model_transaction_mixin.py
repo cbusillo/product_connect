@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import patch
 
 from psycopg2.errors import InFailedSqlTransaction
@@ -105,7 +106,7 @@ class TestTransactionMixin(ProductConnectTransactionCase):
         original_execute = self.env.cr.execute
         unlock_call_count = 0
 
-        def mock_execute(query, params=None):
+        def mock_execute(query: str, params: list | None = None) -> Any:
             nonlocal unlock_call_count
             # Let the lock acquisition succeed
             if "pg_try_advisory_lock" in query:

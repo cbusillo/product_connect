@@ -104,6 +104,8 @@ class TestMultigraphView(ProductConnectTransactionCase):
 
             context = ast.literal_eval(context)
 
+        # Ensure context is a dictionary
+        self.assertIsInstance(context, dict)
         self.assertIn("search_default_last_7_days", context)
         self.assertIn("graph_groupbys", context)
         self.assertEqual(context["graph_groupbys"], ["is_ready_for_sale_last_enabled_date:day"])

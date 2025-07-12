@@ -8,7 +8,7 @@ class TestMultigraphIntegration(HttpCase):
     """Test multigraph view with real browser automation"""
 
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         super().setUpClass()
         # Create test data
         cls.test_products = cls.env["product.template"].create(
@@ -23,7 +23,7 @@ class TestMultigraphIntegration(HttpCase):
             ]
         )
 
-    def test_multigraph_chart_click_no_error(self):
+    def test_multigraph_chart_click_no_error(self) -> None:
         """Test that clicking multigraph chart doesn't throw resModel error"""
         self.authenticate("admin", "admin")
 
@@ -88,7 +88,7 @@ class TestMultigraphIntegration(HttpCase):
 
         self.assertTrue(result["success"], f"Chart click caused error: {result.get('error', 'Unknown')}")
 
-    def test_multigraph_view_switching(self):
+    def test_multigraph_view_switching(self) -> None:
         """Test switching between multigraph and other view types"""
         self.authenticate("admin", "admin")
 

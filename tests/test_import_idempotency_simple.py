@@ -5,6 +5,7 @@ to avoid re-importing the same data.
 """
 
 from datetime import datetime, timezone, timedelta
+from typing import Any
 from unittest.mock import patch, MagicMock
 from odoo.tests import tagged
 from .fixtures.test_service_base import ShopifyTestBase
@@ -22,7 +23,7 @@ from ..services.shopify.helpers import last_import_config_key, format_datetime_f
 class TestImportIdempotencySimple(ShopifyTestBase):
     """Simple integration tests for timestamp tracking"""
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
         self._setup_shopify_mocks()
 
@@ -45,7 +46,7 @@ class TestImportIdempotencySimple(ShopifyTestBase):
         # Clear any existing timestamp parameters
         self.env["ir.config_parameter"].search([("key", "like", "shopify.last_import.%")]).unlink()
 
-    def test_import_since_last_import_filters_correctly(self):
+    def test_import_since_last_import_filters_correctly(self) -> None:
         """Test that import_since_last_import correctly filters by timestamp"""
         importer = OrderImporter(self.env, self.sync_record)
 
@@ -87,7 +88,7 @@ class TestImportIdempotencySimple(ShopifyTestBase):
         self.env["ir.config_parameter"].set_param(config_key, format_datetime_for_shopify(middle_time))
 
         # Create mock that returns orders based on query filter
-        def mock_fetch_page(client, query, cursor):
+        def mock_fetch_page(_client: Any, query: str | None, cursor: str | None) -> MagicMock:
             mock_page = MagicMock()
 
             # Only return new order if filtering by time
@@ -121,7 +122,7 @@ class TestImportIdempotencySimple(ShopifyTestBase):
         self.assertEqual(orders[0].shopify_order_id, "new_order")
         self.assertEqual(orders[0].name, "#NEW-001")
 
-    def test_first_import_gets_all_data(self):
+    def test_first_import_gets_all_data(self) -> None:
         """Test that first import with no timestamp gets all data"""
         importer = OrderImporter(self.env, self.sync_record)
 
@@ -143,7 +144,7 @@ class TestImportIdempotencySimple(ShopifyTestBase):
         self.assertFalse(self.env["ir.config_parameter"].get_param(config_key))
 
         # Create mock that returns order when no filter
-        def mock_fetch_page(client, query, cursor):
+        def mock_fetch_page(_client: Any, _query: str | None, cursor: str | None) -> MagicMock:
             mock_page = MagicMock()
 
             # First import has no timestamp, so query will have very old date
