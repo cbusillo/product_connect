@@ -1,3 +1,4 @@
+from typing import Any
 from odoo import models, api, fields
 from lxml import etree
 
@@ -8,12 +9,12 @@ class View(models.Model):
     type = fields.Selection(selection_add=[("multigraph", "MultiGraph")], ondelete={"multigraph": "cascade"})
 
     @api.model
-    def _postprocess_view(self, node, model=None, **options):
+    def _postprocess_view(self, node: etree.ElementBase, model: str | None = None, **options: dict[str, Any]) -> etree.ElementBase:
         if node.tag == "multigraph":
             node = self._postprocess_multigraph_view(node, model)
         return super()._postprocess_view(node, model, **options)
 
-    def _postprocess_multigraph_view(self, node, model_name=None):
+    def _postprocess_multigraph_view(self, node: etree.ElementBase, model_name: str | None = None) -> etree.ElementBase:
         """Process multigraph specific attributes and validate structure."""
         if model_name is None:
             return node

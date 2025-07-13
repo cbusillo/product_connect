@@ -1,7 +1,8 @@
 from odoo import SUPERUSER_ID, api
+from odoo.sql_db import Cursor
 
 
-def migrate(cr, version):
+def migrate(cr: Cursor, version: str) -> None:
     """
     Set is_published=True for all products that are ready for sale.
     This ensures consistency after adding is_published to the Shopify export filter.
