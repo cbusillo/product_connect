@@ -19,6 +19,7 @@ export class MultigraphController extends GraphController {
         this.actionService = useService("action")
     }
 
+    // noinspection JSUnusedGlobalSymbols - called by parent GraphController
     static validateProps() {
         // Skip prop validation to avoid issues in test environment
         return true

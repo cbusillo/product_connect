@@ -19,8 +19,7 @@ export class MultigraphModel extends GraphModel {
             }
         }
 
-        const result = await this._loadData(searchParams)
-        return result
+        return await this._loadData(searchParams)
     }
 
     async _loadData(searchParams) {
