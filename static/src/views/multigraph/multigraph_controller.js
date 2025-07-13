@@ -1,4 +1,5 @@
-/** @odoo-module **/
+import { GraphController } from "@web/views/graph/graph_controller"
+import { useService } from "@web/core/utils/hooks"
 
 import { GraphController } from "@web/views/graph/graph_controller";
 import { useService } from "@web/core/utils/hooks";

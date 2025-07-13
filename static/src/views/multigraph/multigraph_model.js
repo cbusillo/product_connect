@@ -1,6 +1,4 @@
-/** @odoo-module **/
-
-import { GraphModel } from "@web/views/graph/graph_model";
+import { GraphModel } from "@web/views/graph/graph_model"
 
 export class MultigraphModel extends GraphModel {
     setup(params) {

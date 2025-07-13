@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import { GraphRenderer } from "@web/views/graph/graph_renderer"
 import { loadBundle } from "@web/core/assets"
 import { onWillStart, onMounted, onWillUnmount, useRef } from "@odoo/owl"
