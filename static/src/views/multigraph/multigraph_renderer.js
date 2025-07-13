@@ -1,44 +1,48 @@
 /** @odoo-module **/
 
-import { GraphRenderer } from "@web/views/graph/graph_renderer";
-import { loadBundle } from "@web/core/assets";
-import { onWillStart, onMounted, onWillUnmount, useRef } from "@odoo/owl";
+import { GraphRenderer } from "@web/views/graph/graph_renderer"
+import { loadBundle } from "@web/core/assets"
+import { onWillStart, onMounted, onWillUnmount, useRef } from "@odoo/owl"
 
 export class MultigraphRenderer extends GraphRenderer {
-    static template = "web.GraphRenderer";
+    static template = "web.GraphRenderer"
+    static props = {
+        ...GraphRenderer.props
+    }
 
     setup() {
-        super.setup();
-        this.canvasRef = useRef("canvas");
-        this.chart = null;
+        super.setup()
+        this.canvasRef = useRef("canvas")
+        this.chart = null
 
         onWillStart(async () => {
-            await loadBundle("web.chartjs_lib");
-        });
+            await loadBundle("web.chartjs_lib")
+        })
 
-        onMounted(() => this.renderChart());
+        onMounted(() => this.renderChart())
 
         onWillUnmount(() => {
             if (this.chart) {
-                this.chart.destroy();
+                this.chart.destroy()
             }
-        });
+        })
     }
 
     renderChart() {
         if (this.chart) {
-            this.chart.destroy();
+            this.chart.destroy()
         }
 
         if (this.canvasRef.el && this.model.data) {
-            const config = this.getChartConfig();
-            this.chart = new Chart(this.canvasRef.el, config);
+            const config = this.getChartConfig()
+            this.chart = new Chart(this.canvasRef.el, config)
         }
     }
 
     getChartConfig() {
-        const { data } = this.model;
+        const { data } = this.model
 
+        // noinspection JSValidateTypes - Chart.js config structure
         return {
             type: "line",
             data: {
@@ -58,10 +62,10 @@ export class MultigraphRenderer extends GraphRenderer {
                         intersect: false,
                         callbacks: {
                             label: (context) => {
-                                const dataset = context.dataset;
-                                const value = context.parsed.y;
-                                const formattedValue = this.model.getFormattedValue(value, dataset);
-                                return `${dataset.label}: ${formattedValue}`;
+                                const dataset = context.dataset
+                                const value = context.parsed.y
+                                const formattedValue = this.model.getFormattedValue(value, dataset)
+                                return `${dataset.label}: ${formattedValue}`
                             },
                         },
                     },
@@ -74,11 +78,11 @@ export class MultigraphRenderer extends GraphRenderer {
                 scales: this._getScalesConfig(),
                 onClick: (event, elements) => {
                     if (elements.length > 0) {
-                        this.onGraphClick(event, elements);
+                        this.onGraphClick(event, elements)
                     }
                 },
             },
-        };
+        }
     }
 
     _getScalesConfig() {
@@ -90,7 +94,7 @@ export class MultigraphRenderer extends GraphRenderer {
                     drawOnChartArea: true,
                 },
             },
-        };
+        }
 
         Object.entries(this.model.axisConfig).forEach(([axisId, config]) => {
             scales[axisId] = {
@@ -104,32 +108,31 @@ export class MultigraphRenderer extends GraphRenderer {
                     callback: (value) => {
                         const datasetsForAxis = this.model.data.datasets.filter(
                             ds => ds.yAxisID === axisId
-                        );
+                        )
 
                         if (datasetsForAxis.some(ds => ds.widget === "monetary")) {
                             return new Intl.NumberFormat("en-US", {
                                 style: "currency",
                                 currency: "USD",
-                                notation: "compact",
-                                maximumFractionDigits: 1,
-                            }).format(value);
+                                maximumFractionDigits: 1
+                            }).format(value)
                         }
 
-                        return value.toLocaleString();
+                        return value.toLocaleString()
                     },
                 },
-            };
-        });
+            }
+        })
 
-        return scales;
+        return scales
     }
 
     onGraphClick(event, elements) {
-        const element = elements[0];
-        if (!element) return;
+        const element = elements[0]
+        if (!element) return
 
-        const { index } = element;
-        const domain = this.model.data.domains[index];
+        const { index } = element
+        const domain = this.model.data.domains[index]
 
         if (domain && domain.length) {
             this.env.services.action.doAction({
@@ -139,13 +142,15 @@ export class MultigraphRenderer extends GraphRenderer {
                 views: [[false, "list"], [false, "form"]],
                 domain,
                 context: this.model.searchParams.context,
-            });
+            })
         }
     }
 
+    // noinspection JSUnusedGlobalSymbols - Owl lifecycle method
     onWillUpdateProps(nextProps) {
-        if (this.chart && JSON.stringify(this.props.data) !== JSON.stringify(nextProps.data)) {
-            this.renderChart();
+        // Handle prop updates
+        if (this.chart && this.props.model.data !== nextProps.model.data) {
+            this.renderChart()
         }
     }
 }

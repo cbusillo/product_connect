@@ -46,6 +46,7 @@ describe("MultigraphModel", () => {
             },
         };
 
+        // noinspection JSCheckFunctionSignatures - Odoo model instantiation pattern
         model = new MultigraphModel();
         model.orm = mockOrm;
         model.setup(params);

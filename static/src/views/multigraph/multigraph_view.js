@@ -1,11 +1,11 @@
 /** @odoo-module **/
 
-import { registry } from "@web/core/registry";
-import { graphView } from "@web/views/graph/graph_view";
-import { MultigraphArchParser } from "./multigraph_arch_parser";
-import { MultigraphModel } from "./multigraph_model";
-import { MultigraphRenderer } from "./multigraph_renderer";
-import { MultigraphController } from "./multigraph_controller";
+import { registry } from "@web/core/registry"
+import { graphView } from "@web/views/graph/graph_view"
+import { MultigraphArchParser } from "./multigraph_arch_parser"
+import { MultigraphModel } from "./multigraph_model"
+import { MultigraphRenderer } from "./multigraph_renderer"
+import { MultigraphController } from "./multigraph_controller"
 
 export const multigraphView = {
     ...graphView,
@@ -21,13 +21,13 @@ export const multigraphView = {
     Controller: MultigraphController,
 
     props(genericProps, view) {
-        let modelParams;
+        let modelParams
         if (genericProps.state) {
-            modelParams = genericProps.state.metaData;
+            modelParams = genericProps.state.metaData
         } else {
-            const { arch, fields, resModel } = genericProps;
-            const parser = new view.ArchParser();
-            const archInfo = parser.parse(arch, fields);
+            const { arch, fields, resModel } = genericProps
+            const parser = new view.ArchParser()
+            const archInfo = parser.parse(arch, fields)
             modelParams = {
                 disableLinking: Boolean(archInfo.disableLinking),
                 fields: archInfo.fields,
@@ -39,7 +39,7 @@ export const multigraphView = {
                 resModel: resModel,
                 stacked: archInfo.stacked || false,
                 title: archInfo.title || "MultiGraph",
-            };
+            }
         }
 
         return {
@@ -48,8 +48,8 @@ export const multigraphView = {
             Model: view.Model,
             Renderer: view.Renderer,
             buttonTemplate: view.buttonTemplate,
-        };
+        }
     },
-};
+}
 
-registry.category("views").add("multigraph", multigraphView);
+registry.category("views").add("multigraph", multigraphView)
