@@ -158,7 +158,7 @@ class ProductTemplate(models.Model):
         return groups
 
     @api.model_create_multi
-    def create(self, vals_list: list["odoo.values.product_template"]) -> "odoo.model.product_template":
+    def create(self, vals_list: "odoo.values.product_template") -> "odoo.model.product_template":
         for vals in vals_list:
             source = self._context.get("default_source") or vals.get("source")
             if source:
