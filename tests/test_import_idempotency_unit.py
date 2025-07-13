@@ -7,6 +7,7 @@ record level without the complexity of date filtering or sync infrastructure.
 
 from odoo.tests import tagged
 from .fixtures.test_service_base import ShopifyTestBase
+from .test_import_idempotency_base import ImportIdempotencySetupMixin
 from .fixtures.shopify_responses import (
     create_shopify_order_response,
     create_shopify_customer_response,
@@ -22,26 +23,12 @@ from ..services.shopify.sync.importers.product_importer import ProductImporter
 
 
 @tagged("post_install", "-at_install")
-class TestImportIdempotencyUnit(ShopifyTestBase):
+class TestImportIdempotencyUnit(ImportIdempotencySetupMixin, ShopifyTestBase):
     """Unit tests for import idempotency at the record level"""
 
     def setUp(self) -> None:
         super().setUp()
-        self._setup_shopify_mocks()
-        self.sync_record = self.env["shopify.sync"].create(
-            {
-                "mode": "import_changed_orders",
-            }
-        )
-
-        # Create test product with shopify variant ID
-        self.test_product = self.test_products[0]
-        self.test_product.write(
-            {
-                "shopify_variant_id": "987654321",
-                "list_price": 99.99,
-            }
-        )
+        self._setup_import_idempotency_test()
 
     def test_order_import_creates_new_order(self) -> None:
         """Test that importing a new order creates it and returns True"""
