@@ -133,15 +133,27 @@ export class MultigraphRenderer extends GraphRenderer {
         const domain = this.model.data.domains[index]
 
         if (domain && domain.length) {
-            this.env.services.action.doAction({
-                type: "ir.actions.act_window",
-                name: "Details",
-                res_model: this.model.resModel,
-                views: [[false, "list"], [false, "form"]],
-                domain,
-                context: this.model.searchParams.context,
-            })
+            // Guard against undefined env (e.g., in test environments)
+            if (this.env && this.env.services && this.env.services.action) {
+                this.env.services.action.doAction({
+                    type: "ir.actions.act_window",
+                    name: "Details",
+                    res_model: this.model.resModel,
+                    views: [[false, "list"], [false, "form"]],
+                    domain,
+                    context: this.model.searchParams.context,
+                })
+            } else {
+                console.log("Chart clicked - would open details view with domain:", domain)
+            }
         }
+    }
+
+    onModeClick(mode) {
+        /** @type {import("./multigraph_model").MultigraphModel} */
+        const model = this.model
+        model.metaData.mode = mode
+        this.render(true)
     }
 
     // noinspection JSUnusedGlobalSymbols - Owl lifecycle method

@@ -28,13 +28,13 @@ export const multigraphView = {
             const archInfo = parser.parse(arch, fields)
             modelParams = {
                 disableLinking: Boolean(archInfo.disableLinking),
-                fields: archInfo.fields,
-                groupBy: archInfo.groupBy,
-                measures: archInfo.measures,
-                axisConfig: archInfo.axisConfig,
+                fields: archInfo.fields || {},
+                groupBy: archInfo.groupBy || [],
+                measures: archInfo.measures || [],
+                axisConfig: archInfo.axisConfig || {},
                 mode: "line",
                 order: null,
-                resModel: resModel,
+                resModel: resModel || "",
                 stacked: archInfo.stacked || false,
                 title: archInfo.title || "MultiGraph",
             }
