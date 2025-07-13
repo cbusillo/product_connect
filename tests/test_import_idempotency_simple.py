@@ -5,7 +5,6 @@ to avoid re-importing the same data.
 """
 
 from datetime import datetime, timezone, timedelta
-from typing import Any
 from unittest.mock import patch, MagicMock
 from odoo.tests import tagged
 from .fixtures.test_service_base import ShopifyTestBase
@@ -73,7 +72,7 @@ class TestImportIdempotencySimple(ImportIdempotencySetupMixin, ShopifyTestBase):
         self.env["ir.config_parameter"].set_param(config_key, format_datetime_for_shopify(middle_time))
 
         # Create mock that returns orders based on query filter
-        def mock_fetch_page(_client: Any, query: str | None, cursor: str | None) -> MagicMock:
+        def mock_fetch_page(_client: object, query: str | None, cursor: str | None) -> MagicMock:
             mock_page = MagicMock()
 
             # Only return new order if filtering by time
@@ -129,7 +128,7 @@ class TestImportIdempotencySimple(ImportIdempotencySetupMixin, ShopifyTestBase):
         self.assertFalse(self.env["ir.config_parameter"].get_param(config_key))
 
         # Create mock that returns order when no filter
-        def mock_fetch_page(_client: Any, _query: str | None, cursor: str | None) -> MagicMock:
+        def mock_fetch_page(_client: object, _query: str | None, cursor: str | None) -> MagicMock:
             mock_page = MagicMock()
 
             # First import has no timestamp, so query will have very old date

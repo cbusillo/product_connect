@@ -1,6 +1,6 @@
 import logging
-import typing
 from decimal import Decimal
+from typing import Any
 from unittest.mock import patch, MagicMock
 
 from odoo.tests import tagged
@@ -121,23 +121,19 @@ class TestOrderImporter(ShopifyTestBase):
                 }
             )
 
-    def _import_order_and_verify_success(self, order_data: dict[str, typing.Any]) -> "odoo.model.sale_order":
-        shopify_order = OrderFields(**order_data)
+    def _import_order_and_verify_success(self, shopify_order: OrderFields) -> "odoo.model.sale_order":
         result = self.importer._import_one(shopify_order)
         self.assertTrue(result)
-        shopify_id = order_data.get("id", "gid://shopify/Order/123456789").split("/")[-1]
+        shopify_id = shopify_order.id.split("/")[-1]
         order = self.env["sale.order"].search([("shopify_order_id", "=", shopify_id)])
         self.assertTrue(order)
         return order
 
-    def _mock_fetch_page_and_import(self, order_data: dict[str, typing.Any]) -> int:
+    def _mock_fetch_page_and_import(self, shopify_order: OrderFields) -> int:
         with patch.object(self.importer, "_fetch_page") as mock_fetch:
-            # Create OrderFields from the dict data
-            order = OrderFields(**order_data)
-
             # Mock the page structure that _iterate_pages expects
             mock_page = MagicMock()
-            mock_page.nodes = [order]
+            mock_page.nodes = [shopify_order]
             mock_page.page_info.has_next_page = False
             mock_page.page_info.end_cursor = None
 
@@ -145,7 +141,7 @@ class TestOrderImporter(ShopifyTestBase):
             return self.importer.import_orders_since_last_import()
 
     def _mock_fetch_page_with_error(
-        self, order_data: dict[str, typing.Any] | None, expected_exception: type[Exception] | Exception
+        self, order_data: dict[str, Any] | None, expected_exception: type[Exception] | Exception
     ) -> None:
         with patch.object(self.importer, "_fetch_page") as mock_fetch:
             if order_data:
@@ -385,7 +381,7 @@ class TestOrderImporter(ShopifyTestBase):
             tax_lines=tax_lines,
         )
 
-        order = self._import_order_and_verify_success(order_data)
+        order = self._import_order_and_verify_success(OrderFields(**order_data))
         tax_lines = order.order_line.filtered(lambda l: l.product_id.default_code == "TAX")
         self.assertEqual(len(tax_lines), 2)
 
@@ -415,7 +411,7 @@ class TestOrderImporter(ShopifyTestBase):
         )
 
         # need order confirmed first to have pickings
-        order = self._import_order_and_verify_success(order_data)
+        order = self._import_order_and_verify_success(OrderFields(**order_data))
 
         # create picking manually
         self.env["stock.picking"].create(
@@ -743,7 +739,7 @@ eBay Order Id:   11-22222-33333   """
             ],
         )
 
-        imported_count = self._mock_fetch_page_and_import(order_data)
+        imported_count = self._mock_fetch_page_and_import(OrderFields(**order_data))
         self.assertEqual(imported_count, 1)
 
         order = self.env["sale.order"].search([("shopify_order_id", "=", "999999999999999")])
@@ -775,7 +771,7 @@ eBay Order Id:   11-22222-33333   """
             note="Order note with 中文 and emoji 😊",
         )
 
-        imported_count = self._mock_fetch_page_and_import(order_data)
+        imported_count = self._mock_fetch_page_and_import(OrderFields(**order_data))
         self.assertEqual(imported_count, 1)
 
         order = self.env["sale.order"].search([("shopify_order_id", "=", "123456789")])
@@ -802,7 +798,7 @@ eBay Order Id:   11-22222-33333   """
             ],
         )
 
-        imported_count = self._mock_fetch_page_and_import(order_data)
+        imported_count = self._mock_fetch_page_and_import(OrderFields(**order_data))
         self.assertEqual(imported_count, 1)
 
         order = self.env["sale.order"].search([("shopify_order_id", "=", "123456789")])
@@ -854,7 +850,7 @@ eBay Order Id:   11-22222-33333   """
             ],
         )
 
-        imported_count = self._mock_fetch_page_and_import(order_data)
+        imported_count = self._mock_fetch_page_and_import(OrderFields(**order_data))
         self.assertEqual(imported_count, 1)
 
         order = self.env["sale.order"].search([("shopify_order_id", "=", "123456789")])
@@ -876,7 +872,7 @@ eBay Order Id:   11-22222-33333   """
             line_items=[create_shopify_order_line_item_response(sku=self.product_a.default_code)],
         )
 
-        order = self._import_order_and_verify_success(order_data)
+        order = self._import_order_and_verify_success(OrderFields(**order_data))
         self.assertEqual(order.shopify_note, "Payment: credit_card, paypal\nTest order note")
 
     @patch.object(CustomerImporter, "import_customer")
@@ -891,7 +887,7 @@ eBay Order Id:   11-22222-33333   """
             line_items=[create_shopify_order_line_item_response(sku=self.product_a.default_code)],
         )
 
-        order = self._import_order_and_verify_success(order_data)
+        order = self._import_order_and_verify_success(OrderFields(**order_data))
         self.assertIn("eBay Sales Record: 12345", order.shopify_note)
         self.assertIn("eBay Order ID: 67890", order.shopify_note)
         self.assertIn("eBay order note", order.shopify_note)
