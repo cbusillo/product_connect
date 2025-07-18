@@ -44,7 +44,7 @@ class ShopifyWebhook(http.Controller):
             raise BadRequest()
 
         if topic.startswith(self.PRODUCT_TOPICS + self.INVENTORY_TOPICS):
-            env["shopify.sync"].create_and_run_async({"mode": SyncMode.IMPORT_CHANGED_PRODUCTS.value, "user": shopify_user.id})
+            env["shopify.sync"].create_and_run_async({"mode": SyncMode.IMPORT_THEN_EXPORT_PRODUCTS.value, "user": shopify_user.id})
 
         elif topic.startswith(self.ORDER_TOPICS):
             env["shopify.sync"].create_and_run_async({"mode": SyncMode.IMPORT_CHANGED_ORDERS.value, "user": shopify_user.id})
