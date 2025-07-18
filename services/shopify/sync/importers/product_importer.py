@@ -254,7 +254,7 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
                 "type": "consu",
                 "is_storable": True,
                 "manufacturer": self.get_or_create_manufacturer(shopify_product.vendor).id if shopify_product.vendor else False,
-                "is_published": shopify_product.status.lower() == "active",
+                "is_published": True,  # Always true for products imported from Shopify
                 "is_ready_for_sale": True,
             }
 
