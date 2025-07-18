@@ -287,6 +287,10 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
 
             self._sync_images_bidirectional(odoo_product, shopify_product)
             if shopify_product.total_inventory is not None:
+                stock_availability_changed = bool(odoo_product.qty_available) != bool(shopify_product.total_inventory)
+                if stock_availability_changed:
+                    odoo_product.shopify_next_export = True
+                
                 odoo_product.update_quantity(shopify_product.total_inventory)
 
             return odoo_product
