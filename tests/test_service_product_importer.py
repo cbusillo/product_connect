@@ -468,7 +468,7 @@ class TestProductImporter(ShopifyTestBase):
         )
 
         product = self._import_product_and_verify(product_data, sku)
-        self.assertFalse(product.is_published)
+        self.assertTrue(product.is_published)
 
     def test_create_manufacturer_if_not_exists(self) -> None:
         sku = self._get_unique_sku()
