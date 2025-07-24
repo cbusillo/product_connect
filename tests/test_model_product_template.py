@@ -86,9 +86,20 @@ class TestProductTemplate(ProductConnectTransactionCase):
 
     def test_is_scrap_write_posts_message_on_motor_product(self) -> None:
         """Test that marking a motor product as scrap posts a message"""
-        # Create motor product
+        # Create tech result
+        dismantle_result = self.env["motor.dismantle.result"].create(
+            {
+                "name": "Test Result",
+                "mark_for_repair": False,
+            }
+        )
+
+        # Create motor product with tech_result
         product = self._create_motor_product(
-            name="Test Motor Product", default_code="12345678", template_vals={"name": "Test Motor Part"}
+            name="Test Motor Product",
+            default_code="12345678",
+            template_vals={"name": "Test Motor Part"},
+            tech_result=dismantle_result.id,
         )
 
         # Clear existing messages
@@ -179,6 +190,14 @@ class TestProductTemplate(ProductConnectTransactionCase):
 
     def test_is_scrap_in_ui_refresh_fields(self) -> None:
         """Test that is_scrap triggers UI refresh when changed on motor products"""
+        # Create tech result
+        dismantle_result = self.env["motor.dismantle.result"].create(
+            {
+                "name": "Test Result for UI",
+                "mark_for_repair": False,
+            }
+        )
+
         # Create motor product
         product = self._create_motor_product(
             name="Test UI Refresh Product",
@@ -188,6 +207,7 @@ class TestProductTemplate(ProductConnectTransactionCase):
                 "model": "TEST2",
                 "cost": 500.0,
             },
+            tech_result=dismantle_result.id,
         )
 
         # The UI refresh functionality is tested by verifying that:
@@ -208,8 +228,21 @@ class TestProductTemplate(ProductConnectTransactionCase):
 
     def test_is_scrap_resets_stage_fields(self) -> None:
         """Test that marking a motor product as scrap resets all stage fields to False"""
+        # Create tech result
+        dismantle_result = self.env["motor.dismantle.result"].create(
+            {
+                "name": "Test Result for Reset",
+                "mark_for_repair": False,
+            }
+        )
+
         # Create motor product with image support
-        product = self._create_motor_product(name="Test Scrap Reset Product", default_code="87654321", with_image=True)
+        product = self._create_motor_product(
+            name="Test Scrap Reset Product",
+            default_code="87654321",
+            with_image=True,
+            tech_result=dismantle_result.id,
+        )
 
         # Set stage fields to True after creation
         product.write(
@@ -248,11 +281,20 @@ class TestProductTemplate(ProductConnectTransactionCase):
 
     def test_is_scrap_unmark_does_not_affect_stage_fields(self) -> None:
         """Test that unmarking a motor product as scrap does not affect stage fields"""
+        # Create tech result
+        dismantle_result = self.env["motor.dismantle.result"].create(
+            {
+                "name": "Test Result for Unscrap",
+                "mark_for_repair": False,
+            }
+        )
+
         # Create a motor product that's already scrapped
         product = self._create_motor_product(
             name="Test Unscrap Product",
             default_code="11223344",
             is_scrap=True,
+            tech_result=dismantle_result.id,
         )
 
         # Set some stage fields while product is scrapped
@@ -270,3 +312,64 @@ class TestProductTemplate(ProductConnectTransactionCase):
         self.assertTrue(product.is_dismantled, "is_dismantled should remain True when unmarking scrap")
         self.assertTrue(product.is_cleaned, "is_cleaned should remain True when unmarking scrap")
         self.assertFalse(product.is_scrap, "is_scrap should be False")
+
+    def test_is_scrap_requires_tech_result_for_motor_products(self) -> None:
+        """Test that tech_result is required when marking motor products as scrap"""
+        # Create motor product without tech_result
+        product = self._create_motor_product(
+            name="Test Scrap Validation Product",
+            default_code="99887766",
+        )
+
+        # Try to mark as scrap without tech_result - should fail
+        with self.assertRaises(ValidationError) as context:
+            product.is_scrap = True
+        self.assertIn("Tech result is required", str(context.exception))
+
+        # Set tech_result
+        dismantle_result = self.env["motor.dismantle.result"].create(
+            {
+                "name": "Test Scrap Reason",
+                "mark_for_repair": False,
+            }
+        )
+        product.tech_result = dismantle_result
+
+        # Now marking as scrap should work
+        product.is_scrap = True
+        self.assertTrue(product.is_scrap, "Product should be marked as scrap after setting tech_result")
+
+    def test_is_scrap_tracking_posts_motor_message(self) -> None:
+        """Test that marking as scrap posts tracking message to motor"""
+        # Create motor product with tech_result
+        dismantle_result = self.env["motor.dismantle.result"].create(
+            {
+                "name": "Damaged Beyond Repair",
+                "mark_for_repair": False,
+            }
+        )
+
+        product = self._create_motor_product(
+            name="Test Scrap Tracking Product",
+            default_code="77665544",
+            tech_result=dismantle_result.id,
+        )
+
+        # Clear motor messages to have a clean test
+        product.motor.message_ids.unlink()
+
+        # Mark as scrap
+        product.is_scrap = True
+
+        # Check for motor message
+        motor_messages = product.motor.message_ids.filtered(lambda m: "marked as scrap" in m.body)
+
+        self.assertEqual(len(motor_messages), 1, "Should have one motor message for scrap")
+        self.assertIn(product.motor_product_template.name, motor_messages[0].body)
+
+        # The message provides tracking of:
+        # - Who: The user who made the change (message author)
+        # - When: The message create_date
+        # - What: Product marked as scrap
+        # - Why: tech_result provides the reason
+        self.assertEqual(product.tech_result.name, "Damaged Beyond Repair")
