@@ -86,61 +86,27 @@ class TestProductTemplate(ProductConnectTransactionCase):
 
     def test_is_scrap_write_posts_message_on_motor_product(self) -> None:
         """Test that marking a motor product as scrap posts a message"""
-        # Create motor with required fields
-        manufacturer = self.env["product.manufacturer"].create({"name": "Test Scrap Manufacturer", "is_motor_manufacturer": True})
-        stroke = self.env["motor.stroke"].create({"name": "Four", "code": "4"})
-        config = self.env["motor.configuration"].create({"name": "V8", "code": "V8"})
-
-        motor = self.env["motor"].create(
-            {
-                "manufacturer": manufacturer.id,
-                "stroke": stroke.id,
-                "configuration": config.id,
-                "horsepower": 100.0,
-                "year": "2024",
-                "model": "TEST",
-                "cost": 1000.0,
-            }
-        )
-
-        # Create motor product template
-        motor_product_template = self.env["motor.product.template"].create(
-            {
-                "name": "Test Motor Part",
-                "strokes": [(4, stroke.id)],
-                "configurations": [(4, config.id)],
-                "manufacturers": [(4, manufacturer.id)],
-            }
-        )
-
         # Create motor product
-        product = self.env["product.template"].create(
-            {
-                "name": "Test Motor Product",
-                "default_code": "12345678",
-                "type": "consu",
-                "source": "motor",
-                "motor": motor.id,
-                "motor_product_template": motor_product_template.id,
-            }
+        product = self._create_motor_product(
+            name="Test Motor Product", default_code="12345678", template_vals={"name": "Test Motor Part"}
         )
 
         # Clear existing messages
-        motor.message_ids.unlink()
+        product.motor.message_ids.unlink()
 
         # Mark as scrap
         product.is_scrap = True
 
         # Check message was posted
-        messages = motor.message_ids.filtered(lambda m: "marked as scrap" in m.body)
+        messages = product.motor.message_ids.filtered(lambda m: "marked as scrap" in m.body)
         self.assertEqual(len(messages), 1, "Should post exactly one scrap message")
-        self.assertIn(motor_product_template.name, messages[0].body)
+        self.assertIn(product.motor_product_template.name, messages[0].body)
 
         # Unmark as scrap
         product.is_scrap = False
 
         # Check unmarked message was posted
-        messages = motor.message_ids.filtered(lambda m: "unmarked as scrap" in m.body)
+        messages = product.motor.message_ids.filtered(lambda m: "unmarked as scrap" in m.body)
         self.assertEqual(len(messages), 1, "Should post exactly one un-scrap message")
 
     def test_is_scrap_excludes_from_ready_to_list(self) -> None:
@@ -213,31 +179,15 @@ class TestProductTemplate(ProductConnectTransactionCase):
 
     def test_is_scrap_in_ui_refresh_fields(self) -> None:
         """Test that is_scrap triggers UI refresh when changed on motor products"""
-        # Create motor for UI refresh test
-        manufacturer = self.env["product.manufacturer"].create({"name": "Test UI Manufacturer", "is_motor_manufacturer": True})
-        stroke = self.env["motor.stroke"].create({"name": "Two", "code": "2"})
-        config = self.env["motor.configuration"].create({"name": "V6", "code": "V6"})
-
-        motor = self.env["motor"].create(
-            {
-                "manufacturer": manufacturer.id,
-                "stroke": stroke.id,
-                "configuration": config.id,
+        # Create motor product
+        product = self._create_motor_product(
+            name="Test UI Refresh Product",
+            default_code="12345678",
+            motor_vals={
                 "horsepower": 75.0,
-                "year": "2024",
                 "model": "TEST2",
                 "cost": 500.0,
-            }
-        )
-
-        product = self.env["product.template"].create(
-            {
-                "name": "Test UI Refresh Product",
-                "default_code": "12345678",
-                "type": "consu",
-                "source": "motor",
-                "motor": motor.id,
-            }
+            },
         )
 
         # The UI refresh functionality is tested by verifying that:
@@ -255,3 +205,68 @@ class TestProductTemplate(ProductConnectTransactionCase):
         self.assertIsNotNone(field, "is_scrap field should exist")
         self.assertTrue(field.tracking, "is_scrap should have tracking enabled")
         self.assertTrue(field.index, "is_scrap should be indexed")
+
+    def test_is_scrap_resets_stage_fields(self) -> None:
+        """Test that marking a motor product as scrap resets all stage fields to False"""
+        # Create motor product with image support
+        product = self._create_motor_product(name="Test Scrap Reset Product", default_code="87654321", with_image=True)
+
+        # Set stage fields to True after creation
+        product.write(
+            {
+                "is_dismantled": True,
+                "is_dismantled_qc": True,
+                "is_cleaned": True,
+                "is_cleaned_qc": True,
+                "is_pictured": True,
+                "is_pictured_qc": True,
+                "bin": "A01",
+                "weight": 10,
+            }
+        )
+
+        # Verify all stage fields are True before marking as scrap
+        self.assertTrue(product.is_dismantled, "is_dismantled should be True before marking as scrap")
+        self.assertTrue(product.is_dismantled_qc, "is_dismantled_qc should be True before marking as scrap")
+        self.assertTrue(product.is_cleaned, "is_cleaned should be True before marking as scrap")
+        self.assertTrue(product.is_cleaned_qc, "is_cleaned_qc should be True before marking as scrap")
+        self.assertTrue(product.is_pictured, "is_pictured should be True before marking as scrap")
+        self.assertTrue(product.is_pictured_qc, "is_pictured_qc should be True before marking as scrap")
+        self.assertFalse(product.is_scrap, "is_scrap should be False initially")
+
+        # Mark product as scrap
+        product.is_scrap = True
+
+        # Verify all stage fields are reset to False
+        self.assertFalse(product.is_dismantled, "is_dismantled should be False when marked as scrap")
+        self.assertFalse(product.is_dismantled_qc, "is_dismantled_qc should be False when marked as scrap")
+        self.assertFalse(product.is_cleaned, "is_cleaned should be False when marked as scrap")
+        self.assertFalse(product.is_cleaned_qc, "is_cleaned_qc should be False when marked as scrap")
+        self.assertFalse(product.is_pictured, "is_pictured should be False when marked as scrap")
+        self.assertFalse(product.is_pictured_qc, "is_pictured_qc should be False when marked as scrap")
+        self.assertTrue(product.is_scrap, "is_scrap should remain True")
+
+    def test_is_scrap_unmark_does_not_affect_stage_fields(self) -> None:
+        """Test that unmarking a motor product as scrap does not affect stage fields"""
+        # Create a motor product that's already scrapped
+        product = self._create_motor_product(
+            name="Test Unscrap Product",
+            default_code="11223344",
+            is_scrap=True,
+        )
+
+        # Set some stage fields while product is scrapped
+        product.write(
+            {
+                "is_dismantled": True,
+                "is_cleaned": True,
+            }
+        )
+
+        # Unmark as scrap
+        product.is_scrap = False
+
+        # Verify stage fields remain unchanged
+        self.assertTrue(product.is_dismantled, "is_dismantled should remain True when unmarking scrap")
+        self.assertTrue(product.is_cleaned, "is_cleaned should remain True when unmarking scrap")
+        self.assertFalse(product.is_scrap, "is_scrap should be False")

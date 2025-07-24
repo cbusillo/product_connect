@@ -244,10 +244,23 @@ class ProductTemplate(models.Model):
                 message_text = f"Product '{product.motor_product_template_name}' tech result: {tech_result}"
                 product.motor.message_post(body=message_text, message_type="comment", subtype_xmlid="mail.mt_note")
 
-            if "is_scrap" in vals_to_write and product.motor:
-                action = "marked as scrap" if vals_to_write["is_scrap"] else "unmarked as scrap"
-                message_text = f"Product '{product.motor_product_template_name}' {action}"
-                product.motor.message_post(body=message_text, message_type="comment", subtype_xmlid="mail.mt_note")
+            if "is_scrap" in vals_to_write:
+                if vals_to_write["is_scrap"]:
+                    vals_to_write.update(
+                        {
+                            "is_dismantled": False,
+                            "is_dismantled_qc": False,
+                            "is_cleaned": False,
+                            "is_cleaned_qc": False,
+                            "is_pictured": False,
+                            "is_pictured_qc": False,
+                        }
+                    )
+
+                if product.motor:
+                    action = "marked as scrap" if vals_to_write["is_scrap"] else "unmarked as scrap"
+                    message_text = f"Product '{product.motor_product_template_name}' {action}"
+                    product.motor.message_post(body=message_text, message_type="comment", subtype_xmlid="mail.mt_note")
 
             write_results.append(super(ProductTemplate, product).write(vals_to_write))
 

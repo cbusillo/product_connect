@@ -79,6 +79,117 @@ class ProductConnectTransactionCase(TransactionCase):
         }
 
     @classmethod
+    def _create_motor_dependencies(cls) -> dict:
+        """Create and return motor dependencies (manufacturer, stroke, config)."""
+        # Check if dependencies already exist to avoid duplicates
+        manufacturer = cls.env["product.manufacturer"].search([("name", "=", "Test Manufacturer")], limit=1)
+        if not manufacturer:
+            manufacturer = cls.env["product.manufacturer"].create({"name": "Test Manufacturer", "is_motor_manufacturer": True})
+
+        stroke = cls.env["motor.stroke"].search([("code", "=", "4")], limit=1)
+        if not stroke:
+            stroke = cls.env["motor.stroke"].create({"name": "Four", "code": "4"})
+
+        config = cls.env["motor.configuration"].search([("code", "=", "V6")], limit=1)
+        if not config:
+            config = cls.env["motor.configuration"].create({"name": "V6", "code": "V6"})
+
+        return {
+            "manufacturer": manufacturer,
+            "stroke": stroke,
+            "config": config,
+        }
+
+    @classmethod
+    def _create_motor(cls, **kwargs) -> "odoo.model.motor":
+        """Create a motor with standard test values.
+
+        Args:
+            **kwargs: Additional values to override defaults
+
+        Returns:
+            Created motor record
+        """
+        deps = cls._create_motor_dependencies()
+
+        motor_vals = {
+            "manufacturer": deps["manufacturer"].id,
+            "stroke": deps["stroke"].id,
+            "configuration": deps["config"].id,
+            "horsepower": 100.0,
+            "year": "2024",
+            "model": "TEST",
+            "cost": 1000.0,
+            "location": f"A{secrets.token_hex(2)}",  # Random location to avoid conflicts
+            "serial_number": f"SN{secrets.token_hex(4)}",  # Random serial to avoid conflicts
+        }
+        motor_vals.update(kwargs)
+
+        return cls.env["motor"].create(motor_vals)
+
+    @classmethod
+    def _create_motor_product(cls, **kwargs) -> "odoo.model.product_template":
+        """Create a complete motor product with all dependencies.
+
+        Args:
+            **kwargs: Additional values to override defaults. Can include:
+                - motor_vals: dict of motor-specific values
+                - template_vals: dict of motor product template values
+                - product_vals: dict of product template values
+                - with_image: bool to add a test image (default: False)
+
+        Returns:
+            Created product.template record
+        """
+        # Extract specific kwarg dicts
+        motor_vals = kwargs.pop("motor_vals", {})
+        template_vals = kwargs.pop("template_vals", {})
+        with_image = kwargs.pop("with_image", False)
+
+        # Create motor if not provided
+        motor = kwargs.pop("motor", None)
+        if not motor:
+            motor = cls._create_motor(**motor_vals)
+
+        # Create motor product template if not provided
+        motor_product_template = kwargs.pop("motor_product_template", None)
+        if not motor_product_template:
+            deps = cls._create_motor_dependencies()
+            default_template_vals = {
+                "name": "Test Motor Part",
+                "strokes": [(4, deps["stroke"].id)],
+                "configurations": [(4, deps["config"].id)],
+                "manufacturers": [(4, deps["manufacturer"].id)],
+            }
+            default_template_vals.update(template_vals)
+            motor_product_template = cls.env["motor.product.template"].create(default_template_vals)
+
+        # Create motor product
+        product_vals = {
+            "name": "Test Motor Product",
+            "default_code": str(60000000 + secrets.randbelow(999999)),  # Random valid SKU
+            "type": "consu",
+            "source": "motor",
+            "motor": motor.id,
+            "motor_product_template": motor_product_template.id,
+        }
+        product_vals.update(kwargs)
+
+        product = cls.env["product.template"].create(product_vals)
+
+        # Add image if requested
+        if with_image:
+            cls.env["product.image"].create(
+                {
+                    "product_tmpl_id": product.id,
+                    "image_1920": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+                    "name": "test_image",
+                }
+            )
+
+        return product
+
+    @classmethod
     def _create_default_test_products(cls) -> None:
         """Create default test products that can be used across tests."""
         # First create test partner that products might need
