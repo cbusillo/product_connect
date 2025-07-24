@@ -94,6 +94,7 @@ class ProductTemplate(models.Model):
     is_picture_taken = fields.Boolean(default=False, tracking=True, string="Picture Taken")
     is_pictured = fields.Boolean(default=False, tracking=True, string="Pictured", index=True)
     is_pictured_qc = fields.Boolean(default=False, tracking=True, string="Pictured QC")
+    is_scrap = fields.Boolean(default=False, tracking=True, string="Scrap", index=True)
     is_ready_to_list = fields.Boolean(compute="_compute_ready_to_list", store=True, index=True)
 
     repairs = fields.One2many(related="product_variant_ids.repairs")
@@ -205,6 +206,7 @@ class ProductTemplate(models.Model):
             "is_cleaned_qc",
             "is_pictured",
             "is_pictured_qc",
+            "is_scrap",
             "bin",
             "weight",
         }
@@ -240,6 +242,11 @@ class ProductTemplate(models.Model):
             if "tech_result" in vals_to_write:
                 tech_result = self.env["motor.dismantle.result"].browse(vals_to_write["tech_result"]).name
                 message_text = f"Product '{product.motor_product_template_name}' tech result: {tech_result}"
+                product.motor.message_post(body=message_text, message_type="comment", subtype_xmlid="mail.mt_note")
+
+            if "is_scrap" in vals_to_write and product.motor:
+                action = "marked as scrap" if vals_to_write["is_scrap"] else "unmarked as scrap"
+                message_text = f"Product '{product.motor_product_template_name}' {action}"
                 product.motor.message_post(body=message_text, message_type="comment", subtype_xmlid="mail.mt_note")
 
             write_results.append(super(ProductTemplate, product).write(vals_to_write))
@@ -722,6 +729,7 @@ class ProductTemplate(models.Model):
         "is_cleaned_qc",
         "is_pictured",
         "is_pictured_qc",
+        "is_scrap",
         "bin",
         "weight",
     )
@@ -737,6 +745,7 @@ class ProductTemplate(models.Model):
                     product.is_pictured_qc,
                     product.bin,
                     product.weight,
+                    not product.is_scrap,
                 ]
             )
 
