@@ -1,17 +1,11 @@
-from odoo import api, SUPERUSER_ID
 import logging
+
+from odoo.sql_db import Cursor
 
 _logger = logging.getLogger(__name__)
 
 
-def migrate(cr, version):
-    """
-    Fix is_published for all consumable products that should be listable.
-    This corrects products that were incorrectly set to is_published=False
-    when imported from Shopify with DRAFT status.
-    """
-    env = api.Environment(cr, SUPERUSER_ID, {})
-
+def migrate(cr: Cursor, version: str) -> None:
     # Count products to fix
     cr.execute("""
         SELECT COUNT(*) 
