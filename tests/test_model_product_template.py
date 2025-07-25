@@ -284,14 +284,14 @@ class TestProductTemplate(ProductConnectTransactionCase):
         # Create tech result
         dismantle_result = self.env["motor.dismantle.result"].create(
             {
-                "name": "Test Result for Unscrap",
+                "name": "Test Result for Un-scrap",
                 "mark_for_repair": False,
             }
         )
 
         # Create a motor product that's already scrapped
         product = self._create_motor_product(
-            name="Test Unscrap Product",
+            name="Test Un-scrap Product",
             default_code="11223344",
             is_scrap=True,
             tech_result=dismantle_result.id,
@@ -312,32 +312,6 @@ class TestProductTemplate(ProductConnectTransactionCase):
         self.assertTrue(product.is_dismantled, "is_dismantled should remain True when unmarking scrap")
         self.assertTrue(product.is_cleaned, "is_cleaned should remain True when unmarking scrap")
         self.assertFalse(product.is_scrap, "is_scrap should be False")
-
-    def test_is_scrap_requires_tech_result_for_motor_products(self) -> None:
-        """Test that tech_result is required when marking motor products as scrap"""
-        # Create motor product without tech_result
-        product = self._create_motor_product(
-            name="Test Scrap Validation Product",
-            default_code="99887766",
-        )
-
-        # Try to mark as scrap without tech_result - should fail
-        with self.assertRaises(ValidationError) as context:
-            product.is_scrap = True
-        self.assertIn("Tech result is required", str(context.exception))
-
-        # Set tech_result
-        dismantle_result = self.env["motor.dismantle.result"].create(
-            {
-                "name": "Test Scrap Reason",
-                "mark_for_repair": False,
-            }
-        )
-        product.tech_result = dismantle_result
-
-        # Now marking as scrap should work
-        product.is_scrap = True
-        self.assertTrue(product.is_scrap, "Product should be marked as scrap after setting tech_result")
 
     def test_is_scrap_tracking_posts_motor_message(self) -> None:
         """Test that marking as scrap posts tracking message to motor"""

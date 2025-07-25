@@ -101,7 +101,7 @@ class ProductConnectTransactionCase(TransactionCase):
         }
 
     @classmethod
-    def _create_motor(cls, **kwargs) -> "odoo.model.motor":
+    def _create_motor(cls, **kwargs: object) -> "odoo.model.motor":
         """Create a motor with standard test values.
 
         Args:
@@ -128,7 +128,7 @@ class ProductConnectTransactionCase(TransactionCase):
         return cls.env["motor"].create(motor_vals)
 
     @classmethod
-    def _create_motor_product(cls, **kwargs) -> "odoo.model.product_template":
+    def _create_motor_product(cls, **kwargs: object) -> "odoo.model.product_template":
         """Create a complete motor product with all dependencies.
 
         Args:
@@ -179,6 +179,7 @@ class ProductConnectTransactionCase(TransactionCase):
 
         # Add image if requested
         if with_image:
+            # noinspection SpellCheckingInspection
             cls.env["product.image"].create(
                 {
                     "product_tmpl_id": product.id,
