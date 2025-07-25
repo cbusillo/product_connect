@@ -104,7 +104,8 @@
                        decoration-info="repair_state == 'in_repair'"
                        invisible="repair_state == 'none'"/>
                 <field name="tech_result" widget="selection"/>
-                <field name="is_scrap" widget="boolean_toggle" string="Scrap" class="large-toggle"/>
+                <field name="is_scrap" widget="boolean_toggle_tooltip" string="Scrap" class="large-toggle"
+                       readonly="not tech_result"/>
                 <field name="is_dismantled" widget="boolean_toggle" string="Done" class="large-toggle"/>
                 <field name="is_dismantled_qc" widget="boolean_toggle" string="QC" class="large-toggle"
                        readonly="not is_dismantled"/>
@@ -126,7 +127,8 @@
                 <field name="is_cleaned_qc" widget="boolean_toggle" string="QC" class="large-toggle"
                        readonly="not is_cleaned"/>
                 <field name="tech_result" widget="selection"/>
-                <field name="is_scrap" widget="boolean_toggle" string="Scrap" class="large-toggle"/>
+                <field name="is_scrap" widget="boolean_toggle_tooltip" string="Scrap" class="large-toggle"
+                       readonly="not tech_result"/>
             </list>
         </field>
     </record>
@@ -158,7 +160,8 @@
                 <field name="is_pictured_qc" widget="boolean_toggle" string="QC" class="large-toggle"
                        readonly="image_count&lt;1 or not is_pictured"/>
                 <field name="tech_result" widget="selection"/>
-                <field name="is_scrap" widget="boolean_toggle" string="Scrap" class="large-toggle"/>
+                <field name="is_scrap" widget="boolean_toggle_tooltip" string="Scrap" class="large-toggle"
+                       readonly="not tech_result"/>
             </list>
         </field>
     </record>
@@ -177,7 +180,8 @@
                 <field name="bin" width="60px" placeholder="A01A1"/>
                 <field name="weight" widget="integer" width="60"/>
                 <field name="tech_result" widget="selection"/>
-                <field name="is_scrap" widget="boolean_toggle" string="Scrap" class="large-toggle"/>
+                <field name="is_scrap" widget="boolean_toggle_tooltip" string="Scrap" class="large-toggle"
+                       readonly="not tech_result"/>
             </list>
         </field>
     </record>

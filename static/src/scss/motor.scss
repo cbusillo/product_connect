@@ -21,3 +21,24 @@ html body .o_notebook .nav-tabs > li > a {
   padding-bottom: 3px !important;
 }
 
+/* Fix alignment for boolean toggle tooltip widget */
+.o_field_boolean_toggle_tooltip {
+  // Override block display to inline
+  display: inline-block !important;
+  // Fix baseline alignment issue
+  vertical-align: middle !important;
+
+  &.large-toggle .o_boolean_toggle_tooltip_fix {
+    // Compensate for the large-toggle transform scale
+    margin: 0 !important;
+    vertical-align: middle;
+    // Reset any transform origin issues
+    transform-origin: center center;
+  }
+}
+
+// Ensure scrap toggle is left-aligned in table cells
+td[name="is_scrap"] {
+  text-align: left !important;
+}
+

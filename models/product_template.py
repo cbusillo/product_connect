@@ -246,10 +246,6 @@ class ProductTemplate(models.Model):
 
             if "is_scrap" in vals_to_write:
                 if vals_to_write["is_scrap"]:
-                    # Require tech_result for motor products being scrapped
-                    if product.source == "motor" and not product.tech_result and "tech_result" not in vals_to_write:
-                        raise ValidationError("Tech result is required before marking a motor product as scrap.")
-                    
                     vals_to_write.update(
                         {
                             "is_dismantled": False,
