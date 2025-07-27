@@ -1,5 +1,6 @@
 import { registry } from '@web/core/registry'
 import { CharField, charField } from '@web/views/fields/char/char_field'
+import { useService } from '@web/core/utils/hooks'
 
 export class SearchMpnOnlineWidget extends CharField {
     static template = 'product_connect.SearchMpnOnlineWidget'
@@ -11,6 +12,7 @@ export class SearchMpnOnlineWidget extends CharField {
 
     setup() {
         super.setup()
+        this.notification = useService('notification')
         this.searchEnginesMap = {
             ebay: "https://www.ebay.com/sch/i.html?_nkw=",
             google: "https://www.google.com/search?q=",
@@ -23,7 +25,10 @@ export class SearchMpnOnlineWidget extends CharField {
     searchOnline() {
         const mpns = this.props.record.data[this.props.name]
         if (!mpns) {
-            alert('No MPN entered')
+            this.notification.add('No MPN entered', {
+                type: 'warning',
+                sticky: false,
+            })
             return
         }
 
