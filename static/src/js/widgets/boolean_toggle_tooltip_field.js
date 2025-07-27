@@ -12,16 +12,30 @@ export class BooleanToggleTooltipField extends BooleanToggleField {
         this.notification = useService('notification')
     }
 
+    onChange(value) {
+        const recordData = this.props.record?.data || {}
+        const techResult = recordData.tech_result
+
+        // Check if trying to mark as scrap without tech_result
+        if (value && this.props.name === 'is_scrap' && !techResult) {
+            this.notification.add('Tech result required to mark as scrap', {
+                type: 'warning',
+                sticky: false,
+            })
+            // Don't update the value
+            return
+        }
+
+        // Otherwise, update normally
+        this.props.record.update({ [this.props.name]: value })
+    }
+
     onDisabledClick(ev) {
         const recordData = this.props.record?.data || {}
         const techResult = recordData.tech_result
 
+        // Only show notification if readonly, is_scrap field, and no tech_result
         if (this.props.readonly && this.props.name === 'is_scrap' && !techResult) {
-            // Prevent default click behavior and stop propagation
-            if (ev) {
-                ev.preventDefault()
-                ev.stopPropagation()
-            }
             this.notification.add('Tech result required to mark as scrap', {
                 type: 'warning',
                 sticky: false,

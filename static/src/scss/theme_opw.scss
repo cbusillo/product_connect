@@ -2,13 +2,29 @@
 $o-brand-odoo: #E65938;
 $o-brand-primary: #1071B6;
 
-// Large toggle styling
-.large-toggle .o_boolean_toggle {
-  transform: scale(1.5);
-  transform-origin: left center;
-  display: inline-flex;
-  align-items: center;
-  width: auto; /* Adjusts dynamically */
+// Large toggle styling - simplified and unified
+// Scale the toggle switches
+.large-toggle {
+  display: inline-block;
+  text-align: left;
+
+  .o-checkbox.o_boolean_toggle.form-switch {
+    transform: scale(1.5);
+    transform-origin: left center;
+    margin: 0; // No margins to avoid alignment issues
+    // Keep Bootstrap's padding for the toggle visual to work
+  }
+}
+
+// Fix alignment for all boolean toggle cells
+.o_list_view td.o_field_cell {
+  // Boolean toggle cells (both regular and tooltip versions)
+  &.o_boolean_toggle_cell,
+  &.o_boolean_toggle_tooltip_cell {
+    padding-left: 0.3rem;
+    padding-right: 0.3rem;
+    text-align: left;
+  }
 }
 
 // Utility Classes for Full Width
@@ -43,10 +59,6 @@ $o-brand-primary: #1071B6;
   @extend .full-width;
 }
 
-// List View Adjustments
-.o_list_view {
-  @extend .full-browser-width;
-}
 
 .o_list_view .text-nowrap {
   white-space: nowrap;

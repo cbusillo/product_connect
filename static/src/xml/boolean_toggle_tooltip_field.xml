@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
     <t t-name="product_connect.BooleanToggleTooltipField">
-        <div class="o-checkbox form-check o_field_boolean o_boolean_toggle form-switch o_boolean_toggle_tooltip_fix"
-             t-att-title="props.readonly and props.name === 'is_scrap' and !(props.record.data and props.record.data.tech_result) ? 'Tech result required to mark as scrap' : ''"
-             t-on-click="props.readonly and props.name === 'is_scrap' and !(props.record.data and props.record.data.tech_result) ? onDisabledClick : null">
+        <div t-att-title="props.readonly and props.name === 'is_scrap' and !(props.record.data and props.record.data.tech_result) ? 'Tech result required to mark as scrap' : ''"
+             t-on-click="onDisabledClick"
+             class="o-checkbox form-check o_field_boolean o_boolean_toggle form-switch">
             <CheckBox
                     value="props.record.data[props.name]"
                     disabled="props.readonly"
-                    onChange="(value) => props.record.update({ [props.name]: value })"
+                    onChange="(value) => onChange(value)"
                     className="''"
             />
         </div>
