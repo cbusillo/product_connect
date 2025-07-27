@@ -1,18 +1,31 @@
 import { registry } from '@web/core/registry'
 import { BooleanToggleField, booleanToggleField } from '@web/views/fields/boolean_toggle/boolean_toggle_field'
-import { CheckBox } from '@web/core/checkbox/checkbox'
 import { useService } from '@web/core/utils/hooks'
+import { useState } from '@odoo/owl'
 
 export class BooleanToggleTooltipField extends BooleanToggleField {
     static template = "product_connect.BooleanToggleTooltipField"
-    static components = { CheckBox }
+
+    get computedTitle() {
+        const recordData = this.props.record?.data || {}
+        const techResult = recordData.tech_result
+
+        if (this.props.readonly && this.props.name === 'is_scrap' && !techResult) {
+            return 'Tech result required to mark as scrap'
+        }
+        return ''
+    }
 
     setup() {
         super.setup()
         this.notification = useService('notification')
+        this.state = useState({
+            ...this.state,
+            value: this.props.record.data[this.props.name] || false
+        })
     }
 
-    onChange(value) {
+    async onChange(value) {
         const recordData = this.props.record?.data || {}
         const techResult = recordData.tech_result
 
@@ -27,7 +40,9 @@ export class BooleanToggleTooltipField extends BooleanToggleField {
         }
 
         // Otherwise, update normally
-        this.props.record.update({ [this.props.name]: value })
+        this.state.value = value
+        const changes = { [this.props.name]: value }
+        await this.props.record.update(changes, { save: this.props.autosave })
     }
 
     onDisabledClick(ev) {
@@ -40,6 +55,8 @@ export class BooleanToggleTooltipField extends BooleanToggleField {
                 type: 'warning',
                 sticky: false,
             })
+            ev.stopPropagation()
+            ev.preventDefault()
         }
     }
 }
@@ -47,6 +64,13 @@ export class BooleanToggleTooltipField extends BooleanToggleField {
 export const booleanToggleTooltipField = {
     ...booleanToggleField,
     component: BooleanToggleTooltipField,
+    extractProps({ options }, dynamicInfo) {
+        return {
+            ...booleanToggleField.extractProps({ options }, dynamicInfo),
+            autosave: "autosave" in options ? Boolean(options.autosave) : true,
+            readonly: dynamicInfo.readonly,
+        }
+    },
 }
 
 registry.category('fields').add('boolean_toggle_tooltip', booleanToggleTooltipField)

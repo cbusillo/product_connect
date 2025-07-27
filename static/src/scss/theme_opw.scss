@@ -8,7 +8,7 @@ $o-brand-primary: #1071B6;
   display: inline-block;
   text-align: left;
 
-  .o-checkbox.o_boolean_toggle.form-switch {
+  .o_boolean_toggle.form-switch {
     transform: scale(1.5);
     transform-origin: left center;
     margin: 0; // No margins to avoid alignment issues
