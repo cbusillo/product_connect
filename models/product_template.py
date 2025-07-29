@@ -3,7 +3,7 @@ import re
 from datetime import timedelta
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError, UserError
-from typing import Any
+from typing import Any, Self, List
 
 from ..services.shopify.helpers import SyncMode
 
@@ -30,9 +30,7 @@ class ProductTemplate(models.Model):
     SKU_PATTERN = re.compile(r"^\d{4,8}$")
 
     is_ready_for_sale = fields.Boolean(tracking=True, index=True, default=True)
-    is_ready_for_sale_last_enabled_date = fields.Datetime(
-        index=True, compute="_compute_is_ready_for_sale_last_enabled_date", store=True
-    )
+    is_ready_for_sale_last_enabled_date = fields.Datetime(index=True, help="Timestamp when this product was last enabled for sale")
     name_with_tags_length = fields.Integer(compute="_compute_name_with_tags_length")
 
     motor = fields.Many2one("motor", ondelete="restrict", readonly=True, index=True)
@@ -159,7 +157,7 @@ class ProductTemplate(models.Model):
         return groups
 
     @api.model_create_multi
-    def create(self, vals_list: "odoo.values.product_template") -> "odoo.model.product_template":
+    def create(self, vals_list: List["odoo.values.product_template"]) -> Self:
         for vals in vals_list:
             source = self._context.get("default_source") or vals.get("source")
             if source:
@@ -262,6 +260,10 @@ class ProductTemplate(models.Model):
                     message_text = f"Product '{product.motor_product_template_name}' {action}"
                     product.motor.message_post(body=message_text, message_type="comment", subtype_xmlid="mail.mt_note")
 
+            # Update last enabled date when is_ready_for_sale changes from falsey to True
+            if vals_to_write.get('is_ready_for_sale') and not product.is_ready_for_sale:
+                vals_to_write['is_ready_for_sale_last_enabled_date'] = fields.Datetime.now()
+
             write_results.append(super(ProductTemplate, product).write(vals_to_write))
 
             if product.image_count < 1 and (product.is_pictured or product.is_pictured_qc):
@@ -316,20 +318,6 @@ class ProductTemplate(models.Model):
     def _compute_is_price_or_cost_missing(self) -> None:
         for product in self:
             product.is_price_or_cost_missing = not product.list_price or not product.standard_price
-
-    @api.depends("is_ready_for_sale")
-    def _compute_is_ready_for_sale_last_enabled_date(self) -> None:
-        for product in self:
-            product.is_ready_for_sale_last_enabled_date = False
-            if product.is_ready_for_sale:
-                tracking_messages = product.message_ids.filtered(
-                    lambda message: any(
-                        tracking.field_id.name == "is_ready_for_sale" and tracking.new_value_integer == 1
-                        for tracking in message.tracking_value_ids
-                    )
-                ).sorted(lambda message: message.create_date, reverse=True)
-                if tracking_messages:
-                    product.is_ready_for_sale_last_enabled_date = tracking_messages[0].create_date
 
     def _compute_name_with_tags_length(self) -> None:
         for product in self:
