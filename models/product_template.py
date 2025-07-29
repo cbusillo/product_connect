@@ -177,7 +177,7 @@ class ProductTemplate(models.Model):
                 vals["is_ready_to_list"] = False
                 continue
 
-            if "default_code" not in vals and vals.get("type") == "consu":
+            if not vals.get("default_code") and vals.get("type") == "consu":
                 vals["default_code"] = self.get_next_sku()
 
         products = super().create(vals_list)
