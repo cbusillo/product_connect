@@ -6,7 +6,7 @@
         <field name="type">graph</field>
         <field name="arch" type="xml">
             <graph string="Product Processing Report" type="line">
-                <field name="is_ready_for_sale_last_enabled_date" interval="month"/>
+                <field name="is_ready_for_sale_last_enabled_date" interval="day"/>
                 <field name="initial_price_total" type="measure" string="Revenue Value"/>
                 <field name="initial_cost_total" type="measure" string="Cost Value"/>
                 <field name="initial_quantity" type="measure" string="Units Processed"/>
@@ -33,14 +33,34 @@
     <record id="view_product_processing_multigraph" model="ir.ui.view">
         <field name="name">product.processing.multigraph</field>
         <field name="model">product.template</field>
+        <field name="type">multigraph</field>
         <field name="arch" type="xml">
-            <multigraph string="Product Processing Analytics">
-                <!-- Multigraph fields -->
+            <multigraph string="Product Processing Analytics" js_class="multigraph">
+                <!-- Multigraph fields with multi-axis configuration -->
                 <field name="is_ready_for_sale_last_enabled_date" interval="day"/>
-                <field name="initial_price_total" type="measure" axis="y" widget="monetary" string="Revenue Value"/>
-                <field name="initial_cost_total" type="measure" axis="y" widget="monetary" string="Cost Value"/>
-                <field name="initial_quantity" type="measure" axis="y1" string="Units Processed"/>
+                <field name="initial_price_total" type="measure" widget="monetary" string="Revenue Value"/>
+                <field name="initial_cost_total" type="measure" widget="monetary" string="Cost Value"/>
+                <field name="initial_quantity" type="measure" string="Units Processed"/>
+                <field name="image_count" type="measure" string="Image Count"/>
             </multigraph>
+        </field>
+    </record>
+
+    <!-- List View for Product Processing -->
+    <record id="view_product_processing_list" model="ir.ui.view">
+        <field name="name">product.processing.list</field>
+        <field name="model">product.template</field>
+        <field name="arch" type="xml">
+            <list string="Product Processing List">
+                <field name="display_name" string="Product"/>
+                <field name="default_code" string="SKU"/>
+                <field name="source" string="Source"/>
+                <field name="is_ready_for_sale_last_enabled_date" string="Last Enabled Date"/>
+                <field name="initial_price_total" string="Revenue Value" widget="monetary"/>
+                <field name="initial_cost_total" string="Cost Value" widget="monetary"/>
+                <field name="initial_quantity" string="Units Processed"/>
+                <field name="image_count" string="Images"/>
+            </list>
         </field>
     </record>
 
@@ -55,36 +75,34 @@
                 <field name="source"/>
                 <field name="is_ready_for_sale_last_enabled_date"/>
 
-                <!-- Date Filters -->
-                <filter name="ready_for_sale" string="Ready for Sale" domain="[('is_ready_for_sale', '=', True)]"/>
-                <filter name="last_7_days" string="Last 7 Days"
-                        domain="[('is_ready_for_sale_last_enabled_date', '>=', (context_today() - datetime.timedelta(days=7)).strftime('%Y-%m-%d'))]"/>
-                <filter name="last_30_days" string="Last 30 Days"
-                        domain="[('is_ready_for_sale_last_enabled_date', '>=', (context_today() - datetime.timedelta(days=30)).strftime('%Y-%m-%d'))]"/>
-                <filter name="last_90_days" string="Last 90 Days"
-                        domain="[('is_ready_for_sale_last_enabled_date', '>=', (context_today() - datetime.timedelta(days=90)).strftime('%Y-%m-%d'))]"/>
-                <filter name="last_365_days" string="Last 365 Days"
-                        domain="[('is_ready_for_sale_last_enabled_date', '>=', (context_today() - datetime.timedelta(days=365)).strftime('%Y-%m-%d'))]"/>
-                <filter name="mtd" string="MTD (Month to Date)"
-                        domain="[('is_ready_for_sale_last_enabled_date', '>=', (context_today().strftime('%Y-%m-01')))]"/>
-                <filter name="ytd" string="YTD (Year to Date)"
-                        domain="[('is_ready_for_sale_last_enabled_date', '>=', (context_today().strftime('%Y-01-01')))]"/>
+                <!-- Date Range Filters (Mutually Exclusive) -->
+                <filter string="Date Range" name="date_range_group" date="is_ready_for_sale_last_enabled_date"
+                        default_period="custom_is_ready_for_sale_last_enabled_date_last_7_days">
+                    <filter name="is_ready_for_sale_last_enabled_date_last_7_days" string="Last 7 Days"
+                            domain="[('is_ready_for_sale_last_enabled_date', '>=', (context_today() - datetime.timedelta(days=7)).strftime('%Y-%m-%d'))]"/>
+                    <filter name="last_30_days" string="Last 30 Days"
+                            domain="[('is_ready_for_sale_last_enabled_date', '>=', (context_today() - datetime.timedelta(days=30)).strftime('%Y-%m-%d'))]"/>
+                    <filter name="last_90_days" string="Last 90 Days"
+                            domain="[('is_ready_for_sale_last_enabled_date', '>=', (context_today() - datetime.timedelta(days=90)).strftime('%Y-%m-%d'))]"/>
+                    <filter name="last_365_days" string="Last 365 Days"
+                            domain="[('is_ready_for_sale_last_enabled_date', '>=', (context_today() - datetime.timedelta(days=365)).strftime('%Y-%m-%d'))]"/>
+                </filter>
 
                 <separator/>
 
                 <!-- Product Type Filters -->
                 <filter name="motor_products" string="Motor Products" domain="[('source', '=', 'motor')]"/>
                 <filter name="import_products" string="Import Products" domain="[('source', '=', 'import')]"/>
-                <filter name="shopify_products" string="Shopify Products" domain="[('source', '=', 'shopify')]"/>
-                <filter name="standard_products" string="Standard Products" domain="[('source', '=', 'standard')]"/>
 
                 <separator/>
 
-                <!-- Traditional Group By -->
-                <filter string="Processed Date" name="groupby_processed_date"
-                        context="{'group_by': 'is_ready_for_sale_last_enabled_date:month'}"/>
-                <filter string="Source" name="groupby_source" context="{'group_by': 'source'}"/>
-                <filter string="Part Type" name="groupby_part_type" context="{'group_by': 'part_type'}"/>
+                <!-- Group By Options -->
+                <group expand="1" string="Group By">
+                    <filter string="Processed Date" name="groupby_processed_date"
+                            context="{'group_by': 'is_ready_for_sale_last_enabled_date'}"/>
+                    <filter string="Source" name="groupby_source" context="{'group_by': 'source'}"/>
+                    <filter string="Part Type" name="groupby_part_type" context="{'group_by': 'part_type'}"/>
+                </group>
             </search>
         </field>
     </record>
@@ -93,16 +111,23 @@
     <record id="action_product_processing_analytics" model="ir.actions.act_window">
         <field name="name">Product Processing Analytics</field>
         <field name="res_model">product.template</field>
-        <field name="view_mode">multigraph,graph,pivot,list</field>
+        <field name="view_mode">graph,pivot,list</field>
         <field name="domain">[('is_ready_for_sale', '=', True),
                               ('is_ready_for_sale_last_enabled_date', '!=', False)]</field>
         <field name="context">{
-            'search_default_last_7_days': True,
+            'search_default_motor_products': 1,
+            'search_default_import_products': 1,
+            'search_default_date_range_group': 1,
             'graph_groupbys': ['is_ready_for_sale_last_enabled_date:day'],
-            'graph_measures': ['initial_price_total', 'initial_cost_total', 'initial_quantity'],
+            'graph_measures': ['initial_price_total', 'initial_cost_total', 'initial_quantity', 'image_count'],
             'pivot_measures': ['initial_price_total', 'initial_cost_total']
         }</field>
         <field name="search_view_id" ref="view_product_processing_search"/>
+        <field name="view_id" ref="view_product_processing_multigraph"/>
+        <field name="view_ids" eval="[(5, 0, 0),
+                                      (0, 0, {'view_mode': 'graph', 'view_id': ref('view_product_processing_multigraph')}),
+                                      (0, 0, {'view_mode': 'pivot', 'view_id': ref('view_product_processing_pivot')}),
+                                      (0, 0, {'view_mode': 'list', 'view_id': ref('view_product_processing_list')})]"/>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 No processed products found

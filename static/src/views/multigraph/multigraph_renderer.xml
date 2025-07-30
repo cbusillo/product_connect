@@ -2,14 +2,14 @@
 <templates xml:space="preserve">
     <t t-name="web.MultigraphRenderer">
         <div class="o_graph_renderer o_multigraph_renderer">
-            <t t-if="!model.data or !model.data.datasets or model.data.datasets.length === 0">
-                <div class="o_graph_no_data">
-                    <span>No data to display</span>
+            <t t-if="props and props.model and props.model.hasData and props.model.hasData()">
+                <div class="o_graph_canvas_container">
+                    <canvas t-ref="canvas"/>
                 </div>
             </t>
             <t t-else="">
-                <div class="o_graph_canvas_container">
-                    <canvas t-ref="canvas"/>
+                <div class="o_graph_no_data">
+                    <span>No data to display</span>
                 </div>
             </t>
         </div>

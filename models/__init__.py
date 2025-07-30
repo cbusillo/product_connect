@@ -1,5 +1,6 @@
 from . import (
     delivery_carrier,
+    ir_actions,
     ir_ui_view,
     motor,
     motor_part,
