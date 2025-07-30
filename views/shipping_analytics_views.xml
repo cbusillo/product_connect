@@ -59,17 +59,23 @@
                 <filter string="Positive Margin" name="positive_margin" domain="[('shipping_margin', '>', 0)]"/>
                 <filter string="Negative Margin" name="negative_margin" domain="[('shipping_margin', '&lt;', 0)]"/>
                 <separator/>
-                <filter string="This Month" name="this_month"
-                        domain="[('create_date','&gt;=', (context_today() - relativedelta(months=1)).strftime('%Y-%m-01'))]"/>
-                <filter string="Last 3 Months" name="last_3_months"
-                        domain="[('create_date','&gt;=', (context_today() - relativedelta(months=3)).strftime('%Y-%m-%d'))]"/>
+                <!-- Date Range Filters with Nested Structure -->
+                <filter string="Date Range" name="date_range_group" date="create_date"
+                        default_period="custom_create_date_last_7_days">
+                    <filter name="create_date_last_7_days" string="Last 7 Days"
+                            domain="[('create_date', '>=', (context_today() - datetime.timedelta(days=7)).strftime('%Y-%m-%d'))]"/>
+                    <filter name="create_date_last_30_days" string="Last 30 Days"
+                            domain="[('create_date', '>=', (context_today() - datetime.timedelta(days=30)).strftime('%Y-%m-%d'))]"/>
+                    <filter name="create_date_last_90_days" string="Last 90 Days"
+                            domain="[('create_date', '>=', (context_today() - datetime.timedelta(days=90)).strftime('%Y-%m-%d'))]"/>
+                </filter>
                 <separator/>
                 <group expand="0" string="Group By">
                     <filter string="Platform" name="group_platform" context="{'group_by':'source_platform'}"/>
                     <filter string="Carrier" name="group_carrier" context="{'group_by':'carrier_id'}"/>
                     <filter string="Customer" name="group_partner" context="{'group_by':'partner_id'}"/>
-                    <filter string="Month" name="group_month" context="{'group_by':'create_date:month'}"/>
-                    <filter string="Week" name="group_week" context="{'group_by':'create_date:week'}"/>
+                    <separator/>
+                    <filter string="Order Date" name="group_date" context="{'group_by':'create_date'}"/>
                 </group>
             </search>
         </field>
@@ -82,7 +88,7 @@
         <field name="view_mode">pivot,graph</field>
         <field name="search_view_id" ref="view_sale_order_shipping_search"/>
         <field name="domain">[('shipping_charge', '>', 0)]</field>
-        <field name="context">{'search_default_has_shipping': 1, 'search_default_last_3_months': 1}</field>
+        <field name="context">{'search_default_has_shipping': 1, 'search_default_date_range_group': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 No shipping data found
@@ -101,7 +107,7 @@
         <field name="view_id" ref="view_sale_order_shipping_pivot"/>
         <field name="search_view_id" ref="view_sale_order_shipping_search"/>
         <field name="domain">[('carrier_id', '!=', False)]</field>
-        <field name="context">{'search_default_group_carrier': 1, 'search_default_last_3_months': 1}</field>
+        <field name="context">{'search_default_group_carrier': 1, 'search_default_date_range_group': 1}</field>
     </record>
 
     <!-- Menu items -->
