@@ -307,9 +307,9 @@
         <field name="view_mode">list,kanban,form</field>
         <field name="groups_id" eval="[(6,0,[ref('base.group_user')])]"/>
         <field name="view_ids" eval="[(5, 0, 0),
-        (0, 0, {'view_mode': 'list', 'view_id': ref('view_motor_product_list')}),
-        (0, 0, {'view_mode': 'kanban', 'view_id': ref('view_motor_product_kanban')}),
-        (0, 0, {'view_mode': 'form', 'view_id': ref('view_motor_product_form')})]"/>
+                                      (0, 0, {'view_mode': 'list', 'view_id': ref('view_motor_product_list')}),
+                                      (0, 0, {'view_mode': 'kanban', 'view_id': ref('view_motor_product_kanban')}),
+                                      (0, 0, {'view_mode': 'form', 'view_id': ref('view_motor_product_form')})]"/>
         <field name="search_view_id" ref="view_motor_product_search"/>
         <field name="domain">[('source', '=', 'motor'), ('is_ready_for_sale', '=', False)]</field>
         <field name="context">{'group_by': 'motor'}</field>

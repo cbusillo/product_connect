@@ -78,11 +78,10 @@
             "product_connect/static/src/js/utils/*",
             "product_connect/static/src/js/widgets/*",
             "product_connect/static/src/xml/*",
-        ],
-        "web.assets_backend_lazy": [
             "product_connect/static/src/views/multigraph/*.js",
             "product_connect/static/src/views/multigraph/*.xml",
         ],
+        "web.assets_backend_lazy": [],
         "web.assets_unit_tests": [
             "product_connect/static/tests/**/*.test.js",
         ],

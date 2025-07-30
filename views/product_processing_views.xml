@@ -33,16 +33,16 @@
     <record id="view_product_processing_multigraph" model="ir.ui.view">
         <field name="name">product.processing.multigraph</field>
         <field name="model">product.template</field>
-        <field name="type">multigraph</field>
+        <field name="type">graph</field>
         <field name="arch" type="xml">
-            <multigraph string="Product Processing Analytics" js_class="multigraph">
+            <graph string="Product Processing Analytics" type="line" js_class="multigraph">
                 <!-- Multigraph fields with multi-axis configuration -->
                 <field name="is_ready_for_sale_last_enabled_date" interval="day"/>
                 <field name="initial_price_total" type="measure" widget="monetary" string="Revenue Value"/>
                 <field name="initial_cost_total" type="measure" widget="monetary" string="Cost Value"/>
                 <field name="initial_quantity" type="measure" string="Units Processed"/>
                 <field name="image_count" type="measure" string="Image Count"/>
-            </multigraph>
+            </graph>
         </field>
     </record>
 
@@ -134,7 +134,7 @@
             </p>
             <p>
                 This view shows revenue, cost, and quantity trends for processed products over time.
-                Use the multigraph view for multi-axis analysis, or switch to graph/pivot for detailed analysis.
+                Use the graph view for multi-axis analysis, or switch to pivot for detailed analysis.
             </p>
         </field>
     </record>
