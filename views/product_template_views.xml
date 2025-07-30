@@ -71,6 +71,7 @@
             </xpath>
             <xpath expr="//field[@name='default_code']" position="attributes">
                 <attribute name="string">SKU</attribute>
+                <attribute name="readonly">[('type', '=', 'consu')]</attribute>
             </xpath>
             <field name="default_code" position="after">
                 <field name="condition"/>
