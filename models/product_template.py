@@ -261,8 +261,8 @@ class ProductTemplate(models.Model):
                     product.motor.message_post(body=message_text, message_type="comment", subtype_xmlid="mail.mt_note")
 
             # Update last enabled date when is_ready_for_sale changes from falsey to True
-            if vals_to_write.get('is_ready_for_sale') and not product.is_ready_for_sale:
-                vals_to_write['is_ready_for_sale_last_enabled_date'] = fields.Datetime.now()
+            if vals_to_write.get("is_ready_for_sale") and not product.is_ready_for_sale:
+                vals_to_write["is_ready_for_sale_last_enabled_date"] = fields.Datetime.now()
 
             write_results.append(super(ProductTemplate, product).write(vals_to_write))
 
