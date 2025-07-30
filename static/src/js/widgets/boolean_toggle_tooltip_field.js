@@ -8,6 +8,7 @@ export class BooleanToggleTooltipField extends BooleanToggleField {
 
     get computedTitle() {
         const recordData = this.props.record?.data || {}
+        // noinspection JSUnresolvedReference - tech_result is a dynamic field from the record
         const techResult = recordData.tech_result
 
         if (this.props.readonly && this.props.name === 'is_scrap' && !techResult) {
@@ -27,6 +28,7 @@ export class BooleanToggleTooltipField extends BooleanToggleField {
 
     async onChange(value) {
         const recordData = this.props.record?.data || {}
+        // noinspection JSUnresolvedReference - tech_result is a dynamic field from the record
         const techResult = recordData.tech_result
 
         // Check if trying to mark as scrap without tech_result
@@ -47,6 +49,7 @@ export class BooleanToggleTooltipField extends BooleanToggleField {
 
     onDisabledClick(ev) {
         const recordData = this.props.record?.data || {}
+        // noinspection JSUnresolvedReference - tech_result is a dynamic field from the record
         const techResult = recordData.tech_result
 
         // Only show notification if readonly, is_scrap field, and no tech_result
@@ -61,6 +64,7 @@ export class BooleanToggleTooltipField extends BooleanToggleField {
     }
 }
 
+// noinspection JSUnusedGlobalSymbols - extractProps is called by Odoo's field registry system
 export const booleanToggleTooltipField = {
     ...booleanToggleField,
     component: BooleanToggleTooltipField,
