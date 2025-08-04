@@ -1,6 +1,6 @@
 {
     "name": "Product Connect Module",
-    "version": "18.0.8.0",
+    "version": "18.0.8.1",
     "category": "Industries",
     "author": "Chris Busillo",
     "company": "Shiny Computers",
