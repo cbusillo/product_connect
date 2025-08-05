@@ -29,7 +29,7 @@ access_motor_test_template_condition,access_motor_test_template_condition,model_
 
 access_motor_product_template_condition,access_motor_product_template_condition,model_motor_product_template_condition,base.group_user,1,1,1,1
 access_motor_product_template,access_motor_product_template,model_motor_product_template,base.group_user,1,1,1,1
-access_motor_disassemble_result, access_motor_disassemble_result,model_motor_dismantle_result,base.group_user,1,1,1,1
+access_motor_dismantle_result,access_motor_dismantle_result,model_motor_dismantle_result,base.group_user,1,1,1,1
 
 access_notification_history,access.notification.history,model_notification_history,base.group_user,1,1,1,1
 

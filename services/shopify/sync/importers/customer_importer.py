@@ -118,7 +118,12 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
 
         first_name = (shopify_customer.first_name or "").strip()
         name_parts = [first_name, last_name]
-        name = re.sub(r"\s{2,}", " ", " ".join(p for p in name_parts if p)).strip() or email
+        name = (
+            re.sub(r"\s{2,}", " ", " ".join(p for p in name_parts if p)).strip()
+            or email
+            or phone
+            or f"Customer {shopify_customer_id}"
+        )
         # Truncate name to 512 characters (Odoo char field limit)
         if name and len(name) > 512:
             name = name[:512]
@@ -306,7 +311,7 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
             "shopify_address_id": shopify_address_id,
             "parent_id": partner.id,
             "type": address_type,
-            "name": "" if (address.name or "").strip() == (partner.name or "").strip() else (address.name or ""),
+            "name": None if (address.name or "").strip() == (partner.name or "").strip() else (address.name or "").strip(),
             "street": (address.address_1 or "").strip(),
             "street2": (address.address_2 or "").strip(),
             "city": (address.city or "").strip(),
