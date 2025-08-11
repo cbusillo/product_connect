@@ -1,0 +1,38 @@
+"""Test that autopost_bills migration fixed the constraint issue."""
+
+from odoo.tests import tagged
+from ..fixtures.base import UnitTestCase
+
+
+@tagged("post_install", "-at_install", "unit_test")
+class TestAutopostBillsMigration(UnitTestCase):
+    def test_base_partner_has_autopost_bills(self) -> None:
+        """Test that base partners have autopost_bills set."""
+        # Get the base company partner
+        base_partner = self.env["res.partner"].browse(1)
+
+        # Should have autopost_bills set to 'ask' by migration
+        self.assertEqual(base_partner.autopost_bills, "ask", "Base partner should have autopost_bills='ask' after migration")
+
+        # Should be able to write to it without constraint errors
+        base_partner.write({"phone": "+1234567890"})
+
+    def test_create_partner_without_autopost_bills(self) -> None:
+        """Test that creating partners without autopost_bills uses default."""
+        # Create partner with minimal fields (no autopost_bills)
+        partner = self.env["res.partner"].create(
+            {
+                "name": "Test Partner After Migration",
+            }
+        )
+
+        # Should get default value 'ask'
+        self.assertEqual(partner.autopost_bills, "ask", "New partners should get default autopost_bills='ask'")
+
+    def test_no_null_autopost_bills(self) -> None:
+        """Test that no partners have NULL autopost_bills."""
+        # Search for any partners with NULL autopost_bills
+        self.env.cr.execute("SELECT COUNT(*) FROM res_partner WHERE autopost_bills IS NULL")
+        null_count = self.env.cr.fetchone()[0]
+
+        self.assertEqual(null_count, 0, "No partners should have NULL autopost_bills after migration")

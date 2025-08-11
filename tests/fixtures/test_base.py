@@ -1,7 +1,7 @@
 """Base test classes for product_connect module tests."""
 
 import secrets
-from odoo.tests import TransactionCase, HttpCase, tagged
+from odoo.tests import TransactionCase, HttpCase, SingleTransactionCase, tagged
 
 
 @tagged("post_install", "-at_install")
@@ -11,11 +11,24 @@ class ProductConnectTransactionCase(TransactionCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
+
+        # Run as admin user to ensure permissions for test setup
+        # This MUST be done before any data creation
+        cls.env = cls.env(user=cls.env.ref("base.user_admin"))
+
         # Disable mail tracking for better performance
         cls.env = cls.env(context=dict(cls.env.context, tracking_disable=True))
 
         # Common test data setup
         cls._setup_test_data()
+
+    def setUp(self) -> None:
+        """Override to ensure each test method runs with admin privileges."""
+        super().setUp()
+        # Ensure each test method uses admin environment
+        self.env = self.env(user=self.env.ref("base.user_admin"))
+        # Add context for testing
+        self.env = self.env(context=dict(self.env.context, skip_shopify_sync=True, tracking_disable=True))
 
     @classmethod
     def _setup_test_data(cls) -> None:
@@ -79,6 +92,29 @@ class ProductConnectTransactionCase(TransactionCase):
         }
 
     @classmethod
+    def _create_multigraph_test_products(cls) -> None:
+        """Create test products specifically for multigraph view testing."""
+        from datetime import date
+
+        cls.test_products = cls.env["product.template"].create(
+            [
+                {
+                    "name": f"Test Product {i}",
+                    "default_code": f"{10000 + i}",  # Valid SKU
+                    "list_price": 100 * i,
+                    "standard_price": 60 * i,
+                    "type": "consu",
+                    "is_ready_for_sale": True,  # Required for multigraph
+                    "is_ready_for_sale_last_enabled_date": date(2025, 1, i),  # Required for multigraph
+                    "initial_quantity": 10 * i,
+                    "initial_price_total": 1000 * i,
+                    "initial_cost_total": 600 * i,
+                }
+                for i in range(1, 5)
+            ]
+        )
+
+    @classmethod
     def _create_motor_dependencies(cls) -> dict:
         """Create and return motor dependencies (manufacturer, stroke, config)."""
         # Check if dependencies already exist to avoid duplicates
@@ -88,11 +124,11 @@ class ProductConnectTransactionCase(TransactionCase):
 
         stroke = cls.env["motor.stroke"].search([("code", "=", "4")], limit=1)
         if not stroke:
-            stroke = cls.env["motor.stroke"].create({"name": "Four", "code": "4"})
+            stroke = cls.env["motor.stroke"].sudo().create({"name": "4 Stroke", "code": "4"})
 
         config = cls.env["motor.configuration"].search([("code", "=", "V6")], limit=1)
         if not config:
-            config = cls.env["motor.configuration"].create({"name": "V6", "code": "V6"})
+            config = cls.env["motor.configuration"].sudo().create({"name": "V6", "code": "V6"})
 
         return {
             "manufacturer": manufacturer,
@@ -101,7 +137,7 @@ class ProductConnectTransactionCase(TransactionCase):
         }
 
     @classmethod
-    def _create_motor(cls, **kwargs: object) -> "odoo.model.motor":
+    def _create_motor(cls, **kwargs: int | float | str | bool) -> "odoo.model.motor":
         """Create a motor with standard test values.
 
         Args:
@@ -128,7 +164,7 @@ class ProductConnectTransactionCase(TransactionCase):
         return cls.env["motor"].create(motor_vals)
 
     @classmethod
-    def _create_motor_product(cls, **kwargs: object) -> "odoo.model.product_template":
+    def _create_motor_product(cls, **kwargs: dict | int | float | str | bool) -> "odoo.model.product_template":
         """Create a complete motor product with all dependencies.
 
         Args:
@@ -330,6 +366,8 @@ class ProductConnectHttpCase(HttpCase):
                         [
                             cls.env.ref("base.group_user").id,
                             cls.env.ref("base.group_system").id,  # Required for module access in tests
+                            cls.env.ref("base.group_partner_manager").id,  # Required for partner creation in tests
+                            cls.env.ref("base.group_erp_manager").id,  # Required for full app access in tests
                         ],
                     )
                 ],
@@ -339,6 +377,10 @@ class ProductConnectHttpCase(HttpCase):
         # Store password for authentication
         cls.test_user_password = secure_password
 
+        # Also ensure admin user has a known password for browser tests fallback
+        admin_user = cls.env.ref("base.user_admin")
+        admin_user.write({"password": "admin"})
+        
         return cls.test_user
 
     @classmethod
@@ -376,3 +418,208 @@ class ProductConnectIntegrationCase(ProductConnectHttpCase):
             )
         else:
             cls.test_motor = cls.env["motor"].search([], limit=1)
+
+
+# ============================================================================
+# NEW BASE CLASSES FOR TEST MIGRATION - SESSION 2
+# ============================================================================
+
+@tagged("post_install", "-at_install", "unit_test")
+class ProductConnectUnitCase(TransactionCase):
+    """Base class for fast unit tests with best isolation.
+    
+    In Odoo 18, TransactionCase provides savepoint-per-test-method isolation.
+    Each test method gets its own savepoint and automatic rollback.
+    Use this for tests that:
+    - Test business logic in isolation
+    - Don't need production data
+    - Can create their own minimal test data
+    - Should run very fast (<1 second per test)
+    
+    Examples: field validations, computed fields, constraints, simple methods
+    """
+    
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        
+        # Run as admin user to ensure permissions for test setup
+        cls.env = cls.env(user=cls.env.ref("base.user_admin"))
+        
+        # Disable mail tracking and Shopify sync for better performance
+        cls.env = cls.env(context=dict(
+            cls.env.context,
+            tracking_disable=True,
+            skip_shopify_sync=True,
+            no_reset_password=True,
+            mail_create_nosubscribe=True,
+            mail_create_nolog=True,
+        ))
+        
+        # Create minimal test data for unit tests
+        cls._setup_minimal_test_data()
+    
+    @classmethod
+    def _setup_minimal_test_data(cls) -> None:
+        """Create only the essential test data needed for unit tests."""
+        # Create a minimal test product with unique SKU to avoid conflicts
+        import secrets
+        unique_sku = f"1{secrets.randbelow(999):03d}"  # Generates SKU like 1001, 1123, etc.
+        cls.test_product = cls.env["product.template"].create({
+            "name": "Unit Test Product",
+            "default_code": unique_sku,  # Unique 4-digit SKU
+            "type": "consu",
+            "list_price": 100.0,
+        })
+        
+        # Create a minimal test partner
+        cls.test_partner = cls.env["res.partner"].create({
+            "name": "Unit Test Partner",
+            "email": "unit@test.com",
+        })
+        
+        # Create a service product (no SKU validation)
+        cls.test_service = cls.env["product.template"].create({
+            "name": "Unit Test Service",
+            "type": "service",
+            "list_price": 50.0,
+        })
+    
+    def setUp(self) -> None:
+        """Ensure each test method gets a clean savepoint."""
+        super().setUp()
+        # Each test method automatically gets its own savepoint in TransactionCase
+
+
+@tagged("post_install", "-at_install", "validation_test")
+class ProductConnectValidationCase(TransactionCase):
+    """Base class for validation tests that need production data.
+    
+    Transaction per test class for integration scenarios.
+    Use this for tests that:
+    - Validate behavior with real production data complexity
+    - Test import/export idempotency
+    - Verify data migrations
+    - Test performance with real volumes
+    - Validate integrations with actual data patterns
+    
+    Examples: bulk operations, import validation, data integrity checks
+    """
+    
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        
+        # Run as admin user to ensure permissions
+        cls.env = cls.env(user=cls.env.ref("base.user_admin"))
+        
+        # Keep tracking enabled for validation tests (might be important)
+        cls.env = cls.env(context=dict(
+            cls.env.context,
+            skip_shopify_sync=True,  # Still skip external sync
+        ))
+        
+        # Validation tests use production data, so minimal setup
+        cls._setup_validation_context()
+    
+    @classmethod
+    def _setup_validation_context(cls) -> None:
+        """Set up context for validation tests."""
+        # Validation tests typically work with existing production data
+        # So we don't create test data, but we might need to set up context
+        
+        # Store counts of production data for validation
+        cls.product_count = cls.env["product.template"].search_count([])
+        cls.partner_count = cls.env["res.partner"].search_count([])
+        cls.order_count = cls.env["sale.order"].search_count([])
+        
+        # You can add more context setup here as needed
+        pass
+
+
+@tagged("post_install", "-at_install", "tour_test")
+class ProductConnectTourCase(HttpCase):
+    """Base class for browser UI tests.
+    
+    Provides HTTP stack and browser automation.
+    Use this for tests that:
+    - Test user workflows through the UI
+    - Validate form interactions
+    - Test JavaScript components
+    - Verify end-to-end scenarios
+    
+    Examples: form tours, workflow tours, UI component tests
+    """
+    
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        
+        # Disable mail tracking for better performance
+        cls.env = cls.env(context=dict(
+            cls.env.context,
+            tracking_disable=True,
+            skip_shopify_sync=True,
+        ))
+        
+        # Create test user for browser tests
+        cls._create_tour_test_user()
+        
+        # Set up minimal data for tours
+        cls._setup_tour_test_data()
+    
+    @classmethod
+    def _create_tour_test_user(cls) -> None:
+        """Create a test user specifically for tour tests."""
+        # Generate unique login to avoid conflicts
+        unique_suffix = secrets.token_hex(4)
+        login = f"tour_user_{unique_suffix}"
+        
+        # Generate secure password
+        password = secrets.token_urlsafe(16)
+        
+        cls.tour_user = cls.env["res.users"].create({
+            "name": "Tour Test User",
+            "login": login,
+            "password": password,
+            "groups_id": [(6, 0, [
+                cls.env.ref("base.group_user").id,
+                cls.env.ref("base.group_system").id,
+            ])],
+        })
+        
+        cls.tour_user_password = password
+        
+        # Ensure admin has known password for fallback
+        admin = cls.env.ref("base.user_admin")
+        admin.write({"password": "admin"})
+    
+    @classmethod
+    def _setup_tour_test_data(cls) -> None:
+        """Set up minimal test data for tour tests."""
+        # Create a test product for UI interaction
+        cls.test_product = cls.env["product.template"].create({
+            "name": "Tour Test Product",
+            "default_code": "12345678",  # Valid 8-digit SKU
+            "type": "consu",
+            "list_price": 100.0,
+            "is_ready_for_sale": True,
+        })
+        
+        # Create a test partner for forms
+        cls.test_partner = cls.env["res.partner"].create({
+            "name": "Tour Test Customer",
+            "email": "tour@test.com",
+        })
+    
+    def start_tour(self, url_path: str, tour_name: str, login: str | None = None, **kwargs) -> None:
+        """Helper to start a tour with proper authentication."""
+        if login:
+            # Use specific login
+            self.authenticate(login, self.tour_user_password)
+        else:
+            # Use default tour user
+            self.authenticate(self.tour_user.login, self.tour_user_password)
+        
+        # Call parent start_tour
+        super().start_tour(url_path, tour_name, login=False, **kwargs)
