@@ -25,10 +25,9 @@ class ProductFactory:
             "uom_po_id": env.ref("uom.product_uom_unit").id,
             "invoice_policy": "order",
             "website_description": "Test product description",
-            "shopify_sync": False,  # Disable sync by default in tests
         }
         defaults.update(kwargs)
-        return env["product.template"].create(defaults)
+        return env["product.template"].with_context(skip_shopify_sync=True).create(defaults)
     
     @staticmethod
     def _generate_sku():
@@ -123,29 +122,53 @@ class MotorFactory:
     
     @staticmethod
     def create(env, **kwargs):
-        """Create a motor product."""
+        """Create a motor product with associated motor record."""
+        # First create required reference data
+        manufacturer = env["product.manufacturer"].search([("is_motor_manufacturer", "=", True)], limit=1)
+        if not manufacturer:
+            manufacturer = env["product.manufacturer"].create({
+                "name": "Test Motor Manufacturer",
+                "is_motor_manufacturer": True
+            })
+            
+        stroke = env["motor.stroke"].search([], limit=1)
+        if not stroke:
+            stroke = env["motor.stroke"].create({"name": "4-Stroke"})
+            
+        configuration = env["motor.configuration"].search([], limit=1)
+        if not configuration:
+            configuration = env["motor.configuration"].create({"name": "V6"})
+        
+        # Create the motor record
+        motor_vals = {
+            "horsepower": random.choice([25, 40, 60, 75, 90, 115, 150]),
+            "year": str(random.randint(2015, 2024)),
+            "model": f"Model-{random.choice(['X', 'Y', 'Z'])}{random.randint(100, 999)}",
+            "serial_number": MotorFactory._generate_serial(),
+            "motor_number": MotorFactory._generate_motor_sku(),
+            "manufacturer": manufacturer.id,
+            "stroke": stroke.id,
+            "configuration": configuration.id,
+        }
+        motor = env["motor"].create(motor_vals)
+        
+        # Then create the product template with motor link
         defaults = {
             "name": f"Test Motor {datetime.now().timestamp()}",
-            "default_code": MotorFactory._generate_motor_sku(),
+            "default_code": motor_vals["motor_number"],
             "type": "product",
             "list_price": 2500.0,
             "standard_price": 1500.0,
             "weight": 150.0,
             "volume": 0.5,
             "categ_id": env.ref("product.product_category_all").id,
-            # Motor-specific fields
-            "motor_hp": random.choice([25, 40, 60, 75, 90, 115, 150]),
-            "motor_year": random.randint(2015, 2024),
-            "motor_model": f"Model-{random.choice(['X', 'Y', 'Z'])}{random.randint(100, 999)}",
-            "motor_serial": MotorFactory._generate_serial(),
+            "motor": motor.id,  # Link to the motor record
+            "source": "motor",  # Mark as motor product
         }
         defaults.update(kwargs)
         
-        # Ensure it's created as a motor product
-        if "is_motor" in env["product.template"]._fields:
-            defaults["is_motor"] = True
-        
-        return env["product.template"].create(defaults)
+        # Create with context to skip shopify sync
+        return env["product.template"].with_context(skip_shopify_sync=True).create(defaults)
     
     @staticmethod
     def _generate_motor_sku():
