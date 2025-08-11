@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach } from "@odoo/hoot";
-import { MultigraphModel } from "../src/views/multigraph/multigraph_model";
+import { MultigraphModel } from "@product_connect/views/multigraph/multigraph_model";
 
 describe("MultigraphModel", () => {
     let model;
