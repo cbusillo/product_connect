@@ -13,6 +13,7 @@ Example usage:
 import logging
 import random
 import secrets
+import time
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Callable, Iterator, Optional
@@ -46,6 +47,7 @@ __all__ = [
     "logging",
     "random",
     "secrets",
+    "time",
     # Typing
     "Any",
     "Callable",

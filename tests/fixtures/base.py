@@ -8,7 +8,27 @@ from odoo.api import Environment
 from ..common_imports import TransactionCase, HttpCase, MagicMock, patch, DEFAULT_TEST_CONTEXT
 
 
-class UnitTestCase(TransactionCase):
+class _ShopifyMockMixin:
+    """Shared mixin for Shopify mock functionality."""
+
+    def _setup_shopify_mocks(self) -> None:
+        self.shopify_service_patcher = patch("odoo.addons.product_connect.services.shopify.sync.base.ShopifyService")
+        self.mock_shopify_service_class = self.shopify_service_patcher.start()
+
+        self.mock_client = MagicMock()
+        self.mock_service_instance = MagicMock()
+        self.mock_service_instance.client = self.mock_client
+        self.mock_service_instance.first_location_gid = "gid://shopify/Location/12345"
+        self.mock_service_instance.get_first_location_gid.return_value = "gid://shopify/Location/12345"
+
+        self.mock_shopify_service_class.return_value = self.mock_service_instance
+
+    def _teardown_shopify_mocks(self) -> None:
+        if hasattr(self, "shopify_service_patcher") and self.shopify_service_patcher:
+            self.shopify_service_patcher.stop()
+
+
+class UnitTestCase(_ShopifyMockMixin, TransactionCase):
     """Base class for unit tests with mocking support."""
 
     @classmethod
@@ -20,10 +40,14 @@ class UnitTestCase(TransactionCase):
             context=dict(
                 cls.env.context,
                 **DEFAULT_TEST_CONTEXT,
-                mail_create_nolog=True,
             )
         )
 
+    def tearDown(self) -> None:
+        """Clean up mocks after each test."""
+        self._teardown_shopify_mocks()
+        super().tearDown()
+    
     def mock_service(self, service_path: str) -> MagicMock:
         """Helper to mock external services."""
         patcher = patch(service_path)
@@ -50,26 +74,6 @@ class UnitTestCase(TransactionCase):
                 actual = actual.ids
 
             self.assertEqual(actual, expected, f"Field '{field}' mismatch: expected {expected}, got {actual}")
-
-
-class _ShopifyMockMixin:
-    """Shared mixin for Shopify mock functionality."""
-
-    def _setup_shopify_mocks(self) -> None:
-        self.shopify_service_patcher = patch("odoo.addons.product_connect.services.shopify.sync.base.ShopifyService")
-        self.mock_shopify_service_class = self.shopify_service_patcher.start()
-
-        self.mock_client = MagicMock()
-        self.mock_service_instance = MagicMock()
-        self.mock_service_instance.client = self.mock_client
-        self.mock_service_instance.first_location_gid = "gid://shopify/Location/12345"
-        self.mock_service_instance.get_first_location_gid.return_value = "gid://shopify/Location/12345"
-
-        self.mock_shopify_service_class.return_value = self.mock_service_instance
-
-    def _teardown_shopify_mocks(self) -> None:
-        if hasattr(self, "shopify_service_patcher") and self.shopify_service_patcher:
-            self.shopify_service_patcher.stop()
 
 
 def _get_or_create_geo_data(env: Environment) -> tuple[Any, Any, Any]:
@@ -133,16 +137,13 @@ class IntegrationTestCase(_ShopifyMockMixin, _BaseDataMixin, TransactionCase):
 
         cls._setup_class_base_data()
 
-    def create_shopify_credentials(self) -> "odoo.model.shopify_sync":
-        return self.env["shopify.sync"].create(
-            {
-                "name": "Test Store",
-                "shop_domain": "test-store.myshopify.com",
-                "access_token": "test_token_123",
-                "api_version": "2024-01",
-                "active": True,
-            }
-        )
+    def create_shopify_credentials(self) -> None:
+        """Shopify credentials are stored in ir.config_parameter, not as a model."""
+        # Store Shopify configuration in system parameters as used by the actual code
+        config_param = self.env["ir.config_parameter"].sudo()
+        config_param.set_param("shopify.shop_url_key", "test-store.myshopify.com")
+        config_param.set_param("shopify.webhook_key", "test_webhook_key")
+        config_param.set_param("shopify.test_store", "1")
 
     @staticmethod
     def mock_shopify_response(data: dict | None = None, errors: list | None = None) -> dict:
@@ -161,7 +162,7 @@ class TourTestCase(HttpCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.browser_size: tuple[int, int] = (1920, 1080)
+        self.browser_size = "1920x1080"
         self.tour_timeout = 120
 
     def start_tour(self, url: str, tour_name: str, login: str = "admin", timeout: int | None = None) -> None:
