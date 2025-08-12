@@ -1,5 +1,4 @@
 import base64
-import odoo
 import qrcode
 import re
 import shutil
@@ -145,8 +144,8 @@ class Motor(models.Model):
     serial_number = fields.Char()
 
     @api.model
-    def _get_years(self) -> list[tuple[str, str]]:
-        return [(str(year), str(year)) for year in range(fields.Date.today().year + 1, 1960, -1)]
+    def _get_years(self) -> list[tuple[int, str]]:
+        return [(year, str(year)) for year in range(fields.Date.today().year + 1, 1960, -1)]
 
     year = fields.Selection(_get_years, string="Model Year", index=True)
     color = fields.Many2one("product.color", domain="[('applicable_tags.name', '=', 'Motors')]")
@@ -337,7 +336,7 @@ class Motor(models.Model):
                 motor.model,
                 serial_number,
             ]
-            name = " ".join(part for part in name_parts if part)
+            name = " ".join(str(part) for part in name_parts if part)
 
             if name:
                 motor.display_name = name
@@ -400,8 +399,6 @@ class Motor(models.Model):
 
     @staticmethod
     def _sanitize_vals(vals: "odoo.values.motor") -> "odoo.values.motor":
-        if "year" in vals and vals["year"]:
-            vals["year"] = "".join(char for char in vals["year"] if char.isdigit())
         if "model" in vals and vals["model"]:
             vals["model"] = vals["model"].upper()
         if "serial_number" in vals and vals["serial_number"]:
@@ -468,7 +465,7 @@ class Motor(models.Model):
                 missing_fields.append("Model")
 
             if missing_fields:
-                raise UserError(self.env._("Motor is missing required fields: %s") % ", ".join(missing_fields))
+                raise UserError(self.env._(f"Motor is missing required fields: {', '.join(missing_fields)}"))
 
             current_product_ids = set(motor.products.ids)
 
@@ -479,6 +476,12 @@ class Motor(models.Model):
                     continue
                 if product_template.manufacturers and motor.manufacturer not in product_template.manufacturers:
                     continue
+
+                if motor.year:
+                    if product_template.year_from and int(motor.year) < product_template.year_from:
+                        continue
+                    if product_template.year_to and int(motor.year) > product_template.year_to:
+                        continue
 
                 if any(part.template.id in product_template.excluded_by_parts.ids and part.is_missing for part in motor.parts):
                     continue

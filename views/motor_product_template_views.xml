@@ -8,11 +8,13 @@
                 <field name="sequence" widget="handle"/>
                 <field name="name"/>
                 <field name="part_type"/>
-                <field name="manufacturers" widget="many2many_tags"/>
-                <field name="configurations" widget="many2many_tags"/>
-                <field name="strokes" widget="many2many_tags"/>
-                <field name="excluded_by_parts" widget="many2many_tags"/>
-                <field name="sequence"/>
+                <field name="year_range_display" string="Years" widget="badge" decoration-info="year_from or year_to"/>
+                <field name="year_from" optional="hide" options="{'enable_formatting': false}"/>
+                <field name="year_to" optional="hide" options="{'enable_formatting': false}"/>
+                <field name="manufacturers" widget="many2many_tags" width="200px"/>
+                <field name="configurations" widget="many2many_tags" width="200px"/>
+                <field name="strokes" widget="many2many_tags" width="150px"/>
+                <field name="excluded_by_parts" widget="many2many_tags" optional="hide"/>
             </list>
         </field>
     </record>
@@ -50,6 +52,39 @@
                             </group>
                         </group>
 
+                        <separator string="📅 Model Year Range" colspan="2"/>
+                        <group colspan="2">
+                            <div class="alert alert-info" role="alert" colspan="2">
+                                <i class="fa fa-info-circle"/> Define which motor model years this template applies to.
+                                Leave empty to include all years.
+                            </div>
+                            <group col="6">
+                                <label for="year_from" string="From Year" class="oe_inline"/>
+                                <div class="o_row">
+                                    <field name="year_from"
+                                           placeholder="1990"
+                                           style="width: 100px;"
+                                           options="{'enable_formatting': false}"
+                                           widget="integer"/>
+                                    <span class="oe_inline" style="margin: 0 10px;">➜</span>
+                                </div>
+                                <label for="year_to" string="To Year" class="oe_inline"/>
+                                <div class="o_row">
+                                    <field name="year_to"
+                                           placeholder="2024"
+                                           style="width: 100px;"
+                                           options="{'enable_formatting': false}"
+                                           widget="integer"/>
+                                </div>
+                                <div class="text-muted" colspan="2">
+                                    <field name="year_range_display"
+                                           readonly="1"
+                                           class="badge badge-primary"
+                                           style="font-size: 14px; padding: 5px 10px;"/>
+                                </div>
+                            </group>
+                        </group>
+
                         <group string="Exclusions" colspan="2">
                             <field name="excluded_by_parts"/>
                             <field name="excluded_by_tests">
@@ -81,11 +116,43 @@
         </field>
     </record>
 
+    <record id="view_motor_product_template_search" model="ir.ui.view">
+        <field name="name">motor.product.template.search</field>
+        <field name="model">motor.product.template</field>
+        <field name="arch" type="xml">
+            <search string="Motor Product Templates">
+                <field name="name"/>
+                <field name="part_type"/>
+                <field name="year_from"/>
+                <field name="year_to"/>
+                <filter string="Current Year Models" name="current_year"
+                        domain="['|', ('year_from', '=', False), ('year_from', '&lt;=', context_today().year),
+                                 '|', ('year_to', '=', False), ('year_to', '&gt;=', context_today().year)]"
+                        help="Templates that apply to current year motors"/>
+                <filter string="Vintage Models" name="vintage"
+                        domain="[('year_to', '&lt;', context_today().year - 25)]"
+                        help="Templates for motors older than 25 years"/>
+                <filter string="Modern Models" name="modern"
+                        domain="['|', ('year_from', '&gt;=', context_today().year - 10), ('year_from', '=', False)]"
+                        help="Templates for recent motor models"/>
+                <separator/>
+                <filter string="Has Year Range" name="has_years"
+                        domain="['|', ('year_from', '!=', False), ('year_to', '!=', False)]"/>
+                <filter string="All Years" name="all_years"
+                        domain="[('year_from', '=', False), ('year_to', '=', False)]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Part Type" name="group_part_type" context="{'group_by':'part_type'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
     <record id="action_motor_product_template" model="ir.actions.act_window">
         <field name="name">Motor Products</field>
         <field name="type">ir.actions.act_window</field>
         <field name="res_model">motor.product.template</field>
         <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_motor_product_template_search"/>
     </record>
 
     <menuitem id="menu_product_motor_product" name="Motor Products" parent="menu_subheader_config_motor"

@@ -3,7 +3,7 @@ import re
 from datetime import timedelta
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError, UserError
-from typing import Any, Self, List
+from typing import Any, Self
 
 from ..services.shopify.helpers import SyncMode
 
@@ -157,7 +157,7 @@ class ProductTemplate(models.Model):
         return groups
 
     @api.model_create_multi
-    def create(self, vals_list: List["odoo.values.product_template"]) -> Self:
+    def create(self, vals_list: list["odoo.values.product_template"]) -> Self:
         for vals in vals_list:
             source = self._context.get("default_source") or vals.get("source")
             if source:
@@ -721,7 +721,7 @@ class ProductTemplate(models.Model):
                 product.motor_product_template.name,
                 "OEM" if product.motor_product_template.include_oem_in_name else None,
             ]
-            product.motor_product_computed_name = " ".join(part for part in name_parts if part)
+            product.motor_product_computed_name = " ".join(str(part) for part in name_parts if part)
 
     @api.depends(
         "is_dismantled",

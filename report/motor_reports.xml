@@ -80,7 +80,7 @@
                             </div>
                             <div style="display: table-row; text-align: right;">
                                 <div style="display: table-cell; vertical-align: bottom;">
-                                    <span t-field="o.year" t-options="{'widget': 'char'}"/>
+                                    <span t-out="str(o.year) if o.year else ''"/>
                                 </div>
                             </div>
                         </div>
