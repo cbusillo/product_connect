@@ -1,18 +1,8 @@
-from datetime import datetime, timezone
+from ..common_imports import datetime
+from datetime import timezone
 from typing import Any
-import threading
 
-# Thread-safe counter for unique SKUs
-_sku_counter_lock = threading.Lock()
-_sku_counter = 900000
-
-
-def _generate_unique_sku() -> str:
-    global _sku_counter
-    with _sku_counter_lock:
-        _sku_counter += 1
-        # Return only the numeric part to comply with 4-8 digit constraint
-        return str(_sku_counter)
+from ..test_helpers import generate_unique_sku
 
 
 def deep_update(base_dict: dict[str, Any], updates: dict[str, Any]) -> None:
@@ -36,7 +26,7 @@ def create_shopify_product_response(
     variants: list[dict[str, Any]] | None = None,
     media: list[dict[str, Any]] | None = None,
     metafields: list[dict[str, Any]] | None = None,
-    **overrides: object,
+    **overrides: Any,
 ) -> dict[str, Any]:
     # Always use current time to ensure products pass the date filter in tests
     now = datetime.now(timezone.utc).isoformat()
@@ -48,7 +38,7 @@ def create_shopify_product_response(
             {
                 "id": "gid://shopify/ProductVariant/987654321",
                 "price": "99.99",
-                "sku": _generate_unique_sku(),
+                "sku": generate_unique_sku(),
                 "barcode": "123456789012",
                 "inventoryItem": {
                     "unitCost": {"amount": "50.00", "currencyCode": "USD"},
@@ -99,11 +89,11 @@ def create_shopify_variant_response(
     weight: float = 1.5,
     unit_cost: str = "50.00",
     currency_code: str = "USD",
-    **overrides: object,
+    **overrides: Any,
 ) -> dict[str, Any]:
     # Generate unique SKU if not provided
     if sku is None:
-        sku = _generate_unique_sku()
+        sku = generate_unique_sku()
     base_response = {
         "id": gid,
         "price": price,
@@ -138,7 +128,7 @@ def create_shopify_address_response(
     country_code: str = "US",
     zip_code: str | None = "10001",
     phone: str | None = "+1-555-123-4567",
-    **overrides: object,
+    **overrides: Any,
 ) -> dict[str, Any]:
     base_response = {
         "id": gid,
@@ -170,7 +160,7 @@ def create_shopify_customer_response(
     updated_at: str | None = None,
     default_address: dict[str, Any] | None = None,
     addresses: list[dict[str, Any]] | None = None,
-    **overrides: object,
+    **overrides: Any,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc).isoformat()
     created_at = created_at or now
@@ -231,7 +221,7 @@ def create_shopify_order_line_item_response(
     currency_code: str = "USD",
     custom_attributes: list[dict[str, Any]] | None = None,
     discount_allocations: list[dict[str, Any]] | None = None,
-    **overrides: object,
+    **overrides: Any,
 ) -> dict[str, Any]:
     if custom_attributes is None:
         custom_attributes = []
@@ -263,7 +253,7 @@ def create_shopify_shipping_line_response(
     code: str | None = "STANDARD",
     delivery_category: str | None = None,
     is_removed: bool = False,
-    **overrides: object,
+    **overrides: Any,
 ) -> dict[str, Any]:
     base_response = {
         "id": gid,
@@ -304,7 +294,7 @@ def create_shopify_order_response(
     note: str | None = None,
     custom_attributes: list[dict[str, Any]] | None = None,
     payment_gateway_names: list[str] | None = None,
-    **overrides: object,
+    **overrides: Any,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc).isoformat()
     created_at = created_at or now
@@ -364,7 +354,7 @@ def create_bulk_operation_response(
     created_at: str | None = None,
     completed_at: str | None = None,
     url: str | None = "https://storage.googleapis.com/shopify-bulk-data/test.jsonl",
-    **overrides: object,
+    **overrides: Any,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc).isoformat()
     created_at = created_at or now

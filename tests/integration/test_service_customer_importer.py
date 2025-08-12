@@ -1,9 +1,6 @@
-import logging
 import uuid
-import time
-from unittest.mock import patch
 
-from odoo.tests import tagged
+from ..common_imports import tagged, logging, time, patch, INTEGRATION_TAGS
 
 from ...services.shopify.gql import (
     CustomerFields,
@@ -21,7 +18,7 @@ from ..fixtures.base import IntegrationTestCase
 _logger = logging.getLogger(__name__)
 
 
-@tagged("post_install", "-at_install", "integration_test")
+@tagged(*INTEGRATION_TAGS)
 class TestCustomerImporter(IntegrationTestCase):
     def setUp(self) -> None:
         super().setUp()

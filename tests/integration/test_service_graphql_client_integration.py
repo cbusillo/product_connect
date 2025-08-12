@@ -1,7 +1,6 @@
-from typing import TypedDict
-from unittest.mock import patch, MagicMock, Mock
+from typing import TypedDict, Any
 
-from odoo.tests import tagged
+from ..common_imports import patch, MagicMock, Mock, tagged, INTEGRATION_TAGS
 from httpx import Request, Response
 
 from ...services.shopify.gql import (
@@ -35,7 +34,7 @@ class GraphQLCostResponse(TypedDict):
     extensions: Extensions
 
 
-@tagged("post_install", "-at_install", "integration_test")
+@tagged(*INTEGRATION_TAGS)
 class TestGraphQLClientIntegration(IntegrationTestCase):
     def setUp(self) -> None:
         super().setUp()
@@ -76,7 +75,7 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
             # Mock the send method to capture the request
             sent_requests = []
 
-            def capture_request(request: Request, **_kwargs: object) -> Response:
+            def capture_request(request: Request, **_kwargs: Any) -> Response:
                 sent_requests.append(request)
                 return Response(
                     200,
@@ -482,7 +481,7 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
 
             sent_requests = []
 
-            def capture_request(request: Request, **_kwargs: object) -> Response:
+            def capture_request(request: Request, **_kwargs: Any) -> Response:
                 sent_requests.append(request)
                 return Response(
                     200,

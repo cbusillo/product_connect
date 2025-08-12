@@ -1,7 +1,7 @@
 """JavaScript/Hoot test suite for product_connect module."""
 
 import re
-from odoo.tests import tagged
+from ..common_imports import tagged, INTEGRATION_TAGS
 from ..fixtures.base import TourTestCase
 
 
@@ -10,7 +10,7 @@ def unit_test_error_checker(message: str) -> bool:
     return "[HOOT]" not in message
 
 
-@tagged("post_install", "-at_install", "integration_test")
+@tagged(*INTEGRATION_TAGS)
 class ProductConnectJSTests(TourTestCase):
     """JavaScript/Hoot test suite for product_connect module"""
     

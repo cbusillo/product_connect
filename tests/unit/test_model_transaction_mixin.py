@@ -1,12 +1,12 @@
-from unittest.mock import patch
+from typing import Any
 
 from psycopg2.errors import InFailedSqlTransaction
-from odoo.tests import tagged
+from ..common_imports import tagged, patch, UNIT_TAGS
 
 from ..fixtures.base import UnitTestCase
 
 
-@tagged("post_install", "-at_install", "unit_test")
+@tagged(*UNIT_TAGS)
 class TestTransactionMixin(UnitTestCase):
     def setUp(self) -> None:
         super().setUp()
@@ -105,7 +105,7 @@ class TestTransactionMixin(UnitTestCase):
         original_execute = self.env.cr.execute
         unlock_call_count = 0
 
-        def mock_execute(query: str, params: list | None = None) -> object:
+        def mock_execute(query: str, params: list | None = None) -> Any:
             nonlocal unlock_call_count
             # Let the lock acquisition succeed
             if "pg_try_advisory_lock" in query:

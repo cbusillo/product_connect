@@ -1,14 +1,14 @@
 """Proof of concept test using the new infrastructure."""
 
-from odoo.tests import tagged
+from ..common_imports import tagged, UNIT_TAGS
 from ..fixtures import UnitTestCase, ProductFactory
 
 
-@tagged("unit_test", "post_install", "-at_install")
+@tagged(*UNIT_TAGS)
 class TestProductFactory(UnitTestCase):
     """Test the ProductFactory and new test infrastructure."""
     
-    def test_create_single_product(self):
+    def test_create_single_product(self) -> None:
         """Test creating a single product with factory."""
         product = ProductFactory.create(self.env, name="Test Motor")
         
@@ -19,7 +19,7 @@ class TestProductFactory(UnitTestCase):
         self.assertTrue(product.default_code)
         self.assertTrue(len(product.default_code) == 8)  # OPW SKU pattern
     
-    def test_create_batch_products(self):
+    def test_create_batch_products(self) -> None:
         """Test creating multiple products."""
         products = ProductFactory.create_batch(self.env, count=3)
         
@@ -29,7 +29,7 @@ class TestProductFactory(UnitTestCase):
         skus = [p.default_code for p in products]
         self.assertEqual(len(skus), len(set(skus)))
     
-    def test_create_product_with_variants(self):
+    def test_create_product_with_variants(self) -> None:
         """Test creating product with color variants."""
         product = ProductFactory.create_with_variants(
             self.env, 
@@ -46,20 +46,20 @@ class TestProductFactory(UnitTestCase):
         self.assertIn("Red", colors)
         self.assertIn("Blue", colors)
     
-    def test_mock_service(self):
+    def test_mock_service(self) -> None:
         """Test mocking external services."""
         mock_shopify = self.mock_service("addons.product_connect.services.shopify.sync.ShopifySync")
         mock_shopify.return_value.sync_product.return_value = {"success": True}
         
         # This would normally trigger a sync
-        from ...services.shopify.sync import ShopifySync
+        from addons.product_connect.services.shopify.sync import ShopifySync
         sync = ShopifySync()
         result = sync.sync_product(123)
         
         self.assertEqual(result, {"success": True})
         mock_shopify.return_value.sync_product.assert_called_once_with(123)
     
-    def test_assert_record_values(self):
+    def test_assert_record_values(self) -> None:
         """Test the assertRecordValues helper."""
         product = ProductFactory.create(
             self.env,
@@ -68,9 +68,10 @@ class TestProductFactory(UnitTestCase):
             standard_price=150.0
         )
         
-        self.assertRecordValues(product, {
+        expected_values = {
             "name": "Test Product",
             "list_price": 250.0,
             "standard_price": 150.0,
             "type": "consu",
-        })
+        }
+        self.assertRecordValues(product, expected_values)

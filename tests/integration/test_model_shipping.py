@@ -1,11 +1,11 @@
-from odoo.tests import tagged
+from ..common_imports import tagged, INTEGRATION_TAGS
 from ..fixtures.base import IntegrationTestCase
 import logging
 
 _logger = logging.getLogger(__name__)
 
 
-@tagged("post_install", "-at_install", "integration_test")
+@tagged(*INTEGRATION_TAGS)
 class TestShipping(IntegrationTestCase):
     """Comprehensive test suite for shipping functionality
 

@@ -1,15 +1,12 @@
-from datetime import datetime, UTC
 from collections.abc import Callable
-from unittest.mock import patch, MagicMock
 
-from odoo.exceptions import UserError
-from odoo.tests import tagged
+from ..common_imports import datetime, patch, MagicMock, UserError, tagged, UNIT_TAGS
 from ..fixtures.base import UnitTestCase
 from ...services.shopify import helpers
 from ...services.shopify.gql.base_model import BaseModel
 
 
-@tagged("post_install", "-at_install", "unit_test")
+@tagged(*UNIT_TAGS)
 class TestShopifyHelpers(UnitTestCase):
     def setUp(self) -> None:
         super().setUp()
@@ -117,6 +114,7 @@ class TestShopifyHelpers(UnitTestCase):
         )
 
     def test_format_datetime_for_shopify(self) -> None:
+        from datetime import UTC
         dt = datetime(2024, 5, 20, 12, 34, 56, tzinfo=UTC)
         self.assertEqual(helpers.format_datetime_for_shopify(dt), "2024-05-20T12:34:56Z")
 

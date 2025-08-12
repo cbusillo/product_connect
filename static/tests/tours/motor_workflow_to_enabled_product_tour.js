@@ -80,9 +80,9 @@ registry.category("web_tour.tours").add("motor_workflow_to_enabled_product_tour"
             run: "edit 100",
         },
         {
-            content: "Fill in Year",
-            trigger: "input[name='year']",
-            run: "edit 2024",
+            content: "Select Year",
+            trigger: "select[name='year']",
+            run: "select 2024",
         },
         // Save the motor
         {

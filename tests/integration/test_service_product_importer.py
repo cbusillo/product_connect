@@ -1,8 +1,7 @@
 import base64
-from datetime import datetime
-from unittest.mock import patch
 
-from odoo.tests import tagged
+from ..common_imports import datetime, patch, tagged, INTEGRATION_TAGS
+from ..test_helpers import generate_unique_sku
 
 from ...services.shopify.gql import MediaStatus, ProductStatus, ProductFields
 from ...services.shopify.helpers import ShopifyDataError
@@ -17,14 +16,11 @@ from ..fixtures.test_service_utils import create_mock_simple_response
 from ..fixtures.base import IntegrationTestCase
 
 
-@tagged("post_install", "-at_install", "integration_test")
+@tagged(*INTEGRATION_TAGS)
 class TestProductImporter(IntegrationTestCase):
-    _sku_counter = 10000
-
     @classmethod
     def _get_unique_sku(cls) -> str:
-        cls._sku_counter += 1
-        return str(cls._sku_counter)
+        return generate_unique_sku("")
 
     @staticmethod
     def _get_valid_image_base64() -> str:
@@ -180,7 +176,7 @@ class TestProductImporter(IntegrationTestCase):
         return product
 
     def test_import_basic_product(self) -> None:
-        sku = self._get_unique_sku()
+        sku = generate_unique_sku()
         product_data = create_shopify_product_response(
             title="Test Motor",
             vendor="Test Manufacturer",
@@ -227,7 +223,7 @@ class TestProductImporter(IntegrationTestCase):
         self.assertEqual(product.bin, "A1-B2")
 
     def test_import_product_with_metafields(self) -> None:
-        sku = self._get_unique_sku()
+        sku = generate_unique_sku()
         product_data = create_shopify_product_response(
             product_type="Motors",
             metafields=[
@@ -250,7 +246,7 @@ class TestProductImporter(IntegrationTestCase):
 
     def test_import_product_with_images(self) -> None:
         encoded_image = self._get_valid_image_base64()
-        sku = self._get_unique_sku()
+        sku = generate_unique_sku()
 
         product_data = create_shopify_product_response(
             media=[
@@ -403,7 +399,7 @@ class TestProductImporter(IntegrationTestCase):
             self.assertEqual(existing_product.list_price, 75.00)
 
     def test_skip_up_to_date_product(self) -> None:
-        sku = self._get_unique_sku()
+        sku = generate_unique_sku()
         self.env["product.product"].create(
             {
                 "name": "Current Product",
@@ -437,7 +433,7 @@ class TestProductImporter(IntegrationTestCase):
         self.assertEqual(imported_count, 0)
 
     def test_import_product_with_inventory(self) -> None:
-        sku = self._get_unique_sku()
+        sku = generate_unique_sku()
         product_data = create_shopify_product_response(
             total_inventory=25,
             media=[],  # No media to avoid image processing issues
@@ -458,7 +454,7 @@ class TestProductImporter(IntegrationTestCase):
         # but we can verify the product was created successfully
 
     def test_import_inactive_product(self) -> None:
-        sku = self._get_unique_sku()
+        sku = generate_unique_sku()
         product_data = create_shopify_product_response(
             status=ProductStatus.DRAFT,
             media=[],  # No media to avoid image processing issues
@@ -471,7 +467,7 @@ class TestProductImporter(IntegrationTestCase):
         self.assertTrue(product.is_published)
 
     def test_create_manufacturer_if_not_exists(self) -> None:
-        sku = self._get_unique_sku()
+        sku = generate_unique_sku()
         product_data = create_shopify_product_response(
             vendor="New Manufacturer",
             media=[],  # No media to avoid image fetching issues
@@ -493,7 +489,7 @@ class TestProductImporter(IntegrationTestCase):
         self.assertEqual(product.product_tmpl_id.manufacturer, manufacturer)
 
     def test_create_part_type_if_not_exists(self) -> None:
-        sku = self._get_unique_sku()
+        sku = generate_unique_sku()
         product_data = create_shopify_product_response(
             product_type="New Part Type",
             media=[],  # No media to avoid image fetching issues
@@ -563,7 +559,7 @@ class TestProductImporter(IntegrationTestCase):
             self.assertIn("Network error", str(cm.exception))
 
     def test_images_already_in_sync(self) -> None:
-        sku = self._get_unique_sku()
+        sku = generate_unique_sku()
         existing_product = self.env["product.product"].create(
             {
                 "name": "Product with Images",
@@ -625,7 +621,7 @@ class TestProductImporter(IntegrationTestCase):
             mock_fetch_image.assert_not_called()
 
     def test_product_with_zero_weight(self) -> None:
-        sku = self._get_unique_sku()
+        sku = generate_unique_sku()
         product_data = create_shopify_product_response(
             media=[],  # No media to avoid image processing issues
             variants=[
@@ -655,7 +651,7 @@ class TestProductImporter(IntegrationTestCase):
         self.assertEqual(imported_count, 0)
 
     def test_import_product_with_extreme_prices(self) -> None:
-        sku = self._get_unique_sku()
+        sku = generate_unique_sku()
         product_data = create_shopify_product_response(
             media=[],  # No media to avoid image processing issues
             variants=[
@@ -672,7 +668,7 @@ class TestProductImporter(IntegrationTestCase):
         self.assertEqual(product.standard_price, 0.01)
 
     def test_import_product_with_html_in_description(self) -> None:
-        sku = self._get_unique_sku()
+        sku = generate_unique_sku()
         product_data = create_shopify_product_response(
             title="<b>Bold Product</b>",
             media=[],  # No media to avoid image processing issues,
@@ -790,7 +786,7 @@ class TestProductImporter(IntegrationTestCase):
                 self.importer.import_products_since_last_import()
 
     def test_import_product_with_massive_image_count(self) -> None:
-        sku = self._get_unique_sku()
+        sku = generate_unique_sku()
         # Create 50 images
         images = []
         for i in range(50):
@@ -875,7 +871,7 @@ class TestProductImporter(IntegrationTestCase):
         self.assertTrue(existing_product.is_published)
 
     def test_import_product_with_null_inventory_fields(self) -> None:
-        sku = self._get_unique_sku()
+        sku = generate_unique_sku()
         product_data = create_shopify_product_response(
             media=[],  # No media to avoid image processing issues
             variants=[
@@ -895,7 +891,7 @@ class TestProductImporter(IntegrationTestCase):
 
     def test_import_product_with_reordered_images(self) -> None:
         """Test that image order changes are detected even if product updated_at hasn't changed"""
-        sku = self._get_unique_sku()
+        sku = generate_unique_sku()
         existing_product = self.env["product.product"].create(
             {
                 "name": "Product with Images",

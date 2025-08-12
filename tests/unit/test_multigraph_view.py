@@ -1,8 +1,8 @@
-from odoo.tests import tagged
+from ..common_imports import tagged, UNIT_TAGS
 from ..fixtures.base import UnitTestCase
 
 
-@tagged("post_install", "-at_install", "unit_test")
+@tagged(*UNIT_TAGS)
 class TestMultigraphView(UnitTestCase):
     def setUp(self) -> None:
         super().setUp()

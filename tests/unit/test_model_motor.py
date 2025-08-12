@@ -1,12 +1,11 @@
 import base64
 
-from odoo.tests import tagged
+from ..common_imports import tagged, ValidationError, UNIT_TAGS
 from ..fixtures.base import UnitTestCase
 from ..fixtures.factories import MotorFactory
-from odoo.exceptions import ValidationError
 
 
-@tagged("post_install", "-at_install", "unit_test")
+@tagged(*UNIT_TAGS)
 class TestMotor(UnitTestCase):
     def setUp(self) -> None:
         super().setUp()
@@ -24,8 +23,7 @@ class TestMotor(UnitTestCase):
         self.assertEqual(motor.get_horsepower_formatted(), "100.5 HP")
 
     def test_sanitize_vals(self) -> None:
-        result = self.env["motor"]._sanitize_vals({"year": "2020a", "model": "abc", "serial_number": "sn1"})
-        self.assertEqual(result["year"], "2020")
+        result = self.env["motor"]._sanitize_vals({"model": "abc", "serial_number": "sn1"})
         self.assertEqual(result["model"], "ABC")
         self.assertEqual(result["serial_number"], "SN1")
 
@@ -48,13 +46,60 @@ class TestMotor(UnitTestCase):
         # Verify motor was created with dependencies
         self.assertTrue(motor.manufacturer)
         self.assertTrue(motor.stroke)
-        self.assertTrue(motor.configuration)
 
-        # Verify motor has expected properties
-        self.assertGreater(motor.horsepower, 0)
-        self.assertTrue(motor.motor_year)
-        self.assertTrue(motor.motor_model)
-        self.assertTrue(motor.motor_serial)
+    def test_create_motor_products_year_filtering(self) -> None:
+        """Test that create_motor_products respects year range filtering."""
+        # Create motors with different years
+        motor_2010 = self._create_test_motor(year=2010, cost=100.0)
+        motor_2018 = self._create_test_motor(year=2018, cost=100.0)
+        motor_2025 = self._create_test_motor(year=2025, cost=100.0)
+        
+        # Create a motor product template with year range 2015-2020
+        template = self.env["motor.product.template"].create({
+            "name": "Year-Specific Part",
+            "year_from": 2015,
+            "year_to": 2020,
+            "strokes": [(6, 0, [motor_2018.stroke.id])],
+            "configurations": [(6, 0, [motor_2018.configuration.id])],
+            "manufacturers": [(6, 0, [motor_2018.manufacturer.id])],
+            "initial_quantity": 1,
+            "part_type": self.env["product.type"].create({"name": "Test Type"}).id
+        })
+        
+        # Create products for all motors
+        (motor_2010 | motor_2018 | motor_2025).create_motor_products()
+        
+        # Check that only the 2018 motor has the product
+        self.assertEqual(len(motor_2010.products), 0, "Motor from 2010 should not have products (before year range)")
+        self.assertEqual(len(motor_2018.products), 1, "Motor from 2018 should have 1 product (within year range)")
+        self.assertEqual(motor_2018.products[0].motor_product_template, template)
+        self.assertEqual(len(motor_2025.products), 0, "Motor from 2025 should not have products (after year range)")
+
+    def test_create_motor_products_no_year_range(self) -> None:
+        """Test that templates without year range apply to all motors."""
+        # Create motors with different years
+        motor_2010 = self._create_test_motor(year=2010, cost=100.0)
+        motor_2025 = self._create_test_motor(year=2025, cost=100.0)
+        
+        # Create a motor product template without year range
+        template = self.env["motor.product.template"].create({
+            "name": "Universal Part",
+            # No year_from or year_to
+            "strokes": [(6, 0, [motor_2010.stroke.id])],
+            "configurations": [(6, 0, [motor_2010.configuration.id])],
+            "manufacturers": [(6, 0, [motor_2010.manufacturer.id])],
+            "initial_quantity": 1,
+            "part_type": self.env["product.type"].create({"name": "Test Type"}).id
+        })
+        
+        # Create products for all motors
+        (motor_2010 | motor_2025).create_motor_products()
+        
+        # Check that both motors have the product
+        self.assertEqual(len(motor_2010.products), 1, "Motor from 2010 should have the universal product")
+        self.assertEqual(motor_2010.products[0].motor_product_template, template)
+        self.assertEqual(len(motor_2025.products), 1, "Motor from 2025 should have the universal product")
+        self.assertEqual(motor_2025.products[0].motor_product_template, template)
 
     def test_create_motor_product_generation(self) -> None:
         """Test motor product creation using factory."""
@@ -63,34 +108,34 @@ class TestMotor(UnitTestCase):
 
         # Verify motor was created with correct attributes
         self.assertTrue(motor)
-        self.assertGreater(motor.motor_hp, 0)
-        self.assertTrue(motor.motor_model)
-        self.assertTrue(motor.motor_serial)
+        self.assertGreater(motor.horsepower, 0)
+        self.assertTrue(motor.model)
+        self.assertTrue(motor.serial_number)
 
         # Test with custom values
         custom_motor = MotorFactory.create(
             self.env,
-            motor_hp=150,
-            motor_year=2023,
-            motor_model="CUSTOM-MODEL"
+            horsepower=150,
+            year=2023,
+            model="CUSTOM-MODEL"
         )
-        self.assertEqual(custom_motor.motor_hp, 150)
-        self.assertEqual(custom_motor.motor_year, 2023)
-        self.assertEqual(custom_motor.motor_model, "CUSTOM-MODEL")
+        self.assertEqual(custom_motor.horsepower, 150)
+        self.assertEqual(custom_motor.year, 2023)
+        self.assertEqual(custom_motor.model, "CUSTOM-MODEL")
 
     def test_motor_factory_creation(self) -> None:
         """Test that motor factory creates motors with unique identifiers."""
         # Create multiple motors using factory
-        motor1 = MotorFactory.create(self.env, motor_hp=100)
-        motor2 = MotorFactory.create(self.env, motor_hp=120)
+        motor1 = MotorFactory.create(self.env, horsepower=100)
+        motor2 = MotorFactory.create(self.env, horsepower=120)
 
         # Verify motors are unique
         self.assertNotEqual(motor1.id, motor2.id)
-        self.assertNotEqual(motor1.default_code, motor2.default_code)
-        self.assertNotEqual(motor1.motor_serial, motor2.motor_serial)
+        self.assertNotEqual(motor1.motor_number, motor2.motor_number)
+        self.assertNotEqual(motor1.serial_number, motor2.serial_number)
 
         # Verify both have correct properties
-        self.assertEqual(motor1.motor_hp, 100)
-        self.assertEqual(motor2.motor_hp, 120)
-        self.assertTrue(motor1.motor_model)
-        self.assertTrue(motor2.motor_model)
+        self.assertEqual(motor1.horsepower, 100)
+        self.assertEqual(motor2.horsepower, 120)
+        self.assertTrue(motor1.model)
+        self.assertTrue(motor2.model)

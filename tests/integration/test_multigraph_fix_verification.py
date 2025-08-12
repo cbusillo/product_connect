@@ -1,11 +1,11 @@
 """Test multigraph view functionality after fixes."""
 
-from odoo.tests import tagged
+from ..common_imports import tagged, INTEGRATION_TAGS
 from ..fixtures.base import IntegrationTestCase
 from odoo.exceptions import ValidationError
 
 
-@tagged("post_install", "-at_install", "integration_test")
+@tagged(*INTEGRATION_TAGS)
 class TestMultigraphFixVerification(IntegrationTestCase):
     """Verify multigraph view works correctly after our fixes."""
 

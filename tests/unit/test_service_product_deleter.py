@@ -1,13 +1,7 @@
-from httpx import HTTPError
-from unittest.mock import MagicMock, patch
-
-from odoo.tests import tagged
+from ..common_imports import tagged, MagicMock, patch, UNIT_TAGS
 
 from ...services.shopify.sync.deleters.product_deleter import ProductDeleter
-from ...services.shopify import service as _service_module
 from ariadne_codegen.client_generators.dependencies.exceptions import GraphQLClientGraphQLMultiError, GraphQLClientGraphQLError
-from ..fixtures.base import UnitTestCase
-from ..fixtures.factories import ProductFactory, PartnerFactory
 from ..fixtures.base import UnitTestCase
 
 
@@ -19,7 +13,7 @@ class DummySync:
         self.updated_count = 0
 
 
-@tagged("post_install", "-at_install", "unit_test")
+@tagged(*UNIT_TAGS)
 class TestProductDeleter(UnitTestCase):
     def setUp(self) -> None:
         super().setUp()

@@ -1,14 +1,10 @@
-from datetime import timedelta
-from unittest.mock import MagicMock
-
+from ..common_imports import timedelta, MagicMock, tagged, UNIT_TAGS
 from odoo.api import Environment
-from odoo.tests import tagged
 
 from ...services.shopify.sync.base import ShopifyBaseImporter, ShopifyBaseExporter, ShopifyBaseDeleter
 from ...services.shopify.helpers import format_datetime_for_shopify, parse_shopify_datetime_to_utc
 from ...services.shopify.gql import Client
 from ..fixtures.base import UnitTestCase
-from ..fixtures.factories import ProductFactory, PartnerFactory
 
 
 class DummySync:
@@ -84,7 +80,7 @@ def make_pages() -> list[DummyPage]:
     return [DummyPage([1, 2], "c1", True), DummyPage([3, 4])]
 
 
-@tagged("post_install", "-at_install", "unit_test")
+@tagged(*UNIT_TAGS)
 class TestShopifySyncItems(UnitTestCase):
     def setUp(self) -> None:
         super().setUp()

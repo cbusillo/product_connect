@@ -1,20 +1,29 @@
 """Factory classes for creating test data."""
 
 import random
-import string
 from datetime import datetime, timedelta
-from decimal import Decimal
+
+from odoo.api import Environment
+from odoo.models import Model
+
+from ..base_types import OdooValue
+from ..test_helpers import (
+    generate_motor_serial,
+    generate_shopify_id,
+    generate_unique_name,
+    generate_unique_sku,
+)
 
 
 class ProductFactory:
     """Factory for creating test products."""
-    
+
     @staticmethod
-    def create(env, **kwargs):
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.product_template":
         """Create a product with defaults."""
         defaults = {
-            "name": f"Test Product {datetime.now().timestamp()}",
-            "default_code": ProductFactory._generate_sku(),
+            "name": generate_unique_name("Test Product"),
+            "default_code": generate_unique_sku(),
             "type": "consu",
             "list_price": 100.0,
             "standard_price": 50.0,
@@ -28,56 +37,59 @@ class ProductFactory:
         }
         defaults.update(kwargs)
         return env["product.template"].with_context(skip_shopify_sync=True).create(defaults)
-    
+
     @staticmethod
-    def _generate_sku():
-        """Generate valid SKU matching OPW pattern."""
-        return f"{random.randint(10000000, 99999999)}"
-    
-    @staticmethod
-    def create_batch(env, count=5, **kwargs):
+    def create_batch(env: Environment, count: int = 5, **kwargs: OdooValue) -> list["odoo.model.product_template"]:
         """Create multiple products."""
         return [ProductFactory.create(env, **kwargs) for _ in range(count)]
-    
+
     @staticmethod
-    def create_with_variants(env, variant_count=3, **kwargs):
+    def create_with_variants(env: Environment, variant_count: int = 3, **kwargs: OdooValue) -> "odoo.model.product_template":
         """Create product with variants."""
         product = ProductFactory.create(env, **kwargs)
-        
+
         # Create color attribute
-        color_attr = env["product.attribute"].create({
-            "name": "Test Color",
-            "create_variant": "always",
-        })
-        
+        color_attr = env["product.attribute"].create(
+            {
+                "name": "Test Color",
+                "create_variant": "always",
+            }
+        )
+
         # Create attribute values
         colors = ["Red", "Blue", "Green", "Yellow", "Black"][:variant_count]
         color_values = []
         for color in colors:
-            color_values.append(env["product.attribute.value"].create({
-                "name": color,
-                "attribute_id": color_attr.id,
-            }))
-        
+            color_values.append(
+                env["product.attribute.value"].create(
+                    {
+                        "name": color,
+                        "attribute_id": color_attr.id,
+                    }
+                )
+            )
+
         # Create attribute line
-        env["product.template.attribute.line"].create({
-            "product_tmpl_id": product.id,
-            "attribute_id": color_attr.id,
-            "value_ids": [(6, 0, [v.id for v in color_values])],
-        })
-        
+        env["product.template.attribute.line"].create(
+            {
+                "product_tmpl_id": product.id,
+                "attribute_id": color_attr.id,
+                "value_ids": [(6, 0, [v.id for v in color_values])],
+            }
+        )
+
         return product
 
 
 class PartnerFactory:
     """Factory for creating test partners."""
-    
+
     @staticmethod
-    def create(env, **kwargs):
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.res_partner":
         """Create a partner with defaults."""
         timestamp = datetime.now().timestamp()
         defaults = {
-            "name": f"Test Partner {timestamp}",
+            "name": generate_unique_name("Test Partner"),
             "email": f"test_{timestamp}@example.com",
             "is_company": False,
             "customer_rank": 1,
@@ -90,71 +102,70 @@ class PartnerFactory:
         }
         defaults.update(kwargs)
         return env["res.partner"].create(defaults)
-    
+
     @staticmethod
-    def create_company(env, **kwargs):
+    def create_company(env: Environment, **kwargs: OdooValue) -> "odoo.model.res_partner":
         """Create a company partner."""
         kwargs["is_company"] = True
         if "name" not in kwargs:
-            kwargs["name"] = f"Test Company {datetime.now().timestamp()}"
+            kwargs["name"] = generate_unique_name("Test Company")
         return PartnerFactory.create(env, **kwargs)
-    
+
     @staticmethod
-    def create_with_contacts(env, contact_count=2, **kwargs):
+    def create_with_contacts(
+        env: Environment, contact_count: int = 2, **kwargs: OdooValue
+    ) -> tuple["odoo.model.res_partner", list["odoo.model.res_partner"]]:
         """Create company with child contacts."""
         company = PartnerFactory.create_company(env, **kwargs)
-        
+
         contacts = []
         for i in range(contact_count):
             contact = PartnerFactory.create(
                 env,
                 parent_id=company.id,
-                name=f"Contact {i+1}",
+                name=f"Contact {i + 1}",
                 type="contact",
             )
             contacts.append(contact)
-        
+
         return company, contacts
 
 
 class MotorFactory:
     """Factory for creating test motors."""
-    
+
     @staticmethod
-    def create(env, **kwargs):
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.product_template":
         """Create a motor product with associated motor record."""
         # First create required reference data
         manufacturer = env["product.manufacturer"].search([("is_motor_manufacturer", "=", True)], limit=1)
         if not manufacturer:
-            manufacturer = env["product.manufacturer"].create({
-                "name": "Test Motor Manufacturer",
-                "is_motor_manufacturer": True
-            })
-            
+            manufacturer = env["product.manufacturer"].create({"name": "Test Motor Manufacturer", "is_motor_manufacturer": True})
+
         stroke = env["motor.stroke"].search([], limit=1)
         if not stroke:
             stroke = env["motor.stroke"].create({"name": "4-Stroke"})
-            
+
         configuration = env["motor.configuration"].search([], limit=1)
         if not configuration:
             configuration = env["motor.configuration"].create({"name": "V6"})
-        
+
         # Create the motor record
         motor_vals = {
             "horsepower": random.choice([25, 40, 60, 75, 90, 115, 150]),
-            "year": str(random.randint(2015, 2024)),
+            "year": random.randint(2015, 2024),
             "model": f"Model-{random.choice(['X', 'Y', 'Z'])}{random.randint(100, 999)}",
-            "serial_number": MotorFactory._generate_serial(),
-            "motor_number": MotorFactory._generate_motor_sku(),
+            "serial_number": generate_motor_serial(),
+            "motor_number": generate_unique_sku("MTR"),
             "manufacturer": manufacturer.id,
             "stroke": stroke.id,
             "configuration": configuration.id,
         }
         motor = env["motor"].create(motor_vals)
-        
+
         # Then create the product template with motor link
         defaults = {
-            "name": f"Test Motor {datetime.now().timestamp()}",
+            "name": generate_unique_name("Test Motor"),
             "default_code": motor_vals["motor_number"],
             "type": "product",
             "list_price": 2500.0,
@@ -166,71 +177,120 @@ class MotorFactory:
             "source": "motor",  # Mark as motor product
         }
         defaults.update(kwargs)
-        
+
         # Create with context to skip shopify sync
         return env["product.template"].with_context(skip_shopify_sync=True).create(defaults)
-    
+
+
+class MotorProductTemplateFactory:
+    """Factory for creating test motor product templates."""
+
     @staticmethod
-    def _generate_motor_sku():
-        """Generate motor-specific SKU."""
-        prefix = random.choice(["MTR", "ENG", "OBM"])
-        return f"{prefix}{random.randint(100000, 999999)}"
-    
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.motor_product_template":
+        """Create a motor product template with defaults."""
+        # Create part type if not provided
+        part_type = kwargs.get("part_type")
+        if not part_type:
+            part_type = env["product.type"].create({"name": generate_unique_name("Test Part Type")})
+            kwargs["part_type"] = part_type.id
+        elif isinstance(part_type, Model):
+            kwargs["part_type"] = part_type.id
+        # else: part_type is already an int ID, use as-is
+
+        defaults = {
+            "name": generate_unique_name("Test Motor Template"),
+            "initial_quantity": 1.0,
+            "bin": f"BIN-{random.randint(100, 999)}",
+            "weight": random.uniform(1.0, 50.0),
+            "include_year_in_name": True,
+            "include_hp_in_name": True,
+            "include_model_in_name": False,
+            "include_oem_in_name": False,
+            "is_quantity_listing": False,
+            "year_from": random.randint(1990, 2015) if random.choice([True, False]) else None,
+            "year_to": random.randint(2016, 2024) if random.choice([True, False]) else None,
+        }
+        defaults.update(kwargs)
+
+        # Ensure year_from <= year_to if both are set
+        if defaults.get("year_from") and defaults.get("year_to"):
+            if defaults["year_from"] > defaults["year_to"]:
+                defaults["year_from"], defaults["year_to"] = defaults["year_to"], defaults["year_from"]
+
+        return env["motor.product.template"].create(defaults)
+
     @staticmethod
-    def _generate_serial():
-        """Generate motor serial number."""
-        letters = ''.join(random.choices(string.ascii_uppercase, k=3))
-        numbers = ''.join(random.choices(string.digits, k=7))
-        return f"{letters}{numbers}"
+    def create_with_filters(env: Environment, **kwargs: OdooValue) -> "odoo.model.motor_product_template":
+        """Create template with stroke/config/manufacturer filters."""
+        # Create filter objects if needed
+        stroke = env["motor.stroke"].search([], limit=1)
+        if not stroke:
+            stroke = env["motor.stroke"].create({"name": "2-Stroke"})
+
+        config = env["motor.configuration"].search([], limit=1)
+        if not config:
+            config = env["motor.configuration"].create({"name": "Inline-4"})
+
+        manufacturer = env["product.manufacturer"].search([("is_motor_manufacturer", "=", True)], limit=1)
+        if not manufacturer:
+            manufacturer = env["product.manufacturer"].create({"name": "Filter Test Manufacturer", "is_motor_manufacturer": True})
+
+        defaults = {
+            "strokes": [(6, 0, [stroke.id])],
+            "configurations": [(6, 0, [config.id])],
+            "manufacturers": [(6, 0, [manufacturer.id])],
+        }
+        defaults.update(kwargs)
+
+        return MotorProductTemplateFactory.create(env, **defaults)
 
 
 class ShopifyProductFactory:
     """Factory for creating Shopify-synced products."""
-    
+
     @staticmethod
-    def create(env, **kwargs):
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.product_template":
         """Create a product with Shopify metadata."""
         defaults = {
             "shopify_sync": True,
-            "shopify_product_id": str(random.randint(1000000000, 9999999999)),
-            "shopify_variant_id": str(random.randint(1000000000, 9999999999)),
-            "shopify_inventory_item_id": str(random.randint(1000000000, 9999999999)),
+            "shopify_product_id": generate_shopify_id(),
+            "shopify_variant_id": generate_shopify_id(),
+            "shopify_inventory_item_id": generate_shopify_id(),
             "shopify_handle": f"test-product-{random.randint(1000, 9999)}",
             "shopify_tags": "test,automated",
             "shopify_vendor": "Test Vendor",
             "shopify_product_type": "Test Type",
             "shopify_last_sync": datetime.now(),
         }
-        
+
         # Merge with product defaults
         product_kwargs = {k: v for k, v in kwargs.items() if not k.startswith("shopify_")}
         product = ProductFactory.create(env, **product_kwargs)
-        
+
         # Add Shopify fields
         shopify_fields = {k: v for k, v in defaults.items() if k.startswith("shopify_")}
         shopify_fields.update({k: v for k, v in kwargs.items() if k.startswith("shopify_")})
-        
+
         product.write(shopify_fields)
         return product
 
 
 class SaleOrderFactory:
     """Factory for creating test sale orders."""
-    
+
     @staticmethod
-    def create(env, **kwargs):
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.sale_order":
         """Create a sale order with defaults."""
         # Ensure we have a partner
         partner = kwargs.get("partner_id")
         if not partner:
-            if isinstance(kwargs.get("partner_id"), int):
-                partner = env["res.partner"].browse(kwargs["partner_id"])
-            else:
-                partner = PartnerFactory.create(env)
-                kwargs["partner_id"] = partner.id
-        elif not isinstance(partner, int):
+            partner = PartnerFactory.create(env)
             kwargs["partner_id"] = partner.id
-        
+        elif isinstance(partner, int):
+            kwargs["partner_id"] = partner
+        elif isinstance(partner, Model):
+            kwargs["partner_id"] = partner.id
+
         defaults = {
             "partner_id": kwargs["partner_id"],
             "date_order": datetime.now(),
@@ -241,51 +301,53 @@ class SaleOrderFactory:
             "team_id": env["crm.team"].search([], limit=1).id,
         }
         defaults.update(kwargs)
-        
+
         # Remove order_line from defaults to handle separately
         order_lines = defaults.pop("order_line", [])
-        
+
         order = env["sale.order"].create(defaults)
-        
+
         # Add order lines if not provided
         if not order_lines:
             order_lines = SaleOrderFactory._create_default_lines(env, order)
-        
+
         for line_vals in order_lines:
             if isinstance(line_vals, dict):
                 line_vals["order_id"] = order.id
                 env["sale.order.line"].create(line_vals)
-        
+
         return order
-    
+
     @staticmethod
-    def _create_default_lines(env, order):
+    def _create_default_lines(env: Environment, order: "odoo.model.sale_order") -> list["odoo.values.sale_order_line"]:
         """Create default order lines."""
         products = ProductFactory.create_batch(env, count=2)
         lines = []
-        
+
         for product in products:
-            lines.append({
-                "order_id": order.id,
-                "product_id": product.product_variant_id.id,
-                "product_uom_qty": random.randint(1, 10),
-                "price_unit": product.list_price,
-            })
-        
+            lines.append(
+                {
+                    "order_id": order.id,
+                    "product_id": product.product_variant_id.id,
+                    "product_uom_qty": random.randint(1, 10),
+                    "price_unit": product.list_price,
+                }
+            )
+
         return lines
-    
+
     @staticmethod
-    def create_with_shopify_metadata(env, **kwargs):
+    def create_with_shopify_metadata(env: Environment, **kwargs: OdooValue) -> "odoo.model.sale_order":
         """Create order with Shopify sync data."""
         defaults = {
-            "shopify_order_id": str(random.randint(1000000000, 9999999999)),
+            "shopify_order_id": generate_shopify_id(),
             "shopify_order_number": f"#{random.randint(1000, 9999)}",
-            "shopify_checkout_id": str(random.randint(1000000000, 9999999999)),
+            "shopify_checkout_id": generate_shopify_id(),
             "shopify_financial_status": "paid",
             "shopify_fulfillment_status": "unfulfilled",
             "shopify_tags": "test,automated",
             "shopify_last_sync": datetime.now(),
         }
         defaults.update(kwargs)
-        
+
         return SaleOrderFactory.create(env, **defaults)

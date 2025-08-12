@@ -1,13 +1,10 @@
-import secrets
-from unittest.mock import patch
 
-from odoo.tests import tagged
+from ..common_imports import tagged, ValidationError, UNIT_TAGS
 from ..fixtures.base import UnitTestCase
 from ..fixtures.factories import ProductFactory, MotorFactory
-from odoo.exceptions import ValidationError
 
 
-@tagged("post_install", "-at_install", "unit_test")
+@tagged(*UNIT_TAGS)
 class TestProductTemplate(UnitTestCase):
     def setUp(self) -> None:
         super().setUp()

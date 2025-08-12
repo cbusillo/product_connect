@@ -6,11 +6,11 @@ preventing silent failures where tours exist but never run.
 
 import re
 from pathlib import Path
-from odoo.tests import tagged
+from ..common_imports import tagged, UNIT_TAGS
 from ..fixtures.base import UnitTestCase
 
 
-@tagged("post_install", "-at_install", "unit_test")
+@tagged(*UNIT_TAGS)
 class TestTourCoverage(UnitTestCase):
     """Ensure all tours have test runners to prevent silent failures"""
 

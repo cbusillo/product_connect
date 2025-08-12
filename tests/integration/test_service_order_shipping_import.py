@@ -1,6 +1,4 @@
-import logging
-from unittest.mock import MagicMock, patch
-from odoo.tests import tagged
+from ..common_imports import logging, MagicMock, patch, tagged, INTEGRATION_TAGS
 
 from ...services.shopify.gql import OrderFields
 from ...services.shopify.sync.importers.order_importer import OrderImporter
@@ -17,7 +15,7 @@ from ..fixtures.shopify_responses import (
 _logger = logging.getLogger(__name__)
 
 
-@tagged("post_install", "-at_install", "integration_test")
+@tagged(*INTEGRATION_TAGS)
 class TestOrderShippingImport(IntegrationTestCase):
     def setUp(self) -> None:
         super().setUp()

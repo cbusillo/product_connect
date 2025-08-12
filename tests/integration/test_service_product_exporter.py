@@ -1,8 +1,6 @@
-from unittest.mock import MagicMock
-
-from odoo.tests import tagged
 from odoo import fields
-from datetime import timedelta
+
+from ..common_imports import MagicMock, tagged, timedelta, INTEGRATION_TAGS
 
 from ...services.shopify.sync.exporters.product_exporter import ProductExporter
 from ...services.shopify import helpers as _helpers_module
@@ -32,7 +30,7 @@ class DummyPublicationNode(ProductSetProductSetProductResourcePublicationsV2Node
         super().__init__(publication=publication)
 
 
-@tagged("post_install", "-at_install", "integration_test")
+@tagged(*INTEGRATION_TAGS)
 class TestProductExporter(IntegrationTestCase):
     def setUp(self) -> None:
         super().setUp()

@@ -1,10 +1,10 @@
 """Integration tests for multigraph view functionality using HttpCase."""
 
-from odoo.tests import tagged
+from ..common_imports import tagged, TOUR_TAGS
 from ..fixtures.base import TourTestCase
 
 
-@tagged("post_install", "-at_install", "tour_test")
+@tagged(*TOUR_TAGS)
 class TestMultigraphIntegration(TourTestCase):
     """Test multigraph view with real browser automation"""
 

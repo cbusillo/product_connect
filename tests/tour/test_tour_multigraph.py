@@ -1,8 +1,8 @@
-from odoo.tests import tagged
+from ..common_imports import tagged, TOUR_TAGS
 from ..fixtures.base import TourTestCase
 
 
-@tagged("post_install", "-at_install", "tour_test")
+@tagged(*TOUR_TAGS)
 class TestMultigraphTour(TourTestCase):
     """Tour runner for multigraph view UI tests"""
 
@@ -33,4 +33,4 @@ class TestMultigraphTour(TourTestCase):
     def test_multigraph_view_tour(self) -> None:
         """Test the multigraph view functionality through UI tour"""
         # The tour will test the multigraph view functionality
-        self.start_tour("/odoo", "test_multigraph_view", login="admin", timeout=60)
+        self.start_tour("/odoo", "test_multigraph_view", timeout=60)

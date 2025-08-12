@@ -1,8 +1,4 @@
-import logging
-from decimal import Decimal
-from unittest.mock import patch, MagicMock
-
-from odoo.tests import tagged
+from ..common_imports import logging, Decimal, patch, MagicMock, tagged, INTEGRATION_TAGS
 
 from ...services.shopify.gql import (
     OrderFields,
@@ -37,7 +33,7 @@ from ..fixtures.base import IntegrationTestCase
 _logger = logging.getLogger(__name__)
 
 
-@tagged("post_install", "-at_install", "integration_test")
+@tagged(*INTEGRATION_TAGS)
 class TestOrderImporter(IntegrationTestCase):
     def setUp(self) -> None:
         super().setUp()

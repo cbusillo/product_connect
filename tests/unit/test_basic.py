@@ -1,11 +1,9 @@
-from odoo.tests import tagged
-from unittest.mock import patch, MagicMock
-from odoo.exceptions import ValidationError
+from ..common_imports import tagged, patch, MagicMock, ValidationError, UNIT_TAGS
 from ..fixtures.base import UnitTestCase
 from ..fixtures.factories import ProductFactory, PartnerFactory
 
 
-@tagged("post_install", "-at_install", "unit_test")
+@tagged(*UNIT_TAGS)
 class TestTemplate(UnitTestCase):
     """Template test demonstrating best practices using base test class
 

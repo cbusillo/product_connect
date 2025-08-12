@@ -1,5 +1,6 @@
 from typing import Any, Callable
-from unittest.mock import MagicMock
+
+from ..common_imports import MagicMock
 
 
 def create_mock_fetch_page_function(
@@ -8,7 +9,7 @@ def create_mock_fetch_page_function(
     field_class: type,
     _has_page_info: bool = True,
 ) -> Callable:
-    def mock_fetch_page(_client: object, _query: str | None, cursor: str | None) -> MagicMock:
+    def mock_fetch_page(_client: Any, _query: str | None, cursor: str | None) -> MagicMock:
         # _fetch_page returns what client.get_orders() returns, which is already the .orders object
         # So we return a mock that has nodes and page_info directly
         mock_page = MagicMock()

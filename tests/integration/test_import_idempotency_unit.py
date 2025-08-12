@@ -5,7 +5,7 @@ duplicates and that updates are handled correctly. They test at the individual
 record level without the complexity of date filtering or sync infrastructure.
 """
 
-from odoo.tests import tagged
+from ..common_imports import tagged, INTEGRATION_TAGS
 from ..fixtures.base import IntegrationTestCase
 from ..fixtures.shopify_responses import (
     create_shopify_order_response,
@@ -21,7 +21,7 @@ from ...services.shopify.sync.importers.customer_importer import CustomerImporte
 from ...services.shopify.sync.importers.product_importer import ProductImporter
 
 
-@tagged("post_install", "-at_install", "integration_test")
+@tagged(*INTEGRATION_TAGS)
 class TestImportIdempotencyUnit(IntegrationTestCase):
     """Unit tests for import idempotency at the record level"""
 
@@ -29,7 +29,7 @@ class TestImportIdempotencyUnit(IntegrationTestCase):
         super().setUp()
         self._setup_import_idempotency_test()
 
-    def _setup_import_idempotency_test(self):
+    def _setup_import_idempotency_test(self) -> None:
         """Set up test data for import idempotency tests."""
         # Create test product with SKU
         self.test_product = self.env["product.product"].create({

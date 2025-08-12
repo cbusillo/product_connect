@@ -1,11 +1,11 @@
 """Quick integration tests for multigraph that don't require browser automation."""
 
-from odoo.tests import tagged
-from ..fixtures.base import UnitTestCase
+from ..common_imports import tagged, UNIT_TAGS
+from ..fixtures.test_base import ProductConnectHttpCase
 
 
-@tagged("post_install", "-at_install", "unit_test")
-class TestMultigraphQuickIntegration(UnitTestCase):
+@tagged(*UNIT_TAGS)
+class TestMultigraphQuickIntegration(ProductConnectHttpCase):
     """Test multigraph integration without slow browser automation"""
 
     @classmethod

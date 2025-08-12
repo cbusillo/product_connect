@@ -1,9 +1,8 @@
-from odoo.tests import tagged
-from datetime import datetime, timedelta
+from ..common_imports import tagged, datetime, timedelta, INTEGRATION_TAGS
 from ..fixtures.base import IntegrationTestCase
 
 
-@tagged("post_install", "-at_install", "integration_test")
+@tagged(*INTEGRATION_TAGS)
 class TestShippingAnalytics(IntegrationTestCase):
     """Comprehensive test suite for shipping analytics functionality
 

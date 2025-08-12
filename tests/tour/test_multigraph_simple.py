@@ -1,10 +1,10 @@
 """Simple test to verify multigraph view loads without timeout"""
 
-from odoo.tests import tagged
+from ..common_imports import tagged, date, TOUR_TAGS
 from ..fixtures.base import TourTestCase
 
 
-@tagged("post_install", "-at_install", "tour_test")
+@tagged(*TOUR_TAGS)
 class TestMultigraphSimple(TourTestCase):
     """Simple browser tests for multigraph view"""
 
@@ -12,7 +12,6 @@ class TestMultigraphSimple(TourTestCase):
     def setUpClass(cls) -> None:
         super().setUpClass()
         # Create test data with all required fields for multigraph view
-        from datetime import date
 
         cls.test_products = cls.env["product.template"].create(
             [

@@ -1,10 +1,9 @@
 from collections.abc import Callable, Iterator
-from typing import cast
-from unittest.mock import patch, MagicMock
+from typing import cast, Any
 from contextlib import contextmanager
 
 from httpx import Request, Response
-from odoo.tests import tagged
+from ..common_imports import patch, MagicMock, tagged, INTEGRATION_TAGS
 
 from ...services.shopify.service import ShopifyService
 from ...services.shopify import service as _service_module
@@ -19,17 +18,17 @@ class DummySync:
 
 
 class _BaseDummyClient:
-    def __init__(self, **kw: object) -> None:
+    def __init__(self, **kw: Any) -> None:
         self.event_hooks = kw.get("event_hooks", {})
         self.send_calls: list[Request] = []
         self.response = Response(200, request=Request("GET", "http://t"))
 
-    def send(self, request: Request, **_kw: object) -> Response:
+    def send(self, request: Request, **_kw: Any) -> Response:
         self.send_calls.append(request)
         return self.response
 
 
-@tagged("post_install", "-at_install", "integration_test")
+@tagged(*INTEGRATION_TAGS)
 class TestShopifyService(IntegrationTestCase):
     def setUp(self) -> None:
         super().setUp()
@@ -119,12 +118,12 @@ class TestShopifyService(IntegrationTestCase):
         service = self._service()
 
         class DummyClient(_BaseDummyClient):
-            def __init__(self, **_kw: object) -> None:
+            def __init__(self, **_kw: Any) -> None:
                 super().__init__(**_kw)
                 self.event_hooks = {}
                 self.send_func: Callable[[Request], Response] = lambda request: Response(200, request=request, json={})
 
-            def send(self, request: Request, **_kw: object) -> Response:
+            def send(self, request: Request, **_kw: Any) -> Response:
                 self.send_calls.append(request)
                 return self.send_func(request)
 
@@ -199,11 +198,11 @@ class TestShopifyService(IntegrationTestCase):
         service = self._service()
 
         class DummyClient(_BaseDummyClient):
-            def __init__(self, **kw: object) -> None:
+            def __init__(self, **kw: Any) -> None:
                 super().__init__(**kw)
                 self.send_func: Callable[[Request], Response] = lambda request: Response(200, request=request, json={})
 
-            def send(self, request: Request, **_kw: object) -> Response:
+            def send(self, request: Request, **_kw: Any) -> Response:
                 self.send_calls.append(request)
                 return self.send_func(request)
 
@@ -238,11 +237,11 @@ class TestShopifyService(IntegrationTestCase):
         service = self._service()
 
         class DummyClient(_BaseDummyClient):
-            def __init__(self, **kw: object) -> None:
+            def __init__(self, **kw: Any) -> None:
                 super().__init__(**kw)
                 self.send_func = lambda request: Response(500, request=request)
 
-            def send(self, request: Request, **_kw: object) -> Response:
+            def send(self, request: Request, **_kw: Any) -> Response:
                 self.send_calls.append(request)
                 return self.send_func(request)
 
@@ -258,7 +257,7 @@ class TestShopifyService(IntegrationTestCase):
         service = self._service()
 
         class DummyClient(_BaseDummyClient):
-            def __init__(self, **kw: object) -> None:
+            def __init__(self, **kw: Any) -> None:
                 super().__init__(**kw)
                 self.response = response_factory(Request("GET", "http://t"))
 
@@ -280,7 +279,7 @@ class TestShopifyService(IntegrationTestCase):
         self._test_send_without_retry(create_response)
 
     def test_send_with_retry_invalid_json(self) -> None:
-        def create_response(_request: Request) -> object:
+        def create_response(_request: Request) -> Any:
             class Resp:
                 status_code = 200
                 headers = {"content-type": "application/json"}
@@ -299,10 +298,10 @@ class TestShopifyService(IntegrationTestCase):
         service = self._service()
 
         class DummyClient(_BaseDummyClient):
-            def __init__(self, **kw: object) -> None:
+            def __init__(self, **kw: Any) -> None:
                 super().__init__(**kw)
 
-            def send(self, request: Request, **_kw: object) -> Response:
+            def send(self, request: Request, **_kw: Any) -> Response:
                 return Response(200, request=request)
 
         class Resp:
@@ -318,10 +317,10 @@ class TestShopifyService(IntegrationTestCase):
         service = self._service()
 
         class DummyClient(_BaseDummyClient):
-            def __init__(self, **kw: object) -> None:
+            def __init__(self, **kw: Any) -> None:
                 super().__init__(**kw)
 
-            def send(self, request: Request, **_kw: object) -> Response:
+            def send(self, request: Request, **_kw: Any) -> Response:
                 return Response(200, request=request)
 
         class Resp:
@@ -361,10 +360,10 @@ class TestShopifyService(IntegrationTestCase):
         service.MAX_RETRY_ATTEMPTS = -1
 
         class DummyClient(_BaseDummyClient):
-            def __init__(self, **kw: object) -> None:
+            def __init__(self, **kw: Any) -> None:
                 super().__init__(**kw)
 
-            def send(self, request: Request, **_kw: object) -> Response:
+            def send(self, request: Request, **_kw: Any) -> Response:
                 return Response(200, request=request)
 
         with patch.object(_service_module, "Client", DummyClient), patch.object(_service_module, "sleep") as fake_sleep:
@@ -378,11 +377,11 @@ class TestShopifyService(IntegrationTestCase):
         service = self._service()
 
         class DummyClient(_BaseDummyClient):
-            def __init__(self, **kw: object) -> None:
+            def __init__(self, **kw: Any) -> None:
                 super().__init__(**kw)
                 self.attempt = 0
 
-            def send(self, request: Request, **_kw: object) -> Response:
+            def send(self, request: Request, **_kw: Any) -> Response:
                 self.send_calls.append(request)
                 self.attempt += 1
 
@@ -414,12 +413,12 @@ class TestShopifyService(IntegrationTestCase):
         service = self._service()
 
         class DummyClient(_BaseDummyClient):
-            def __init__(self, **kw: object) -> None:
+            def __init__(self, **kw: Any) -> None:
                 super().__init__(**kw)
                 self.concurrent_requests = 0
                 self.max_concurrent = 0
 
-            def send(self, request: Request, **_kw: object) -> Response:
+            def send(self, request: Request, **_kw: Any) -> Response:
                 self.concurrent_requests += 1
                 self.max_concurrent = max(self.max_concurrent, self.concurrent_requests)
                 self.send_calls.append(request)
@@ -442,11 +441,11 @@ class TestShopifyService(IntegrationTestCase):
         service = self._service()
 
         class DummyClient(_BaseDummyClient):
-            def __init__(self, **kw: object) -> None:
+            def __init__(self, **kw: Any) -> None:
                 super().__init__(**kw)
                 self.attempt = 0
 
-            def send(self, request: Request, **_kw: object) -> Response:
+            def send(self, request: Request, **_kw: Any) -> Response:
                 self.send_calls.append(request)
                 self.attempt += 1
 
@@ -467,11 +466,11 @@ class TestShopifyService(IntegrationTestCase):
         service = self._service()
 
         class DummyClient(_BaseDummyClient):
-            def __init__(self, **kw: object) -> None:
+            def __init__(self, **kw: Any) -> None:
                 super().__init__(**kw)
                 self.attempt = 0
 
-            def send(self, request: Request, **_kw: object) -> Response:
+            def send(self, request: Request, **_kw: Any) -> Response:
                 self.send_calls.append(request)
                 self.attempt += 1
 
@@ -497,7 +496,7 @@ class TestShopifyService(IntegrationTestCase):
         }
 
         class DummyClient(_BaseDummyClient):
-            def send(self, request: Request, **_kw: object) -> Response:
+            def send(self, request: Request, **_kw: Any) -> Response:
                 self.send_calls.append(request)
                 return Response(
                     200,  # GraphQL returns 200 even for errors
@@ -519,11 +518,11 @@ class TestShopifyService(IntegrationTestCase):
         service.MIN_API_POINTS = 30  # Set minimum points threshold
 
         class DummyClient(_BaseDummyClient):
-            def __init__(self, **kw: object) -> None:
+            def __init__(self, **kw: Any) -> None:
                 super().__init__(**kw)
                 self.request_count = 0
 
-            def send(self, request: Request, **_kw: object) -> Response:
+            def send(self, request: Request, **_kw: Any) -> Response:
                 self.send_calls.append(request)
                 self.request_count += 1
 
@@ -558,7 +557,7 @@ class TestShopifyService(IntegrationTestCase):
         }
 
         class DummyClient(_BaseDummyClient):
-            def send(self, request: Request, **_kw: object) -> Response:
+            def send(self, request: Request, **_kw: Any) -> Response:
                 self.send_calls.append(request)
                 return Response(
                     400,
@@ -583,11 +582,11 @@ class TestShopifyService(IntegrationTestCase):
         service = self._service()
 
         class DummyClient(_BaseDummyClient):
-            def __init__(self, **kw: object) -> None:
+            def __init__(self, **kw: Any) -> None:
                 super().__init__(**kw)
                 self.attempt = 0
 
-            def send(self, request: Request, **_kw: object) -> Response:
+            def send(self, request: Request, **_kw: Any) -> Response:
                 self.send_calls.append(request)
                 self.attempt += 1
 
@@ -613,7 +612,7 @@ class TestShopifyService(IntegrationTestCase):
         auth_error = {"errors": [{"message": "Invalid access token", "extensions": {"code": "UNAUTHORIZED"}}]}
 
         class DummyClient(_BaseDummyClient):
-            def send(self, request: Request, **_kw: object) -> Response:
+            def send(self, request: Request, **_kw: Any) -> Response:
                 self.send_calls.append(request)
                 return Response(
                     401,
@@ -636,7 +635,7 @@ class TestShopifyService(IntegrationTestCase):
         service = self._service()
 
         class DummyClient(_BaseDummyClient):
-            def __init__(self, **kw: object) -> None:
+            def __init__(self, **kw: Any) -> None:
                 super().__init__(**kw)
                 self.send_func: Callable[[Request], Response] = lambda request: Response(
                     200,
@@ -645,7 +644,7 @@ class TestShopifyService(IntegrationTestCase):
                     headers={"content-type": "application/json"},
                 )
 
-            def send(self, request: Request, **_kw: object) -> Response:
+            def send(self, request: Request, **_kw: Any) -> Response:
                 return self.send_func(request)
 
         resp = Response(
@@ -678,7 +677,7 @@ class TestShopifyService(IntegrationTestCase):
         service = self._service()
 
         class DummyClient(_BaseDummyClient):
-            def __init__(self, **kw: object) -> None:
+            def __init__(self, **kw: Any) -> None:
                 super().__init__(**kw)
 
                 class Resp:

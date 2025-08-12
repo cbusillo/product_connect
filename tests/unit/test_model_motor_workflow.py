@@ -1,9 +1,9 @@
-from odoo.tests import tagged
+from ..common_imports import tagged, UNIT_TAGS
 from ..fixtures.base import UnitTestCase
-from ..fixtures.factories import MotorFactory, ProductFactory, PartnerFactory
+from ..fixtures.factories import MotorFactory
 
 
-@tagged("post_install", "-at_install", "unit_test")
+@tagged(*UNIT_TAGS)
 class TestMotorWorkflow(UnitTestCase):
     """Unit tests for motor workflow and product creation"""
 
@@ -37,7 +37,7 @@ class TestMotorWorkflow(UnitTestCase):
 
         # Verify motor was created as a product template
         self.assertTrue(motor.exists())
-        self.assertEqual(motor.type, "product")  # Motors are typically 'product' type
+        self.assertEqual(motor.type, "consu")  # Motors are typically 'consu' type per factory
         self.assertGreater(motor.list_price, 0)  # Should have a price
         self.assertTrue(motor.default_code)  # Should have SKU
 

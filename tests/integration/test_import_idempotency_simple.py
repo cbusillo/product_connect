@@ -4,9 +4,9 @@ These tests verify that the import process correctly tracks timestamps
 to avoid re-importing the same data.
 """
 
-from datetime import datetime, timezone, timedelta
-from unittest.mock import patch, MagicMock
-from odoo.tests import tagged
+from datetime import timezone
+from typing import Any
+from ..common_imports import tagged, datetime, timedelta, patch, MagicMock, INTEGRATION_TAGS
 from ..fixtures.base import IntegrationTestCase
 from ..fixtures.shopify_responses import (
     create_shopify_order_response,
@@ -18,7 +18,7 @@ from ...services.shopify.sync.importers.order_importer import OrderImporter
 from ...services.shopify.helpers import last_import_config_key, format_datetime_for_shopify
 
 
-@tagged("post_install", "-at_install", "integration_test")
+@tagged(*INTEGRATION_TAGS)
 class TestImportIdempotencySimple(IntegrationTestCase):
     """Simple integration tests for timestamp tracking"""
 
@@ -29,7 +29,7 @@ class TestImportIdempotencySimple(IntegrationTestCase):
         # Clear any existing timestamp parameters
         self.env["ir.config_parameter"].search([("key", "like", "shopify.last_import.%")]).unlink()
 
-    def _setup_import_idempotency_test(self):
+    def _setup_import_idempotency_test(self) -> None:
         """Set up test data for import idempotency tests."""
         # Create test product with SKU
         self.test_product = self.env["product.product"].create({
@@ -86,7 +86,7 @@ class TestImportIdempotencySimple(IntegrationTestCase):
         self.env["ir.config_parameter"].set_param(config_key, format_datetime_for_shopify(middle_time))
 
         # Create mock that returns orders based on query filter
-        def mock_fetch_page(_client: object, query: str | None, cursor: str | None) -> MagicMock:
+        def mock_fetch_page(_client: Any, query: str | None, cursor: str | None) -> MagicMock:
             mock_page = MagicMock()
 
             # Only return new order if filtering by time
@@ -142,7 +142,7 @@ class TestImportIdempotencySimple(IntegrationTestCase):
         self.assertFalse(self.env["ir.config_parameter"].get_param(config_key))
 
         # Create mock that returns order when no filter
-        def mock_fetch_page(_client: object, _query: str | None, cursor: str | None) -> MagicMock:
+        def mock_fetch_page(_client: Any, _query: str | None, cursor: str | None) -> MagicMock:
             mock_page = MagicMock()
 
             # First import has no timestamp, so query will have very old date
