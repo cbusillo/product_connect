@@ -25,6 +25,7 @@ class ProductFactory:
             "name": generate_unique_name("Test Product"),
             "default_code": generate_unique_sku(),
             "type": "consu",
+            "source": "standard",  # Required for consumable products
             "list_price": 100.0,
             "standard_price": 50.0,
             "sale_ok": True,
@@ -144,30 +145,55 @@ class MotorFactory:
 
         stroke = env["motor.stroke"].search([], limit=1)
         if not stroke:
-            stroke = env["motor.stroke"].create({"name": "4-Stroke"})
+            stroke = env["motor.stroke"].sudo().create({"name": "4-Stroke", "code": "4"})
 
         configuration = env["motor.configuration"].search([], limit=1)
         if not configuration:
-            configuration = env["motor.configuration"].create({"name": "V6"})
+            configuration = env["motor.configuration"].sudo().create({"name": "V6", "code": "V6"})
 
+        # Separate motor fields from product fields in kwargs
+        motor_field_mapping = {
+            "motor_hp": "horsepower",
+            "motor_year": "year", 
+            "motor_model": "model",
+            "motor_serial": "serial_number",
+            "location": "location",
+            "cost": "cost"
+        }
+        
+        motor_kwargs = {}
+        product_kwargs = {}
+        for key, value in kwargs.items():
+            if key in motor_field_mapping:
+                motor_kwargs[motor_field_mapping[key]] = value
+            else:
+                product_kwargs[key] = value
+        
         # Create the motor record
         motor_vals = {
-            "horsepower": random.choice([25, 40, 60, 75, 90, 115, 150]),
-            "year": random.randint(2015, 2024),
-            "model": f"Model-{random.choice(['X', 'Y', 'Z'])}{random.randint(100, 999)}",
-            "serial_number": generate_motor_serial(),
-            "motor_number": generate_unique_sku("MTR"),
+            "horsepower": motor_kwargs.get("horsepower", random.choice([25, 40, 60, 75, 90, 115, 150])),
+            "year": motor_kwargs.get("year", random.randint(2015, 2024)),
+            "model": motor_kwargs.get("model", f"Model-{random.choice(['X', 'Y', 'Z'])}{random.randint(100, 999)}"),
+            "serial_number": motor_kwargs.get("serial_number", generate_motor_serial()),
+            "motor_number": generate_unique_sku(),  # No prefix, numeric only
             "manufacturer": manufacturer.id,
             "stroke": stroke.id,
             "configuration": configuration.id,
         }
+        
+        # Add optional fields if provided
+        if "location" in motor_kwargs:
+            motor_vals["location"] = motor_kwargs["location"]
+        if "cost" in motor_kwargs:
+            motor_vals["cost"] = motor_kwargs["cost"]
+            
         motor = env["motor"].create(motor_vals)
 
         # Then create the product template with motor link
         defaults = {
-            "name": generate_unique_name("Test Motor"),
+            "name": product_kwargs.get("name") or generate_unique_name("Test Motor"),
             "default_code": motor_vals["motor_number"],
-            "type": "product",
+            "type": "consu",  # Use consumable type (storable 'product' type might need stock module)
             "list_price": 2500.0,
             "standard_price": 1500.0,
             "weight": 150.0,
@@ -176,7 +202,10 @@ class MotorFactory:
             "motor": motor.id,  # Link to the motor record
             "source": "motor",  # Mark as motor product
         }
-        defaults.update(kwargs)
+        # Update with other product fields, but we already handled name
+        for key, value in product_kwargs.items():
+            if key != "name":  # We already handled name above
+                defaults[key] = value
 
         # Create with context to skip shopify sync
         return env["product.template"].with_context(skip_shopify_sync=True).create(defaults)
@@ -225,11 +254,11 @@ class MotorProductTemplateFactory:
         # Create filter objects if needed
         stroke = env["motor.stroke"].search([], limit=1)
         if not stroke:
-            stroke = env["motor.stroke"].create({"name": "2-Stroke"})
+            stroke = env["motor.stroke"].sudo().create({"name": "2-Stroke", "code": "2"})
 
         config = env["motor.configuration"].search([], limit=1)
         if not config:
-            config = env["motor.configuration"].create({"name": "Inline-4"})
+            config = env["motor.configuration"].sudo().create({"name": "Inline-4", "code": "I4"})
 
         manufacturer = env["product.manufacturer"].search([("is_motor_manufacturer", "=", True)], limit=1)
         if not manufacturer:

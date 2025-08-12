@@ -9,20 +9,20 @@ from datetime import datetime
 from typing import Any, Generator, Optional
 from unittest.mock import MagicMock, patch
 
-from .base_types import TEST_SHOPIFY_ID_MAX, TEST_SHOPIFY_ID_MIN, TEST_SKU_PREFIX
+from .base_types import TEST_SHOPIFY_ID_MAX, TEST_SHOPIFY_ID_MIN
 
 
 def generate_unique_sku(prefix: Optional[str] = None) -> str:
     """Generate a unique SKU for testing.
 
     Args:
-        prefix: Optional prefix for the SKU. Defaults to TEST_SKU_PREFIX.
+        prefix: Optional prefix for the SKU. Not used anymore as SKUs must be numeric only.
 
     Returns:
-        A unique SKU string.
+        A unique SKU string (4-8 digits, numeric only).
     """
-    prefix = prefix or TEST_SKU_PREFIX
-    return f"{prefix}{random.randint(10000000, 99999999)}"
+    # SKUs must be 4-8 digits only per product_template validation
+    return str(random.randint(10000000, 99999999))  # 8-digit numeric SKU
 
 
 def generate_unique_name(base_name: str) -> str:
