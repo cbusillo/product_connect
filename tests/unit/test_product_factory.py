@@ -48,16 +48,17 @@ class TestProductFactory(UnitTestCase):
     
     def test_mock_service(self) -> None:
         """Test mocking external services."""
-        mock_shopify = self.mock_service("addons.product_connect.services.shopify.sync.ShopifySync")
-        mock_shopify.return_value.sync_product.return_value = {"success": True}
+        # Test service mocking with a real service class
+        mock_shopify_service = self.mock_service("addons.product_connect.services.shopify.service.ShopifyService")
+        mock_shopify_service.return_value.fetch_data.return_value = {"success": True}
         
-        # This would normally trigger a sync
-        from addons.product_connect.services.shopify.sync import ShopifySync
-        sync = ShopifySync()
-        result = sync.sync_product(123)
+        # This would normally create a service instance
+        from addons.product_connect.services.shopify.service import ShopifyService
+        service = ShopifyService(self.env, self.create_shopify_credentials())
+        result = service.fetch_data("test_endpoint")
         
         self.assertEqual(result, {"success": True})
-        mock_shopify.return_value.sync_product.assert_called_once_with(123)
+        mock_shopify_service.return_value.fetch_data.assert_called_once_with("test_endpoint")
     
     def test_assert_record_values(self) -> None:
         """Test the assertRecordValues helper."""

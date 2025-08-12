@@ -34,7 +34,7 @@ class TestImportIdempotencySimple(IntegrationTestCase):
         # Create test product with SKU
         self.test_product = self.env["product.product"].create({
             "name": "Test Product",
-            "default_code": "TEST001",  # SKU needed for line items
+            "default_code": "80000002",  # Valid numeric SKU for line items
             "list_price": 100.0,
             "standard_price": 50.0,
         })

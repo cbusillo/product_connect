@@ -264,7 +264,7 @@ class ProductConnectTransactionCase(TransactionCase):
             {
                 **cls._get_default_product_vals(),
                 "name": "Test Service",
-                "default_code": "SERVICE-001",  # Services can have any SKU
+                "default_code": "90000001",  # Services need valid numeric SKU too
                 "type": "service",
                 "list_price": 50.0,
             }

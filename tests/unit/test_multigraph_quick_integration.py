@@ -12,8 +12,26 @@ class TestMultigraphQuickIntegration(ProductConnectHttpCase):
     def setUpClass(cls) -> None:
         super().setUpClass()
         # Create test data with all required fields for multigraph view
-        # noinspection PyUnresolvedReferences - Method exists in ProductConnectHttpCase base class
-        cls._create_multigraph_test_products()
+        # Method inherited from ProductConnectHttpCase -> ProductConnectTransactionCase
+        from datetime import date
+        
+        cls.test_products = cls.env["product.template"].create(
+            [
+                {
+                    "name": f"Test Product {i}",
+                    "default_code": f"{10000000 + i}",  # Valid 8-digit SKU
+                    "list_price": 100 * i,
+                    "standard_price": 60 * i,
+                    "type": "consu",
+                    "is_ready_for_sale": True,
+                    "is_ready_for_sale_last_enabled_date": date(2025, 1, i),
+                    "initial_quantity": 10 * i,
+                    "initial_price_total": 1000 * i,
+                    "initial_cost_total": 600 * i,
+                }
+                for i in range(1, 5)
+            ]
+        )
 
     def test_multigraph_action_loads_without_error(self) -> None:
         """Test that the multigraph action loads without server errors"""

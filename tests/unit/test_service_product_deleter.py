@@ -1,7 +1,9 @@
 from ..common_imports import tagged, MagicMock, patch, UNIT_TAGS
 
 from ...services.shopify.sync.deleters.product_deleter import ProductDeleter
+from ...services.shopify.helpers import ShopifyApiError
 from ariadne_codegen.client_generators.dependencies.exceptions import GraphQLClientGraphQLMultiError, GraphQLClientGraphQLError
+from httpx import HTTPError
 from ..fixtures.base import UnitTestCase
 
 
@@ -33,7 +35,7 @@ class TestProductDeleter(UnitTestCase):
     def test_fetch_product_ids_page_error(self) -> None:
         error = GraphQLClientGraphQLMultiError([GraphQLClientGraphQLError("boom")])
         self.deleter.service.client.get_product_ids.side_effect = error
-        with self.assertRaises(_service_module.ShopifyApiError):
+        with self.assertRaises(ShopifyApiError):
             self.deleter._fetch_product_ids_page(None, None)
 
     def test_delete_one_success(self) -> None:
@@ -44,7 +46,7 @@ class TestProductDeleter(UnitTestCase):
     def test_delete_one_error(self) -> None:
         node = MagicMock(id="gid")
         self.deleter.service.client.delete_product.side_effect = HTTPError("bad")
-        with self.assertRaises(_service_module.ShopifyApiError):
+        with self.assertRaises(ShopifyApiError):
             self.deleter._delete_one(node)
 
     def test_delete_all_products_calls_collect_and_run(self) -> None:

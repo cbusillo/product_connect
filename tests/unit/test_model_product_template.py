@@ -1,4 +1,6 @@
 
+import secrets
+
 from ..common_imports import tagged, ValidationError, UNIT_TAGS
 from ..fixtures.base import UnitTestCase
 from ..fixtures.factories import ProductFactory, MotorFactory
@@ -136,16 +138,17 @@ class TestProductTemplate(UnitTestCase):
 
     def test_motor_product_creation(self) -> None:
         """Test that motor products can be created with basic properties"""
-        motor = MotorFactory.create(
+        product = MotorFactory.create(
             self.env,
             name="Test Motor Product",
             motor_hp=100
         )
         
-        self.assertTrue(motor.exists())
-        self.assertEqual(motor.motor_hp, 100)
-        self.assertTrue(motor.motor_serial)
-        self.assertTrue(motor.default_code)
+        self.assertTrue(product.exists())
+        # Access motor fields through the linked motor record
+        self.assertEqual(product.motor.horsepower, 100)
+        self.assertTrue(product.motor.serial_number)
+        self.assertTrue(product.default_code)
 
     def test_product_scrap_field_basic(self) -> None:
         """Test basic scrap field functionality"""
