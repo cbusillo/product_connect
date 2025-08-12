@@ -11,10 +11,27 @@ class TestMotor(UnitTestCase):
         super().setUp()
         # Create motor dependencies using factory
         self.stage = self.env["motor.stage"].create({"name": "Checkin"})
-        self.test_motor = MotorFactory.create(self.env)
+        motor_product = MotorFactory.create(self.env)
+        self.test_motor = motor_product.motor
 
     def _create_test_motor(self, **extra: int | float | str) -> "odoo.model.motor":
-        return MotorFactory.create(self.env, **extra)
+        # MotorFactory returns a product.template with a linked motor
+        # Map motor field names to factory parameter names
+        factory_params = {}
+        motor_field_mapping = {
+            "horsepower": "motor_hp",
+            "year": "motor_year",
+            "model": "motor_model",
+            "serial_number": "motor_serial",
+            "location": "location",
+            "cost": "cost"
+        }
+        for key, value in extra.items():
+            mapped_key = motor_field_mapping.get(key, key)
+            factory_params[mapped_key] = value
+        
+        product = MotorFactory.create(self.env, **factory_params)
+        return product.motor
 
     def test_get_horsepower_formatted(self) -> None:
         motor = self._create_test_motor(horsepower=100.0)
@@ -41,7 +58,8 @@ class TestMotor(UnitTestCase):
     def test_create_motor_dependencies(self) -> None:
         """Test motor creation with proper dependencies."""
         # Create motor using factory
-        motor = MotorFactory.create(self.env)
+        product = MotorFactory.create(self.env)
+        motor = product.motor
 
         # Verify motor was created with dependencies
         self.assertTrue(motor.manufacturer)
@@ -104,7 +122,8 @@ class TestMotor(UnitTestCase):
     def test_create_motor_product_generation(self) -> None:
         """Test motor product creation using factory."""
         # Create motor using factory
-        motor = MotorFactory.create(self.env)
+        product = MotorFactory.create(self.env)
+        motor = product.motor
 
         # Verify motor was created with correct attributes
         self.assertTrue(motor)
@@ -113,12 +132,13 @@ class TestMotor(UnitTestCase):
         self.assertTrue(motor.serial_number)
 
         # Test with custom values
-        custom_motor = MotorFactory.create(
+        custom_product = MotorFactory.create(
             self.env,
-            horsepower=150,
-            year=2023,
-            model="CUSTOM-MODEL"
+            motor_hp=150,
+            motor_year=2023,
+            motor_model="CUSTOM-MODEL"
         )
+        custom_motor = custom_product.motor
         self.assertEqual(custom_motor.horsepower, 150)
         self.assertEqual(custom_motor.year, 2023)
         self.assertEqual(custom_motor.model, "CUSTOM-MODEL")
@@ -126,8 +146,12 @@ class TestMotor(UnitTestCase):
     def test_motor_factory_creation(self) -> None:
         """Test that motor factory creates motors with unique identifiers."""
         # Create multiple motors using factory
-        motor1 = MotorFactory.create(self.env, horsepower=100)
-        motor2 = MotorFactory.create(self.env, horsepower=120)
+        product1 = MotorFactory.create(self.env, motor_hp=100)
+        product2 = MotorFactory.create(self.env, motor_hp=120)
+        
+        # Access motors through product.motor relationship
+        motor1 = product1.motor
+        motor2 = product2.motor
 
         # Verify motors are unique
         self.assertNotEqual(motor1.id, motor2.id)

@@ -20,11 +20,11 @@ class TestMotorProductTemplate(UnitTestCase):
         # Create test manufacturer
         self.manufacturer = self.env["product.manufacturer"].create({"name": "Test Manufacturer", "is_motor_manufacturer": True})
 
-        # Create test stroke
-        self.stroke = self.env["motor.stroke"].create({"name": "4-Stroke"})
+        # Create test stroke (needs sudo for ACL)
+        self.stroke = self.env["motor.stroke"].sudo().create({"name": "4-Stroke", "code": "4"})
 
-        # Create test configuration
-        self.configuration = self.env["motor.configuration"].create({"name": "V6"})
+        # Create test configuration (needs sudo for ACL)
+        self.configuration = self.env["motor.configuration"].sudo().create({"name": "V6", "code": "V6"})
 
         # Create test part type
         self.part_type = self.env["product.type"].create({"name": "Test Part Type"})

@@ -13,18 +13,19 @@ class TestMotorWorkflow(UnitTestCase):
 
     def test_motor_creation(self) -> None:
         """Test basic motor creation with required fields"""
-        motor = MotorFactory.create(
+        product = MotorFactory.create(
             self.env,
             motor_hp=200,
             motor_year=2024,
             motor_model="Test Model"
         )
+        motor = product.motor
 
         self.assertTrue(motor.exists())
-        self.assertEqual(motor.motor_hp, 200)
-        self.assertEqual(motor.motor_year, 2024)
-        self.assertEqual(motor.motor_model, "Test Model")
-        self.assertTrue(motor.motor_serial)
+        self.assertEqual(motor.horsepower, 200)
+        self.assertEqual(motor.year, 2024)
+        self.assertEqual(motor.model, "TEST MODEL")  # Model gets uppercased
+        self.assertTrue(motor.serial_number)
 
     def test_motor_product_creation(self) -> None:
         """Test creating motor as product template"""
