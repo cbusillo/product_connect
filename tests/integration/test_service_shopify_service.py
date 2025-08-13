@@ -32,7 +32,6 @@ class _BaseDummyClient:
 class TestShopifyService(IntegrationTestCase):
     def setUp(self) -> None:
         super().setUp()
-        # Don't call _setup_shopify_mocks() here as this test manages its own mocks
 
     def _service(self) -> ShopifyService:
         return ShopifyService(self.env, DummySync())
@@ -402,10 +401,8 @@ class TestShopifyService(IntegrationTestCase):
 
             self.assertEqual(result.status_code, 200)
             self.assertEqual(len(client.send_calls), 3)
-            # Check progressive backoff
             calls = fake_sleep.call_args_list
             self.assertGreater(len(calls), 1)
-            # Each delay should be longer than the previous
             for i in range(1, len(calls)):
                 self.assertGreaterEqual(calls[i][0][0], calls[i - 1][0][0])
 
@@ -427,14 +424,11 @@ class TestShopifyService(IntegrationTestCase):
                 return response
 
         with self._client(service, DummyClient) as (client, _):
-            # Simulate multiple requests
             for _ in range(5):
                 req = Request("GET", "http://t")
                 client.send(req)
 
-            # Verify requests were handled
             self.assertEqual(len(client.send_calls), 5)
-            # Max concurrent should be 1 (sequential processing)
             self.assertEqual(client.max_concurrent, 1)
 
     def test_api_error_with_retry_after_header(self) -> None:
@@ -475,7 +469,6 @@ class TestShopifyService(IntegrationTestCase):
                 self.attempt += 1
 
                 if self.attempt == 1:
-                    # Simulate gateway timeout instead of connection timeout
                     return Response(504, json={"error": "Gateway timeout"}, request=request)
                 else:
                     return Response(200, json={}, request=request)
@@ -509,7 +502,6 @@ class TestShopifyService(IntegrationTestCase):
             req = Request("POST", "http://t/graphql")
             client.send(req)
 
-            # Should not retry GraphQL parse errors
             self.assertEqual(len(client.send_calls), 1)
             fake_sleep.assert_not_called()
 
@@ -526,7 +518,6 @@ class TestShopifyService(IntegrationTestCase):
                 self.send_calls.append(request)
                 self.request_count += 1
 
-                # First request has low points triggering throttle
                 if self.request_count == 1:
                     available = 20  # Below MIN_API_POINTS
                 else:
@@ -540,13 +531,10 @@ class TestShopifyService(IntegrationTestCase):
                 )
 
         with self._client(service, DummyClient) as (client, fake_sleep):
-            # Make a request that will trigger rate limiting
             req = Request("POST", "http://t/bulk")
             client.send(req)
 
-            # Should have waited due to low API points
             self.assertTrue(fake_sleep.called)
-            # At least one call was made
             self.assertGreaterEqual(len(client.send_calls), 1)
 
     def test_api_version_mismatch_error(self) -> None:
@@ -570,11 +558,9 @@ class TestShopifyService(IntegrationTestCase):
             req = Request("POST", "http://t/graphql")
             response = client.send(req)
 
-            # Should return 400 response without retrying
             self.assertEqual(response.status_code, 400)
             self.assertEqual(response.json(), version_error)
 
-            # Should not retry version errors
             self.assertEqual(len(client.send_calls), 1)
             fake_sleep.assert_not_called()
 
@@ -591,7 +577,6 @@ class TestShopifyService(IntegrationTestCase):
                 self.attempt += 1
 
                 if self.attempt <= 2:
-                    # Simulate transient server error instead of connection reset
                     return Response(503, json={"error": "Service unavailable"}, request=request)
                 else:
                     return Response(200, json={}, request=request)
@@ -603,7 +588,6 @@ class TestShopifyService(IntegrationTestCase):
 
             self.assertEqual(result.status_code, 200)
             self.assertEqual(len(client.send_calls), 3)
-            # Should have delays between retries
             self.assertEqual(fake_sleep.call_count, 2)
 
     def test_invalid_credentials_no_retry(self) -> None:
@@ -626,7 +610,6 @@ class TestShopifyService(IntegrationTestCase):
             req = Request("GET", "http://t")
             result = client.send(req)
 
-            # Should not retry auth errors
             self.assertEqual(len(client.send_calls), 1)
             self.assertEqual(result.status_code, 401)
             fake_sleep.assert_not_called()

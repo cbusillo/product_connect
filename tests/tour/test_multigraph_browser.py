@@ -1,5 +1,3 @@
-"""Browser test for multigraph view"""
-
 from ..common_imports import tagged, TOUR_TAGS
 from ..fixtures.base import TourTestCase
 
@@ -7,14 +5,8 @@ from ..fixtures.base import TourTestCase
 @tagged(*TOUR_TAGS)
 class TestMultigraphBrowser(TourTestCase):
     def test_multigraph_view_no_errors(self) -> None:
-        """Test that multigraph view loads in browser without JS errors"""
-        # Use pre-created test products (TourTestCase handles setup)
-
-        # Navigate to the multigraph view via action
         action_id = self.env.ref("product_connect.action_product_processing_analytics").id
         url = f"/web#action={action_id}"
-
-        # Start browser test
         self.browser_js(
             url,
             """

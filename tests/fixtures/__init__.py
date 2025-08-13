@@ -1,5 +1,3 @@
-"""Test fixtures and factories for product_connect module."""
-
 from .base import UnitTestCase, IntegrationTestCase, TourTestCase
 from .factories import (
     ProductFactory,
@@ -11,7 +9,7 @@ from .factories import (
 
 __all__ = [
     "UnitTestCase",
-    "IntegrationTestCase", 
+    "IntegrationTestCase",
     "TourTestCase",
     "ProductFactory",
     "PartnerFactory",

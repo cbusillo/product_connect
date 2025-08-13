@@ -28,7 +28,6 @@ def create_shopify_product_response(
     metafields: list[dict[str, Any]] | None = None,
     **overrides: Any,
 ) -> dict[str, Any]:
-    # Always use current time to ensure products pass the date filter in tests
     now = datetime.now(timezone.utc).isoformat()
     created_at = created_at or now
     updated_at = updated_at or now
@@ -65,7 +64,7 @@ def create_shopify_product_response(
     base_response = {
         "id": gid,
         "title": title,
-        "descriptionHtml": description,  # This will be aliased to description_html in Pydantic
+        "descriptionHtml": description,
         "vendor": vendor,
         "productType": product_type,
         "status": status,
@@ -91,7 +90,6 @@ def create_shopify_variant_response(
     currency_code: str = "USD",
     **overrides: Any,
 ) -> dict[str, Any]:
-    # Generate unique SKU if not provided
     if sku is None:
         sku = generate_unique_sku()
     base_response = {

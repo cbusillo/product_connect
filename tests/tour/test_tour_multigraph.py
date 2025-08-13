@@ -4,12 +4,9 @@ from ..fixtures.base import TourTestCase
 
 @tagged(*TOUR_TAGS)
 class TestMultigraphTour(TourTestCase):
-    """Tour runner for multigraph view UI tests"""
-
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        # Create test data for the tour with all required fields
         from datetime import date
 
         cls.tour_products = cls.env["product.template"].create(
@@ -31,6 +28,4 @@ class TestMultigraphTour(TourTestCase):
         )
 
     def test_multigraph_view_tour(self) -> None:
-        """Test the multigraph view functionality through UI tour"""
-        # The tour will test the multigraph view functionality
         self.start_tour("/odoo", "test_multigraph_view", timeout=60)

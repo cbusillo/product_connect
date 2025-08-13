@@ -1,5 +1,3 @@
-"""Factory classes for creating test data."""
-
 import random
 from datetime import datetime, timedelta
 
@@ -16,16 +14,13 @@ from ..test_helpers import (
 
 
 class ProductFactory:
-    """Factory for creating test products."""
-
     @staticmethod
     def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.product_template":
-        """Create a product with defaults."""
         defaults = {
             "name": generate_unique_name("Test Product"),
             "default_code": generate_unique_sku(),
             "type": "consu",
-            "source": "standard",  # Required for consumable products
+            "source": "standard",
             "list_price": 100.0,
             "standard_price": 50.0,
             "sale_ok": True,
@@ -41,15 +36,12 @@ class ProductFactory:
 
     @staticmethod
     def create_batch(env: Environment, count: int = 5, **kwargs: OdooValue) -> list["odoo.model.product_template"]:
-        """Create multiple products."""
         return [ProductFactory.create(env, **kwargs) for _ in range(count)]
 
     @staticmethod
     def create_with_variants(env: Environment, variant_count: int = 3, **kwargs: OdooValue) -> "odoo.model.product_template":
-        """Create product with variants."""
         product = ProductFactory.create(env, **kwargs)
 
-        # Create color attribute
         color_attr = env["product.attribute"].create(
             {
                 "name": "Test Color",
@@ -57,7 +49,6 @@ class ProductFactory:
             }
         )
 
-        # Create attribute values
         colors = ["Red", "Blue", "Green", "Yellow", "Black"][:variant_count]
         color_values = []
         for color in colors:
@@ -70,7 +61,6 @@ class ProductFactory:
                 )
             )
 
-        # Create attribute line
         env["product.template.attribute.line"].create(
             {
                 "product_tmpl_id": product.id,
@@ -83,11 +73,8 @@ class ProductFactory:
 
 
 class PartnerFactory:
-    """Factory for creating test partners."""
-
     @staticmethod
     def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.res_partner":
-        """Create a partner with defaults."""
         timestamp = datetime.now().timestamp()
         defaults = {
             "name": generate_unique_name("Test Partner"),
@@ -106,7 +93,6 @@ class PartnerFactory:
 
     @staticmethod
     def create_company(env: Environment, **kwargs: OdooValue) -> "odoo.model.res_partner":
-        """Create a company partner."""
         kwargs["is_company"] = True
         if "name" not in kwargs:
             kwargs["name"] = generate_unique_name("Test Company")
@@ -116,7 +102,6 @@ class PartnerFactory:
     def create_with_contacts(
         env: Environment, contact_count: int = 2, **kwargs: OdooValue
     ) -> tuple["odoo.model.res_partner", list["odoo.model.res_partner"]]:
-        """Create company with child contacts."""
         company = PartnerFactory.create_company(env, **kwargs)
 
         contacts = []
@@ -133,12 +118,8 @@ class PartnerFactory:
 
 
 class MotorFactory:
-    """Factory for creating test motors."""
-
     @staticmethod
     def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.product_template":
-        """Create a motor product with associated motor record."""
-        # First create required reference data
         manufacturer = env["product.manufacturer"].search([("is_motor_manufacturer", "=", True)], limit=1)
         if not manufacturer:
             manufacturer = env["product.manufacturer"].create({"name": "Test Motor Manufacturer", "is_motor_manufacturer": True})
@@ -151,16 +132,15 @@ class MotorFactory:
         if not configuration:
             configuration = env["motor.configuration"].sudo().create({"name": "V6", "code": "V6"})
 
-        # Separate motor fields from product fields in kwargs
         motor_field_mapping = {
             "motor_hp": "horsepower",
-            "motor_year": "year", 
+            "motor_year": "year",
             "motor_model": "model",
             "motor_serial": "serial_number",
             "location": "location",
-            "cost": "cost"
+            "cost": "cost",
         }
-        
+
         motor_kwargs = {}
         product_kwargs = {}
         for key, value in kwargs.items():
@@ -168,63 +148,53 @@ class MotorFactory:
                 motor_kwargs[motor_field_mapping[key]] = value
             else:
                 product_kwargs[key] = value
-        
-        # Create the motor record
+
         motor_vals = {
             "horsepower": motor_kwargs.get("horsepower", random.choice([25, 40, 60, 75, 90, 115, 150])),
             "year": motor_kwargs.get("year", random.randint(2015, 2024)),
             "model": motor_kwargs.get("model", f"Model-{random.choice(['X', 'Y', 'Z'])}{random.randint(100, 999)}"),
             "serial_number": motor_kwargs.get("serial_number", generate_motor_serial()),
-            "motor_number": generate_unique_sku(),  # No prefix, numeric only
+            "motor_number": generate_unique_sku(),
             "manufacturer": manufacturer.id,
             "stroke": stroke.id,
             "configuration": configuration.id,
         }
-        
-        # Add optional fields if provided
+
         if "location" in motor_kwargs:
             motor_vals["location"] = motor_kwargs["location"]
         if "cost" in motor_kwargs:
             motor_vals["cost"] = motor_kwargs["cost"]
-            
+
         motor = env["motor"].create(motor_vals)
 
-        # Then create the product template with motor link
         defaults = {
             "name": product_kwargs.get("name") or generate_unique_name("Test Motor"),
             "default_code": motor_vals["motor_number"],
-            "type": "consu",  # Use consumable type (storable 'product' type might need stock module)
+            "type": "consu",
             "list_price": 2500.0,
             "standard_price": 1500.0,
             "weight": 150.0,
             "volume": 0.5,
             "categ_id": env.ref("product.product_category_all").id,
-            "motor": motor.id,  # Link to the motor record
-            "source": "motor",  # Mark as motor product
+            "motor": motor.id,
+            "source": "motor",
         }
-        # Update with other product fields, but we already handled name
         for key, value in product_kwargs.items():
-            if key != "name":  # We already handled name above
+            if key != "name":
                 defaults[key] = value
 
-        # Create with context to skip shopify sync
         return env["product.template"].with_context(skip_shopify_sync=True).create(defaults)
 
 
 class MotorProductTemplateFactory:
-    """Factory for creating test motor product templates."""
-
     @staticmethod
     def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.motor_product_template":
-        """Create a motor product template with defaults."""
-        # Create part type if not provided
         part_type = kwargs.get("part_type")
         if not part_type:
             part_type = env["product.type"].create({"name": generate_unique_name("Test Part Type")})
             kwargs["part_type"] = part_type.id
         elif isinstance(part_type, Model):
             kwargs["part_type"] = part_type.id
-        # else: part_type is already an int ID, use as-is
 
         defaults = {
             "name": generate_unique_name("Test Motor Template"),
@@ -241,7 +211,6 @@ class MotorProductTemplateFactory:
         }
         defaults.update(kwargs)
 
-        # Ensure year_from <= year_to if both are set
         if defaults.get("year_from") and defaults.get("year_to"):
             if defaults["year_from"] > defaults["year_to"]:
                 defaults["year_from"], defaults["year_to"] = defaults["year_to"], defaults["year_from"]
@@ -250,8 +219,6 @@ class MotorProductTemplateFactory:
 
     @staticmethod
     def create_with_filters(env: Environment, **kwargs: OdooValue) -> "odoo.model.motor_product_template":
-        """Create template with stroke/config/manufacturer filters."""
-        # Create filter objects if needed
         stroke = env["motor.stroke"].search([], limit=1)
         if not stroke:
             stroke = env["motor.stroke"].sudo().create({"name": "2-Stroke", "code": "2"})
@@ -275,11 +242,8 @@ class MotorProductTemplateFactory:
 
 
 class ShopifyProductFactory:
-    """Factory for creating Shopify-synced products."""
-
     @staticmethod
     def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.product_template":
-        """Create a product with Shopify metadata."""
         defaults = {
             "shopify_sync": True,
             "shopify_product_id": generate_shopify_id(),
@@ -292,11 +256,9 @@ class ShopifyProductFactory:
             "shopify_last_sync": datetime.now(),
         }
 
-        # Merge with product defaults
         product_kwargs = {k: v for k, v in kwargs.items() if not k.startswith("shopify_")}
         product = ProductFactory.create(env, **product_kwargs)
 
-        # Add Shopify fields
         shopify_fields = {k: v for k, v in defaults.items() if k.startswith("shopify_")}
         shopify_fields.update({k: v for k, v in kwargs.items() if k.startswith("shopify_")})
 
@@ -305,12 +267,8 @@ class ShopifyProductFactory:
 
 
 class SaleOrderFactory:
-    """Factory for creating test sale orders."""
-
     @staticmethod
     def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.sale_order":
-        """Create a sale order with defaults."""
-        # Ensure we have a partner
         partner = kwargs.get("partner_id")
         if not partner:
             partner = PartnerFactory.create(env)
@@ -331,12 +289,10 @@ class SaleOrderFactory:
         }
         defaults.update(kwargs)
 
-        # Remove order_line from defaults to handle separately
         order_lines = defaults.pop("order_line", [])
 
         order = env["sale.order"].create(defaults)
 
-        # Add order lines if not provided
         if not order_lines:
             order_lines = SaleOrderFactory._create_default_lines(env, order)
 
@@ -349,7 +305,6 @@ class SaleOrderFactory:
 
     @staticmethod
     def _create_default_lines(env: Environment, order: "odoo.model.sale_order") -> list["odoo.values.sale_order_line"]:
-        """Create default order lines."""
         products = ProductFactory.create_batch(env, count=2)
         lines = []
 
@@ -367,7 +322,6 @@ class SaleOrderFactory:
 
     @staticmethod
     def create_with_shopify_metadata(env: Environment, **kwargs: OdooValue) -> "odoo.model.sale_order":
-        """Create order with Shopify sync data."""
         defaults = {
             "shopify_order_id": generate_shopify_id(),
             "shopify_order_number": f"#{random.randint(1000, 9999)}",

@@ -16,13 +16,10 @@ class TestShippingAnalytics(IntegrationTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        # Create comprehensive test data
         cls._create_test_data()
 
     @classmethod
     def _create_test_data(cls) -> None:
-        """Create test data for analytics testing"""
-        # Partners
         cls.partner_shopify = cls.env["res.partner"].create(
             {
                 "name": "Shopify Analytics Customer",
@@ -44,11 +41,9 @@ class TestShippingAnalytics(IntegrationTestCase):
             }
         )
 
-        # Use the base class test product
         cls.product = cls.test_product
         cls.product.list_price = 200.0  # Update price for this test
 
-        # Delivery products for different carriers
         delivery_products = {}
         for carrier_name in ["UPS", "USPS", "FedEx"]:
             delivery_products[carrier_name] = cls.env["product.product"].create(
@@ -59,7 +54,6 @@ class TestShippingAnalytics(IntegrationTestCase):
                 }
             )
 
-        # Create carriers
         cls.carrier_ups = cls.env["delivery.carrier"].create(
             {
                 "name": "Test UPS",
@@ -87,16 +81,12 @@ class TestShippingAnalytics(IntegrationTestCase):
             }
         )
 
-        # Create orders with various shipping scenarios
         cls._create_test_orders()
 
     @classmethod
     def _create_test_orders(cls) -> None:
-        """Create test orders with different shipping scenarios"""
-        # Get default order values from base class
         default_order_vals = cls._get_default_order_vals()
 
-        # Shopify orders with positive margins
         for i in range(3):
             order = cls.env["sale.order"].create(
                 {
@@ -113,7 +103,6 @@ class TestShippingAnalytics(IntegrationTestCase):
             cls._add_order_line(order)
             order.action_confirm()
 
-        # eBay orders with mixed margins
         for i in range(3):
             order = cls.env["sale.order"].create(
                 {
@@ -130,7 +119,6 @@ class TestShippingAnalytics(IntegrationTestCase):
             cls._add_order_line(order)
             order.action_confirm()
 
-        # Manual orders
         order = cls.env["sale.order"].create(
             {
                 **default_order_vals,
@@ -146,7 +134,6 @@ class TestShippingAnalytics(IntegrationTestCase):
 
     @classmethod
     def _add_order_line(cls, order: "odoo.model.sale_order") -> None:
-        """Add a product line to an order"""
         cls.env["sale.order.line"].create(
             {
                 "order_id": order.id,
@@ -156,21 +143,14 @@ class TestShippingAnalytics(IntegrationTestCase):
             }
         )
 
-    # ========== Analytics Calculation Tests ==========
-
     def test_shipping_margin_analytics(self) -> None:
-        """Test shipping margin calculations across orders"""
-        # Get all test orders using tag
         orders = self.env["sale.order"].search([("tag_ids", "in", [self.test_order_tag.id])])
 
-        # Verify margins are calculated correctly
         for order in orders:
             expected_margin = order.shipping_charge - order.shipping_paid
             self.assertEqual(order.shipping_margin, expected_margin, f"Order {order.name} margin calculation incorrect")
 
     def test_platform_analytics_grouping(self) -> None:
-        """Test analytics grouped by platform"""
-        # Group by platform
         platform_data = {}
 
         for platform in ["shopify", "ebay", "manual"]:
@@ -188,27 +168,22 @@ class TestShippingAnalytics(IntegrationTestCase):
                 "total_margin": sum(orders.mapped("shipping_margin")),
             }
 
-        # Verify Shopify data (3 orders)
         self.assertEqual(platform_data["shopify"]["count"], 3)
         self.assertEqual(platform_data["shopify"]["total_charge"], 75.0)  # 25 * 3
         self.assertEqual(platform_data["shopify"]["total_paid"], 57.0)  # 20 + 19 + 18
         self.assertEqual(platform_data["shopify"]["total_margin"], 18.0)  # 5 + 6 + 7
 
-        # Verify eBay data (3 orders)
         self.assertEqual(platform_data["ebay"]["count"], 3)
         self.assertEqual(platform_data["ebay"]["total_charge"], 45.0)  # 15 * 3
         self.assertEqual(platform_data["ebay"]["total_paid"], 30.0)  # 20 + 10 + 0
         self.assertEqual(platform_data["ebay"]["total_margin"], 15.0)  # -5 + 5 + 15
 
-        # Verify manual data (1 order)
         self.assertEqual(platform_data["manual"]["count"], 1)
         self.assertEqual(platform_data["manual"]["total_charge"], 30.0)
         self.assertEqual(platform_data["manual"]["total_paid"], 25.0)
         self.assertEqual(platform_data["manual"]["total_margin"], 5.0)
 
     def test_carrier_analytics(self) -> None:
-        """Test analytics grouped by carrier"""
-        # Get orders by carrier
         ups_orders = self.env["sale.order"].search(
             [("carrier_id", "=", self.carrier_ups.id), ("tag_ids", "in", [self.test_order_tag.id])]
         )
@@ -221,12 +196,10 @@ class TestShippingAnalytics(IntegrationTestCase):
             [("carrier_id", "=", self.carrier_fedex.id), ("tag_ids", "in", [self.test_order_tag.id])]
         )
 
-        # Verify carrier distribution
         self.assertEqual(len(ups_orders), 3)
         self.assertEqual(len(usps_orders), 3)
         self.assertEqual(len(fedex_orders), 1)
 
-        # Verify average margins by carrier
         ups_avg_margin = sum(ups_orders.mapped("shipping_margin")) / len(ups_orders)
         self.assertEqual(ups_avg_margin, 6.0)  # (5 + 6 + 7) / 3
 
@@ -234,8 +207,6 @@ class TestShippingAnalytics(IntegrationTestCase):
         self.assertEqual(usps_avg_margin, 5.0)  # (-5 + 5 + 15) / 3
 
     def test_negative_margin_detection(self) -> None:
-        """Test detection of orders with negative shipping margins"""
-        # Find orders with negative margins
         negative_margin_orders = self.env["sale.order"].search(
             [
                 ("shipping_margin", "<", 0),
@@ -243,14 +214,11 @@ class TestShippingAnalytics(IntegrationTestCase):
             ]
         )
 
-        # Should have 1 eBay order with negative margin
         self.assertEqual(len(negative_margin_orders), 1)
         self.assertEqual(negative_margin_orders.source_platform, "ebay")
         self.assertEqual(negative_margin_orders.shipping_margin, -5.0)
 
     def test_date_range_analytics(self) -> None:
-        """Test analytics filtered by date ranges"""
-        # Get only the orders created in setUpClass
         all_test_orders = self.env["sale.order"].search(
             [
                 ("tag_ids", "in", [self.test_order_tag.id]),
@@ -258,7 +226,6 @@ class TestShippingAnalytics(IntegrationTestCase):
             ]
         )
 
-        # Group orders by platform to verify we have test data
         by_platform = {}
         for order in all_test_orders:
             platform = order.source_platform or "none"
@@ -266,23 +233,19 @@ class TestShippingAnalytics(IntegrationTestCase):
                 by_platform[platform] = []
             by_platform[platform].append(order)
 
-        # Basic verification that we have orders from multiple platforms
         self.assertIn("shopify", by_platform, "Should have Shopify orders")
         self.assertIn("ebay", by_platform, "Should have eBay orders")
         self.assertGreaterEqual(len(all_test_orders), 6, "Should have at least 6 test orders")
 
-        # Test that we can filter by date ranges
         now = datetime.now()
         three_days_ago = now - timedelta(days=3)
 
         recent_orders = all_test_orders.filtered(lambda o: o.date_order and o.date_order >= three_days_ago)
         older_orders = all_test_orders.filtered(lambda o: o.date_order and o.date_order < three_days_ago)
 
-        # Basic sanity checks
         self.assertGreater(len(recent_orders), 0, "Should have some recent orders")
         self.assertGreater(len(older_orders), 0, "Should have some older orders")
 
-        # Verify date filtering works correctly
         for order in recent_orders:
             self.assertGreaterEqual(order.date_order, three_days_ago, "Recent orders should be within last 3 days")
 
@@ -290,15 +253,12 @@ class TestShippingAnalytics(IntegrationTestCase):
             self.assertLess(order.date_order, three_days_ago, "Older orders should be more than 3 days old")
 
     def test_shipping_efficiency_metrics(self) -> None:
-        """Test shipping efficiency calculations"""
         all_orders = self.env["sale.order"].search([("tag_ids", "in", [self.test_order_tag.id])])
 
-        # Calculate efficiency metrics
         total_charge = sum(all_orders.mapped("shipping_charge"))
         total_paid = sum(all_orders.mapped("shipping_paid"))
         total_margin = sum(all_orders.mapped("shipping_margin"))
 
-        # Overall efficiency (margin as % of charge)
         efficiency = (total_margin / total_charge) * 100 if total_charge else 0
 
         self.assertEqual(total_charge, 150.0)  # 75 + 45 + 30
@@ -307,8 +267,6 @@ class TestShippingAnalytics(IntegrationTestCase):
         self.assertAlmostEqual(efficiency, 25.33, places=2)
 
     def test_analytics_with_no_shipping_data(self) -> None:
-        """Test analytics behavior with orders lacking shipping data"""
-        # Create order without shipping data
         no_shipping_order = self.env["sale.order"].create(
             {
                 **self._get_default_order_vals(),
@@ -319,12 +277,10 @@ class TestShippingAnalytics(IntegrationTestCase):
 
         self._add_order_line(no_shipping_order)
 
-        # Verify default values
         self.assertEqual(no_shipping_order.shipping_charge, 0.0)
         self.assertEqual(no_shipping_order.shipping_paid, 0.0)
         self.assertEqual(no_shipping_order.shipping_margin, 0.0)
 
-        # Verify it doesn't break analytics calculations
         all_margins = (
             self.env["sale.order"]
             .search([("tag_ids", "in", [self.test_order_tag.id]), ("partner_id", "=", self.partner_manual.id)])

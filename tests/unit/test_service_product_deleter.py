@@ -19,10 +19,9 @@ class DummySync:
 class TestProductDeleter(UnitTestCase):
     def setUp(self) -> None:
         super().setUp()
-        self._setup_shopify_mocks()  # Set up Shopify API mocks
+        self._setup_shopify_mocks()
 
         self.deleter = ProductDeleter(self.env, DummySync())
-        # Use the mocked service from UnitTestCase
         self.deleter.service._client = self.mock_client
 
     def test_fetch_product_ids_page_success(self) -> None:

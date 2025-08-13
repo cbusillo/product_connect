@@ -10,9 +10,7 @@ from ...services.shopify.gql.base_model import BaseModel
 class TestShopifyHelpers(UnitTestCase):
     def setUp(self) -> None:
         super().setUp()
-        # Use context to skip Shopify sync during tests
         self.env = self.env(context=dict(self.env.context, skip_shopify_sync=True))
-        # Create test models for the tests
         self.test_partner = self.env["res.partner"].create(
             {
                 "name": "Test Partner",
@@ -115,6 +113,7 @@ class TestShopifyHelpers(UnitTestCase):
 
     def test_format_datetime_for_shopify(self) -> None:
         from datetime import UTC
+
         dt = datetime(2024, 5, 20, 12, 34, 56, tzinfo=UTC)
         self.assertEqual(helpers.format_datetime_for_shopify(dt), "2024-05-20T12:34:56Z")
 
@@ -185,7 +184,6 @@ class TestShopifyHelpers(UnitTestCase):
             helpers.format_sku_bin_for_shopify("", "bin")
 
     def test_write_if_changed_multi_record_raises_error(self) -> None:
-        # Create multiple partners
         partners = self.env["res.partner"].create(
             [
                 {"name": "Partner 1", "autopost_bills": "ask"},
@@ -193,13 +191,10 @@ class TestShopifyHelpers(UnitTestCase):
             ]
         )
 
-        # Create a mock record with a multi-record recordset
-        # This tests the error handling for unsupported multi-record operations
         mock_record = MagicMock()
         mock_record._fields = {"partner_ids": MagicMock()}
         mock_record.__getitem__ = lambda _, key: partners if key == "partner_ids" else None
 
-        # Verify that write_if_changed raises an error for multi-record recordsets
         with self.assertRaises(UserError) as cm:
             helpers.write_if_changed(mock_record, {"partner_ids": partners})
 
@@ -252,7 +247,6 @@ class TestShopifyHelpers(UnitTestCase):
         self.assertEqual(helpers.parse_shopify_sku_field_to_sku_and_bin("SKU1 Bin"), ("SKU1", "Bin"))
 
     def test_determine_latest_modification_none(self) -> None:
-        # Create a product with no write_date (new record)
         product = self.env["product.product"].create(
             {
                 "name": "Test Product No Date",
@@ -260,13 +254,11 @@ class TestShopifyHelpers(UnitTestCase):
                 "standard_price": 5.0,
             }
         )
-        # Force write_date to None to simulate the test case
         self.env.cr.execute("UPDATE product_product SET write_date = NULL WHERE id = %s", (product.id,))
         self.env.cr.execute("UPDATE product_template SET write_date = NULL WHERE id = %s", (product.product_tmpl_id.id,))
         product.invalidate_recordset(["write_date"])
         product.product_tmpl_id.invalidate_recordset(["write_date"])
 
-        # Clear shopify_last_exported_at if it exists
         if "shopify_last_exported_at" in product._fields:
             self.env.cr.execute("UPDATE product_product SET shopify_last_exported_at = NULL WHERE id = %s", (product.id,))
             product.invalidate_recordset(["shopify_last_exported_at"])
@@ -275,7 +267,6 @@ class TestShopifyHelpers(UnitTestCase):
         self.assertEqual(result, helpers.DEFAULT_DATETIME)
 
     def test_write_if_changed_no_changes(self) -> None:
-        # Create a sale order with a partner
         sale_order = self.env["sale.order"].create(
             {
                 "partner_id": self.test_partner.id,
@@ -283,7 +274,6 @@ class TestShopifyHelpers(UnitTestCase):
             }
         )
 
-        # Try to write the same values - should not trigger a write
         with patch.object(self.env["sale.order"].__class__, "write", wraps=sale_order.write) as mock_write:
             changed = helpers.write_if_changed(
                 sale_order,
@@ -296,7 +286,6 @@ class TestShopifyHelpers(UnitTestCase):
             mock_write.assert_not_called()
 
     def test_write_if_changed_with_changes(self) -> None:
-        # Create a sale order with a partner
         sale_order = self.env["sale.order"].create(
             {
                 "partner_id": self.test_partner.id,
@@ -304,7 +293,6 @@ class TestShopifyHelpers(UnitTestCase):
             }
         )
 
-        # Create a new partner for the change
         new_partner = self.env["res.partner"].create(
             {
                 "name": "New Partner",
@@ -312,13 +300,12 @@ class TestShopifyHelpers(UnitTestCase):
             }
         )
 
-        # Write different values - should trigger a write
         with patch.object(self.env["sale.order"].__class__, "write", wraps=sale_order.write) as mock_write:
             changed = helpers.write_if_changed(
                 sale_order,
                 {
                     "partner_id": new_partner.id,
-                    "state": "draft",  # Same value
+                    "state": "draft",
                 },
             )
             self.assertTrue(changed)
@@ -326,7 +313,6 @@ class TestShopifyHelpers(UnitTestCase):
             self.assertEqual(sale_order.partner_id.id, new_partner.id)
 
     def test_write_if_changed_with_float_field(self) -> None:
-        # Test with a product that has float fields
         product = self.env["product.product"].create(
             {
                 "name": "Test Product",
@@ -335,25 +321,23 @@ class TestShopifyHelpers(UnitTestCase):
             }
         )
 
-        # Test that float comparison works correctly
         with patch.object(self.env["product.product"].__class__, "write", wraps=product.write) as mock_write:
             changed = helpers.write_if_changed(
                 product,
                 {
-                    "list_price": 100.0,  # Same value
-                    "standard_price": 50.0,  # Same value
+                    "list_price": 100.0,
+                    "standard_price": 50.0,
                 },
             )
             self.assertFalse(changed)
             mock_write.assert_not_called()
 
-        # Test with actual changes
         with patch.object(self.env["product.product"].__class__, "write", wraps=product.write) as mock_write:
             changed = helpers.write_if_changed(
                 product,
                 {
-                    "list_price": 150.0,  # Different value
-                    "standard_price": 50.0,  # Same value
+                    "list_price": 150.0,
+                    "standard_price": 50.0,
                 },
             )
             self.assertTrue(changed)

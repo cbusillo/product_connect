@@ -1,15 +1,3 @@
-"""Common imports for test files.
-
-This module provides a single import point for commonly used test utilities.
-Import from here to reduce duplication and ensure consistency.
-
-Example usage:
-    from .common_imports import *
-    # or more explicitly:
-    from .common_imports import datetime, MagicMock, patch, tagged
-"""
-
-# Standard library imports
 import logging
 import random
 import secrets
@@ -19,11 +7,9 @@ from decimal import Decimal
 from typing import Any, Callable, Iterator, Optional
 from unittest.mock import MagicMock, Mock, PropertyMock, patch
 
-# Odoo test framework
 from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.tests import HttpCase, TransactionCase, tagged
 
-# Re-export our base types for convenience
 from .base_types import (
     INTEGRATION_TAGS,
     STANDARD_TAGS,
@@ -39,7 +25,6 @@ from .base_types import (
 )
 
 __all__ = [
-    # Standard library
     "date",
     "datetime",
     "timedelta",
@@ -48,24 +33,20 @@ __all__ = [
     "random",
     "secrets",
     "time",
-    # Typing
     "Any",
     "Callable",
     "Iterator",
     "Optional",
-    # Mocking
     "MagicMock",
     "Mock",
     "PropertyMock",
     "patch",
-    # Odoo
     "tagged",
     "TransactionCase",
     "HttpCase",
     "ValidationError",
     "UserError",
     "AccessError",
-    # Our types and constants
     "OdooValue",
     "MockType",
     "AssertionDict",

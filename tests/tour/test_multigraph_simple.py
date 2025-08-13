@@ -1,17 +1,12 @@
-"""Simple test to verify multigraph view loads without timeout"""
-
 from ..common_imports import tagged, date, TOUR_TAGS
 from ..fixtures.base import TourTestCase
 
 
 @tagged(*TOUR_TAGS)
 class TestMultigraphSimple(TourTestCase):
-    """Simple browser tests for multigraph view"""
-
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        # Create test data with all required fields for multigraph view
 
         cls.test_products = cls.env["product.template"].create(
             [
@@ -32,21 +27,11 @@ class TestMultigraphSimple(TourTestCase):
         )
 
     def test_action_loads(self) -> None:
-        """Test that the action loads without error"""
-        # TourTestCase handles authentication
-
-        # Get the action
         action = self.env.ref("product_connect.action_product_processing_analytics")
         self.assertTrue(action, "Action should exist")
-
-        # Check action properties
         self.assertEqual(action.res_model, "product.template")
         self.assertIn("graph", action.view_mode)
-
-        # Load the action URL directly
         url = f"/odoo/action-{action.id}"
-
-        # Simple browser test - just check that page loads
         self.browser_js(
             url,
             """
@@ -102,10 +87,6 @@ class TestMultigraphSimple(TourTestCase):
         )
 
     def test_direct_graph_view(self) -> None:
-        """Test loading graph view directly"""
-        # TourTestCase handles authentication
-
-        # Create some test data
         self.env["product.template"].create(
             [
                 {
@@ -121,8 +102,6 @@ class TestMultigraphSimple(TourTestCase):
                 for i in range(3)
             ]
         )
-
-        # Navigate directly to the action
         action_id = self.env.ref("product_connect.action_product_processing_analytics").id
         self.browser_js(
             f"/odoo/action-{action_id}",

@@ -7,34 +7,18 @@ _logger = logging.getLogger(__name__)
 
 @tagged(*INTEGRATION_TAGS)
 class TestShipping(IntegrationTestCase):
-    """Comprehensive test suite for shipping functionality
-
-    This test class covers:
-    - Sale order shipping fields and calculations
-    - Delivery carrier service mappings
-    - Platform-specific shipping handling
-    - Shipping margin calculations
-    """
-
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-
-        # Skip Shopify sync and mail tracking during tests
         cls.env = cls.env(context=dict(cls.env.context, skip_shopify_sync=True, tracking_disable=True))
-
-        # Create common test data
         cls._create_test_data()
 
     @classmethod
     def _create_test_data(cls) -> None:
-        """Create reusable test data for shipping tests"""
-        # Currency
         cls.usd_currency = cls.env["res.currency"].search([("name", "=", "USD")], limit=1)
         if not cls.usd_currency:
             cls.usd_currency = cls.env["res.currency"].create({"name": "USD", "symbol": "$", "rate": 1.0})
 
-        # Partner
         cls.partner = cls.env["res.partner"].create(
             {
                 "name": "Test Shipping Customer",
@@ -42,21 +26,19 @@ class TestShipping(IntegrationTestCase):
             }
         )
 
-        # Product
         cls.product = cls.env["product.product"].create(
             {
                 "name": "Test Shipping Product",
-                "default_code": "12345",  # SKU must be 4-8 digits
+                "default_code": "12345",
                 "type": "consu",
                 "list_price": 100.0,
             }
         )
 
-        # Delivery product and carrier
         cls.delivery_product = cls.env["product.product"].create(
             {
                 "name": "Test Delivery Service",
-                "default_code": "99999",  # SKU must be 4-8 digits
+                "default_code": "99999",
                 "type": "service",
                 "list_price": 0.0,
             }
@@ -71,10 +53,7 @@ class TestShipping(IntegrationTestCase):
             }
         )
 
-    # ========== Sale Order Shipping Field Tests ==========
-
     def test_shipping_fields_default_values(self) -> None:
-        """Test default values for shipping fields"""
         order = self.env["sale.order"].create(
             {
                 "partner_id": self.partner.id,
@@ -91,7 +70,6 @@ class TestShipping(IntegrationTestCase):
         self.assertFalse(order.shipping_tracking_numbers)
 
     def test_shipping_margin_calculation(self) -> None:
-        """Test shipping margin calculation"""
         order = self.env["sale.order"].create(
             {
                 "partner_id": self.partner.id,
@@ -101,14 +79,11 @@ class TestShipping(IntegrationTestCase):
             }
         )
 
-        # Positive margin
         self.assertEqual(order.shipping_margin, 6.50)
 
-        # Update and test negative margin
         order.shipping_paid = 30.00
         self.assertEqual(order.shipping_margin, -5.00)
 
-        # Test with updates
         order.write(
             {
                 "shipping_charge": 50.0,
@@ -118,8 +93,6 @@ class TestShipping(IntegrationTestCase):
         self.assertEqual(order.shipping_margin, 20.0)
 
     def test_source_platform_values(self) -> None:
-        """Test source_platform field values and platform-specific IDs"""
-        # Test Shopify platform
         order = self.env["sale.order"].create(
             {
                 "partner_id": self.partner.id,
@@ -132,7 +105,6 @@ class TestShipping(IntegrationTestCase):
         self.assertEqual(order.shopify_order_id, "SHOP123456789")
         self.assertFalse(order.ebay_order_id)
 
-        # Test eBay platform
         ebay_order = self.env["sale.order"].create(
             {
                 "partner_id": self.partner.id,
@@ -145,7 +117,6 @@ class TestShipping(IntegrationTestCase):
         self.assertEqual(ebay_order.ebay_order_id, "12-34567-89012")
         self.assertFalse(ebay_order.shopify_order_id)
 
-        # Test manual platform
         manual_order = self.env["sale.order"].create(
             {
                 "partner_id": self.partner.id,
@@ -154,7 +125,6 @@ class TestShipping(IntegrationTestCase):
         )
         self.assertEqual(manual_order.source_platform, "manual")
 
-        # Test None/False is allowed
         order_no_platform = self.env["sale.order"].create(
             {
                 "partner_id": self.partner.id,
@@ -164,7 +134,6 @@ class TestShipping(IntegrationTestCase):
         self.assertFalse(order_no_platform.source_platform)
 
     def test_copy_method(self) -> None:
-        """Test that platform IDs are not copied when duplicating orders"""
         order = self.env["sale.order"].create(
             {
                 "partner_id": self.partner.id,
@@ -177,7 +146,6 @@ class TestShipping(IntegrationTestCase):
             }
         )
 
-        # Add an order line
         self.env["sale.order.line"].create(
             {
                 "order_id": order.id,
@@ -186,21 +154,17 @@ class TestShipping(IntegrationTestCase):
             }
         )
 
-        # Copy the order
         copied_order = order.copy()
 
-        # Check that IDs are not copied
         self.assertFalse(copied_order.shopify_order_id)
         self.assertFalse(copied_order.ebay_order_id)
         self.assertFalse(copied_order.shipstation_order_id)
 
-        # But other fields should be copied
         self.assertEqual(copied_order.source_platform, "shopify")
         self.assertEqual(copied_order.shipping_charge, 20.0)
         self.assertEqual(copied_order.shipping_paid, 15.0)
 
     def test_shopify_note_field(self) -> None:
-        """Test shopify_note field functionality"""
         test_note = "Payment: PayPal\nOrder Notes: Rush delivery\neBay Item: 123456"
 
         order = self.env["sale.order"].create(
@@ -212,14 +176,11 @@ class TestShipping(IntegrationTestCase):
 
         self.assertEqual(order.shopify_note, test_note)
 
-        # Test that it's separate from the regular note field
         order.note = "Internal note for warehouse"
         self.assertEqual(order.shopify_note, test_note)
-        # Note field is HTML, so check it contains our text
         self.assertIn("Internal note for warehouse", str(order.note))
 
     def test_shipping_tracking_numbers(self) -> None:
-        """Test shipping tracking numbers field"""
         tracking_data = "UPS: 1Z999AA10123456784\nUSPS: 9400100000000000000000"
 
         order = self.env["sale.order"].create(
@@ -235,7 +196,6 @@ class TestShipping(IntegrationTestCase):
         self.assertIn("9400100000000000000000", order.shipping_tracking_numbers)
 
     def test_shipping_fields_in_different_states(self) -> None:
-        """Test shipping fields behavior in different order states"""
         order = self.env["sale.order"].create(
             {
                 "partner_id": self.partner.id,
@@ -244,7 +204,6 @@ class TestShipping(IntegrationTestCase):
             }
         )
 
-        # Add order line
         self.env["sale.order.line"].create(
             {
                 "order_id": order.id,
@@ -254,30 +213,23 @@ class TestShipping(IntegrationTestCase):
             }
         )
 
-        # Test in draft state
         self.assertEqual(order.state, "draft")
         self.assertEqual(order.shipping_margin, 5.0)
 
-        # Confirm order
         order.action_confirm()
         self.assertEqual(order.state, "sale")
 
-        # Shipping fields should still be editable
         order.shipping_paid = 20.0
         self.assertEqual(order.shipping_margin, 10.0)
 
-        # Create invoice and validate
         order._create_invoices()
         invoice = order.invoice_ids[0]
         invoice.action_post()
 
-        # Shipping fields should still work
         order.shipping_charge = 35.0
         self.assertEqual(order.shipping_margin, 15.0)
 
     def test_shipping_with_multiple_currencies(self) -> None:
-        """Test shipping fields work with different currencies"""
-        # Create order with shipping values
         order = self.env["sale.order"].create(
             {
                 "partner_id": self.partner.id,
@@ -286,20 +238,14 @@ class TestShipping(IntegrationTestCase):
             }
         )
 
-        # Test that shipping margin is calculated correctly regardless of currency
         self.assertEqual(order.shipping_margin, 20.0)
 
-        # Test that monetary fields work with the order's currency
         self.assertEqual(order.shipping_charge, 100.0)
         self.assertEqual(order.shipping_paid, 80.0)
 
-        # Ensure currency is set (it will be the company's default currency)
         self.assertTrue(order.currency_id)
 
-    # ========== Delivery Carrier Mapping Tests ==========
-
     def test_delivery_carrier_service_map_normalization(self) -> None:
-        """Test service name normalization"""
         service_map = self.env["delivery.carrier.service.map"]
 
         test_cases = [
@@ -318,7 +264,6 @@ class TestShipping(IntegrationTestCase):
             self.assertEqual(result, expected, f"Failed for input: {input_name}")
 
     def test_delivery_carrier_mapping_lookup(self) -> None:
-        """Test carrier mapping lookup functionality"""
         ups_carrier = self.env["delivery.carrier"].search([("name", "=", "UPS Ground")], limit=1)
         self.assertTrue(ups_carrier, "UPS Ground carrier should exist")
 
@@ -330,7 +275,6 @@ class TestShipping(IntegrationTestCase):
         self.assertEqual(mapping.carrier.id, ups_carrier.id)
 
     def test_all_common_shipping_methods_mapped(self) -> None:
-        """Test that all common shipping methods are properly mapped"""
         common_methods = [
             ("Standard Shipping", "standard shipping"),
             ("UPS Ground", "ups ground"),
@@ -355,7 +299,6 @@ class TestShipping(IntegrationTestCase):
             self.assertTrue(mapping.carrier, f"Mapping for '{original}' has no carrier")
 
     def test_unknown_shipping_method_handling(self) -> None:
-        """Test handling of unknown shipping methods"""
         from ...services.shopify.sync.importers.order_importer import OrderImporter
 
         sync_record = self.env["shopify.sync"].create(
@@ -382,7 +325,6 @@ class TestShipping(IntegrationTestCase):
         self.assertFalse(existing_mapping, "This test requires 'Unknown Carrier Express' to be unmapped")
 
     def test_shipping_charge_capture(self) -> None:
-        """Test that shipping charges are properly captured on orders"""
         order = self.env["sale.order"].create(
             {
                 "partner_id": self.partner.id,
@@ -419,7 +361,6 @@ class TestShipping(IntegrationTestCase):
         self.assertEqual(delivery_line.price_unit, 15.99)
 
     def test_multiple_platform_mappings(self) -> None:
-        """Test that multiple variations map to the same carrier"""
         standard_carrier = self.env["delivery.carrier"].search([("name", "=", "Standard Shipping")], limit=1)
         self.assertTrue(standard_carrier)
 
@@ -440,7 +381,6 @@ class TestShipping(IntegrationTestCase):
             )
 
     def test_freight_variations_mapped(self) -> None:
-        """Test that all freight variations are properly mapped"""
         mappings = self.env["delivery.carrier.service.map"].search(
             [
                 ("platform", "=", "shopify"),
@@ -465,7 +405,6 @@ class TestShipping(IntegrationTestCase):
         self.assertGreaterEqual(len(carriers), 2, "Freight should map to multiple carriers")
 
     def test_customer_arranged_variations(self) -> None:
-        """Test customer arranged shipping variations"""
         customer_carrier = self.env["delivery.carrier"].search([("name", "=", "Customer Arranged Shipping")], limit=1)
         self.assertTrue(customer_carrier)
 

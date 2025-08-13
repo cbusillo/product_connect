@@ -1,5 +1,3 @@
-"""Base test classes with proper isolation and utilities."""
-
 from contextlib import contextmanager
 from typing import Iterator, Any
 
@@ -9,8 +7,6 @@ from ..common_imports import TransactionCase, HttpCase, MagicMock, patch, DEFAUL
 
 
 class _ShopifyMockMixin:
-    """Shared mixin for Shopify mock functionality."""
-
     def _setup_shopify_mocks(self) -> None:
         self.shopify_service_patcher = patch("odoo.addons.product_connect.services.shopify.sync.base.ShopifyService")
         self.mock_shopify_service_class = self.shopify_service_patcher.start()
@@ -29,12 +25,9 @@ class _ShopifyMockMixin:
 
 
 class UnitTestCase(_ShopifyMockMixin, TransactionCase):
-    """Base class for unit tests with mocking support."""
-
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        # Use admin user with minimal context
         cls.env = cls.env(user=cls.env.ref("base.user_admin"))
         cls.env = cls.env(
             context=dict(
@@ -44,12 +37,10 @@ class UnitTestCase(_ShopifyMockMixin, TransactionCase):
         )
 
     def tearDown(self) -> None:
-        """Clean up mocks after each test."""
         self._teardown_shopify_mocks()
         super().tearDown()
-    
+
     def mock_service(self, service_path: str) -> MagicMock:
-        """Helper to mock external services."""
         patcher = patch(service_path)
         mock = patcher.start()
         self.addCleanup(patcher.stop)
@@ -57,17 +48,14 @@ class UnitTestCase(_ShopifyMockMixin, TransactionCase):
 
     @contextmanager
     def mock_shopify_client(self) -> Iterator[MagicMock]:
-        """Context manager for mocking Shopify GraphQL client."""
         with patch("addons.product_connect.services.shopify.client.GraphQLClient") as mock_client:
             instance = MagicMock()
             mock_client.return_value = instance
             yield instance
 
     def assertRecordValues(self, record: BaseModel, expected_values: dict) -> None:
-        """Assert multiple field values on a record."""
         for field, expected in expected_values.items():
             actual = record[field]
-            # Handle special cases
             if hasattr(actual, "id"):
                 actual = actual.id
             elif hasattr(actual, "ids"):
@@ -77,7 +65,6 @@ class UnitTestCase(_ShopifyMockMixin, TransactionCase):
 
 
 def _get_or_create_geo_data(env: Environment) -> tuple[Any, Any, Any]:
-    """Utility to create geographic test data without duplication."""
     usa_country = env["res.country"].search([("code", "=", "US")], limit=1)
     if not usa_country:
         usa_country = env["res.country"].create({"name": "United States", "code": "US", "phone_code": 1})
@@ -94,8 +81,6 @@ def _get_or_create_geo_data(env: Environment) -> tuple[Any, Any, Any]:
 
 
 class _BaseDataMixin:
-    """Shared mixin for base test data creation."""
-
     def _setup_base_data(self) -> None:
         self.usa_country, self.ny_state, self.shopify_category = _get_or_create_geo_data(self.env)
 
@@ -105,8 +90,6 @@ class _BaseDataMixin:
 
 
 class IntegrationTestCase(_ShopifyMockMixin, _BaseDataMixin, TransactionCase):
-    """Base class for integration tests with test data."""
-
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -115,7 +98,7 @@ class IntegrationTestCase(_ShopifyMockMixin, _BaseDataMixin, TransactionCase):
             context=dict(
                 cls.env.context,
                 **DEFAULT_TEST_CONTEXT,
-                skip_shopify_sync=False,  # Allow sync in integration tests
+                skip_shopify_sync=False,
             )
         )
         cls._setup_test_data()
@@ -138,8 +121,6 @@ class IntegrationTestCase(_ShopifyMockMixin, _BaseDataMixin, TransactionCase):
         cls._setup_class_base_data()
 
     def create_shopify_credentials(self) -> None:
-        """Shopify credentials are stored in ir.config_parameter, not as a model."""
-        # Store Shopify configuration in system parameters as used by the actual code
         config_param = self.env["ir.config_parameter"].sudo()
         config_param.set_param("shopify.shop_url_key", "test-store.myshopify.com")
         config_param.set_param("shopify.webhook_key", "test_webhook_key")
@@ -158,24 +139,19 @@ class IntegrationTestCase(_ShopifyMockMixin, _BaseDataMixin, TransactionCase):
 
 
 class TourTestCase(HttpCase):
-    """Base class for tour tests with browser support."""
-
     def setUp(self) -> None:
         super().setUp()
         self.browser_size = "1920x1080"
         self.tour_timeout = 120
 
     def start_tour(self, url: str, tour_name: str, login: str = "admin", timeout: int | None = None) -> None:
-        """Start a tour test with proper setup."""
         if timeout is None:
             timeout = self.tour_timeout
 
-        # Ensure user exists and has password
         if login:
             user = self.env.ref(f"base.user_{login}")
             user.password = login
 
-        # Start the tour
         self.browser_js(
             url,
             f"odoo.__DEBUG__.services['web_tour.tour'].run('{tour_name}')",
@@ -185,12 +161,7 @@ class TourTestCase(HttpCase):
         )
 
     def register_tour(self, tour_definition: dict) -> None:
-        """Register a custom tour for testing."""
-        # Tour registration would be done in JS files
-        # This is a placeholder for documentation
         pass
 
     def take_screenshot(self, name: str = "screenshot") -> None:
-        """Take a screenshot during tour execution."""
-        # This would integrate with the browser automation
         pass

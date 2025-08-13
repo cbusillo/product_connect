@@ -49,7 +49,6 @@ class TestOrderImporter(IntegrationTestCase):
         if not self.usd_currency:
             self.usd_currency = self.env["res.currency"].create({"name": "USD", "symbol": "$", "rate": 1.0})
 
-        # Generate unique SKUs to avoid conflicts (must be 4-8 digits)
         import time
 
         base = int(time.time()) % 10000
@@ -102,7 +101,6 @@ class TestOrderImporter(IntegrationTestCase):
             }
         )
 
-        # Check if mapping already exists before creating
         existing_map = self.env["delivery.carrier.service.map"].search(
             [("platform", "=", "shopify"), ("platform_service_normalized_name", "=", "ups ground")], limit=1
         )
@@ -126,7 +124,6 @@ class TestOrderImporter(IntegrationTestCase):
 
     def _mock_fetch_page_and_import(self, shopify_order: OrderFields) -> int:
         with patch.object(self.importer, "_fetch_page") as mock_fetch:
-            # Mock the page structure that _iterate_pages expects
             mock_page = MagicMock()
             mock_page.nodes = [shopify_order]
             mock_page.page_info.has_next_page = False
@@ -140,10 +137,8 @@ class TestOrderImporter(IntegrationTestCase):
     ) -> None:
         with patch.object(self.importer, "_fetch_page") as mock_fetch:
             if order_data:
-                # Create OrderFields from the dict data
                 order = OrderFields(**order_data)
 
-                # Mock the page structure that _iterate_pages expects
                 mock_page = MagicMock()
                 mock_page.nodes = [order]
                 mock_page.page_info.has_next_page = False
@@ -195,7 +190,6 @@ class TestOrderImporter(IntegrationTestCase):
         result = OrderImporter._get_amount_for_order_currency(no_shop_money_bag, CurrencyCode.USD)
         self.assertEqual(result, Decimal("50.00"))
 
-        # Test with None
         result = OrderImporter._get_amount_for_order_currency(None, CurrencyCode.USD)  # type: ignore[arg-type]
         self.assertEqual(result, Decimal("0"))
 
@@ -405,10 +399,8 @@ class TestOrderImporter(IntegrationTestCase):
             fulfillments=fulfillments,
         )
 
-        # need order confirmed first to have pickings
         order = self._import_order_and_verify_success(OrderFields(**order_data))
 
-        # create picking manually
         self.env["stock.picking"].create(
             {
                 "partner_id": order.partner_id.id,
@@ -420,7 +412,6 @@ class TestOrderImporter(IntegrationTestCase):
             }
         )
 
-        # update order now with tracking
         shopify_order = OrderFields(**order_data)
         self.importer._import_one(shopify_order)
 
@@ -551,7 +542,6 @@ class TestOrderImporter(IntegrationTestCase):
     def test_import_order_multiple_shipping_carriers(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
-        # Check if FedEx mapping already exists
         existing_fedex_map = self.env["delivery.carrier.service.map"].search(
             [("platform", "=", "shopify"), ("platform_service_normalized_name", "=", "fedex express")], limit=1
         )
@@ -628,7 +618,6 @@ class TestOrderImporter(IntegrationTestCase):
         self.assertEqual(numbers, ["1Z123456789", "1Z987654321", "FEDEX123"])
 
     def test_parse_ebay_note_attributes(self) -> None:
-        # Test complete eBay note attributes
         complete_note = """eBay Sales Record Number: 21478
 eBay Order Id: 14-13240-64196
 eBay Earliest Delivery Date: 2025-06-27T07:00:00.000Z
@@ -639,14 +628,11 @@ eBay Account: outboardpartswarehouseva"""
         result = EbayOrderData.from_note_attributes(complete_note)
         self.assertEqual(result.sales_record, "21478")
         self.assertEqual(result.order_id, "14-13240-64196")
-        # Dates should now be naive datetime (no timezone)
         self.assertEqual(result.latest_delivery_date.isoformat(), "2025-06-30T07:00:00")
         self.assertEqual(result.earliest_delivery_date.isoformat(), "2025-06-27T07:00:00")
-        # Verify they are indeed naive datetime
         self.assertIsNone(result.latest_delivery_date.tzinfo)
         self.assertIsNone(result.earliest_delivery_date.tzinfo)
 
-        # Test partial note attributes
         partial_note = """eBay Sales Record Number: 12345
 eBay Order Id: 22-33333-44444"""
 
@@ -656,7 +642,6 @@ eBay Order Id: 22-33333-44444"""
         self.assertIsNone(result.latest_delivery_date)
         self.assertIsNone(result.earliest_delivery_date)
 
-        # Test malformed dates
         bad_date_note = """eBay Sales Record Number: 99999
 eBay Latest Delivery Date: invalid-date
 eBay Earliest Delivery Date: 2025-13-45"""
@@ -666,14 +651,12 @@ eBay Earliest Delivery Date: 2025-13-45"""
         self.assertIsNone(result.latest_delivery_date)
         self.assertIsNone(result.earliest_delivery_date)
 
-        # Test empty string
         result = EbayOrderData.from_note_attributes("")
         self.assertIsNone(result.sales_record)
         self.assertIsNone(result.order_id)
         self.assertIsNone(result.latest_delivery_date)
         self.assertIsNone(result.earliest_delivery_date)
 
-        # Test with extra whitespace
         whitespace_note = """eBay Sales Record Number:    54321   
 eBay Order Id:   11-22222-33333   """
 
@@ -739,8 +722,6 @@ eBay Order Id:   11-22222-33333   """
 
         order = self.env["sale.order"].search([("shopify_order_id", "=", "999999999999999")])
         self.assertTrue(order)
-        # Total includes shipping (default fixtures add shipping line)
-        # Just verify it imported successfully with the large values
         self.assertGreater(order.amount_total, 999000)
         product_lines = order.order_line.filtered(lambda l: not l.is_delivery)
         self.assertEqual(len(product_lines), 1)
@@ -798,7 +779,6 @@ eBay Order Id:   11-22222-33333   """
 
         order = self.env["sale.order"].search([("shopify_order_id", "=", "123456789")])
         self.assertTrue(order)
-        # Note might have default terms from sale order template
         self.assertNotIn("Payment:", order.note or "")  # No payment info since we didn't provide any
 
     @patch.object(CustomerImporter, "import_customer")
@@ -857,7 +837,6 @@ eBay Order Id:   11-22222-33333   """
 
     @patch.object(CustomerImporter, "import_customer")
     def test_shopify_note_populated_with_payment_and_note(self, mock_import_customer: MagicMock) -> None:
-        """Test that shopify_note is populated with payment info and order note"""
         mock_import_customer.return_value = True
 
         order_data = create_shopify_order_response(
@@ -872,7 +851,6 @@ eBay Order Id:   11-22222-33333   """
 
     @patch.object(CustomerImporter, "import_customer")
     def test_ebay_order_includes_ebay_info_in_shopify_note(self, mock_import_customer: MagicMock) -> None:
-        """eBay orders should include eBay-specific info in shopify_note"""
         mock_import_customer.return_value = True
 
         order_data = create_shopify_order_response(

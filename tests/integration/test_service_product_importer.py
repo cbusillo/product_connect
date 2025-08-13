@@ -24,7 +24,6 @@ class TestProductImporter(IntegrationTestCase):
 
     @staticmethod
     def _get_valid_image_base64() -> str:
-        # Minimal valid PNG image (1x1 pixel, transparent)
         image_data = bytes(
             [
                 0x89,
@@ -101,8 +100,6 @@ class TestProductImporter(IntegrationTestCase):
         super().setUp()
         self._setup_shopify_mocks()  # Set up Shopify API mocks
 
-        # Mock the last import time to ensure all test products pass the date filter
-        # Set to year 2000 to match DEFAULT_DATETIME
         self.env["ir.config_parameter"].set_param("shopify.last_import.product", "2000-01-01T00:00:00Z")
 
         self.sync_record = self.env["shopify.sync"].create(
@@ -112,7 +109,6 @@ class TestProductImporter(IntegrationTestCase):
         )
         self.importer = ProductImporter(self.env, self.sync_record)
 
-        # Use get-or-create pattern to avoid constraint violations
         self.manufacturer = self.env["product.manufacturer"].search([("name", "=", "Test Manufacturer")])
         if not self.manufacturer:
             self.manufacturer = self.env["product.manufacturer"].create({"name": "Test Manufacturer"})
@@ -126,13 +122,11 @@ class TestProductImporter(IntegrationTestCase):
             self.condition = self.env["product.condition"].create({"name": "New", "code": "new"})
 
     def _import_products_with_mock_data(self, product_data_list: list[dict]) -> int:
-        # Create ProductFields first to catch any validation errors
         try:
             product_fields_list = [ProductFields(**data) for data in product_data_list]
         except Exception as e:
             self.fail(f"Failed to create ProductFields from fixture data: {e}")
 
-        # Import each product directly using _import_one
         imported_count = 0
         for product_fields in product_fields_list:
             if self.importer._import_one(product_fields):
@@ -146,13 +140,11 @@ class TestProductImporter(IntegrationTestCase):
         return product
 
     def _import_and_get_product(self, product_data: dict, expected_count: int = 1) -> "odoo.model.product_product":
-        # Create ProductFields first to catch any validation errors
         try:
             product_fields = ProductFields(**product_data)
         except Exception as e:
             self.fail(f"Failed to create ProductFields from fixture data: {e}")
 
-        # Import using _import_one directly
         result = self.importer._import_one(product_fields)
         imported_count = 1 if result else 0
 
@@ -166,7 +158,6 @@ class TestProductImporter(IntegrationTestCase):
         return product
 
     def _import_product_and_verify(self, product_data: dict, sku: str) -> "odoo.model.product_product":
-        """Helper method to import a product and verify it was created with the given SKU."""
         product_fields = ProductFields(**product_data)
         result = self.importer._import_one(product_fields)
         self.assertTrue(result)
@@ -192,12 +183,10 @@ class TestProductImporter(IntegrationTestCase):
             media=[],  # Explicitly set no media to avoid image processing issues
         )
 
-        # Test _import_one directly first
         product_fields = ProductFields(**product_data)
         result = self.importer._import_one(product_fields)
         self.assertTrue(result, "_import_one should return True for new product")
 
-        # Check the product was created
         product = self.env["product.product"].search([("default_code", "=", sku)])
         self.assertTrue(product, f"Product with SKU {sku} should have been created")
         self.assertEqual(product.name, "Test Motor")
@@ -271,7 +260,6 @@ class TestProductImporter(IntegrationTestCase):
         with patch.object(self.importer, "fetch_image_data") as mock_fetch_image:
             mock_fetch_image.return_value = encoded_image
 
-            # Import using _import_one directly
             product_fields = ProductFields(**product_data)
             result = self.importer._import_one(product_fields)
 
@@ -370,7 +358,6 @@ class TestProductImporter(IntegrationTestCase):
             }
         )
 
-        # Mock the date comparison to return an old date
         with patch(
             "odoo.addons.product_connect.services.shopify.sync.importers.product_importer.determine_latest_odoo_product_modification_time"
         ) as mock_date:
@@ -388,7 +375,6 @@ class TestProductImporter(IntegrationTestCase):
                 ],
             )
 
-            # Import using _import_one directly
             product_fields = ProductFields(**product_data)
             result = self.importer._import_one(product_fields)
 
@@ -418,7 +404,6 @@ class TestProductImporter(IntegrationTestCase):
             ],
         )
 
-        # Mock the date comparison to ensure our product is considered newer
         with (
             patch.object(self.importer, "_fetch_page") as mock_fetch,
             patch(
@@ -426,7 +411,6 @@ class TestProductImporter(IntegrationTestCase):
             ) as mock_date,
         ):
             mock_fetch.return_value = create_mock_simple_response([ProductFields(**product_data)])
-            # Return a date newer than the Shopify product's updated_at (2020)
             mock_date.return_value = datetime(2023, 1, 1)
             imported_count = self.importer.import_products_since_last_import()
 
@@ -442,16 +426,12 @@ class TestProductImporter(IntegrationTestCase):
             ],
         )
 
-        # Import using _import_one directly
         product_fields = ProductFields(**product_data)
         result = self.importer._import_one(product_fields)
         self.assertTrue(result)
 
-        # Check that the product was created with the correct inventory
         product = self.env["product.product"].search([("default_code", "=", sku)])
         self.assertTrue(product, f"Product with SKU {sku} not found")
-        # We can't easily verify update_quantity was called without mocking the specific instance,
-        # but we can verify the product was created successfully
 
     def test_import_inactive_product(self) -> None:
         sku = generate_unique_sku()
@@ -476,7 +456,6 @@ class TestProductImporter(IntegrationTestCase):
             ],
         )
 
-        # Import using _import_one directly
         product_fields = ProductFields(**product_data)
         result = self.importer._import_one(product_fields)
         self.assertTrue(result)
@@ -501,7 +480,6 @@ class TestProductImporter(IntegrationTestCase):
             ],
         )
 
-        # Import using _import_one directly
         product_fields = ProductFields(**product_data)
         result = self.importer._import_one(product_fields)
         self.assertTrue(result)
@@ -555,7 +533,6 @@ class TestProductImporter(IntegrationTestCase):
             with self.assertRaises(ShopifyDataError) as cm:
                 self.importer.import_products_since_last_import()
 
-            # The error message is "unexpected error" when image fetch fails
             self.assertIn("Network error", str(cm.exception))
 
     def test_images_already_in_sync(self) -> None:
@@ -604,7 +581,6 @@ class TestProductImporter(IntegrationTestCase):
             ],
         )
 
-        # Mock the date comparison to return an old date
         with (
             patch(
                 "odoo.addons.product_connect.services.shopify.sync.importers.product_importer.determine_latest_odoo_product_modification_time"
@@ -613,7 +589,6 @@ class TestProductImporter(IntegrationTestCase):
         ):
             mock_date.return_value = datetime(2023, 1, 1)
 
-            # Import using _import_one directly
             product_fields = ProductFields(**product_data)
             result = self.importer._import_one(product_fields)
 
@@ -633,11 +608,9 @@ class TestProductImporter(IntegrationTestCase):
         self.assertEqual(product.weight, 0.0)
 
     def test_product_data_error_handling(self) -> None:
-        # Create a product with missing SKU - should be skipped
         product_data = create_shopify_product_response(
             variants=[
                 create_shopify_product_variant(
-                    # Empty SKU will be skipped
                     sku="",
                 ),
             ],
@@ -647,7 +620,6 @@ class TestProductImporter(IntegrationTestCase):
             mock_fetch.return_value = create_mock_simple_response([ProductFields(**product_data)])
             imported_count = self.importer.import_products_since_last_import()
 
-        # Product should be skipped, not imported
         self.assertEqual(imported_count, 0)
 
     def test_import_product_with_extreme_prices(self) -> None:
@@ -679,9 +651,7 @@ class TestProductImporter(IntegrationTestCase):
         )
 
         product = self._import_product_and_verify(product_data, sku)
-        # HTML should be preserved for website_description
         self.assertIn("<p>Product", product.website_description)
-        # But title should be text only
         self.assertNotIn("<b>", product.name)
 
     def test_import_product_with_unicode_sku(self) -> None:
@@ -699,7 +669,6 @@ class TestProductImporter(IntegrationTestCase):
 
     def test_import_product_with_very_long_sku_and_bin(self) -> None:
         base_sku = self._get_unique_sku()
-        # Create a long but reasonable SKU (50 chars) and bin (50 chars)
         long_sku = base_sku + "1" * 40  # Total ~50 chars
         long_bin = "BIN-" + "B" * 45  # Total ~50 chars
         product_data = create_shopify_product_response(
@@ -711,13 +680,10 @@ class TestProductImporter(IntegrationTestCase):
             ],
         )
 
-        # Import using _import_one directly
         product_fields = ProductFields(**product_data)
         result = self.importer._import_one(product_fields)
         self.assertTrue(result, "Product import should succeed")
 
-        # Search by the beginning of the SKU since it might be truncated
-        # Also search for any product created in this test
         products = self.env["product.product"].search(
             ["|", ("default_code", "like", base_sku + "%"), ("shopify_product_id", "=", "123456789")]
         )
@@ -726,12 +692,10 @@ class TestProductImporter(IntegrationTestCase):
             f"Product with SKU starting with {base_sku} or shopify_product_id=123456789 not found. All products: {self.env['product.product'].search([]).mapped('default_code')}",
         )
         product = products[0]
-        # Should handle truncation if needed
         self.assertTrue(product.default_code)
         self.assertTrue(product.bin)
 
     def test_import_product_with_conflicting_sku_and_id(self) -> None:
-        # Create two existing products
         self.env["product.product"].create(
             {
                 "name": "Product 1",
@@ -750,7 +714,6 @@ class TestProductImporter(IntegrationTestCase):
             }
         )
 
-        # Import data has product1's SKU but product2's ID
         product_data = create_shopify_product_response(
             gid="gid://shopify/Product/222",
             title="Updated Product",
@@ -764,10 +727,8 @@ class TestProductImporter(IntegrationTestCase):
 
             self.importer.import_products_since_last_import()
 
-        # Should match by ID first (more reliable)
         product2.invalidate_recordset()
         self.assertEqual(product2.name, "Updated Product")
-        # Product should have the variant's SKU
         self.assertTrue(product2.default_code)
 
     def test_import_product_with_invalid_metafield_types(self) -> None:
@@ -787,7 +748,6 @@ class TestProductImporter(IntegrationTestCase):
 
     def test_import_product_with_massive_image_count(self) -> None:
         sku = generate_unique_sku()
-        # Create 50 images
         images = []
         for i in range(50):
             images.append(
@@ -809,7 +769,6 @@ class TestProductImporter(IntegrationTestCase):
         with patch.object(self.importer, "fetch_image_data") as mock_fetch_image:
             mock_fetch_image.return_value = self._get_valid_image_base64()
 
-            # Import using _import_one directly
             product_fields = ProductFields(**product_data)
             result = self.importer._import_one(product_fields)
 
@@ -832,7 +791,6 @@ class TestProductImporter(IntegrationTestCase):
         ):
             mock_fetch.return_value = create_mock_simple_response([ProductFields(**product_data)])
 
-            # First call fails, should raise error
             mock_stream.side_effect = [
                 Exception("Connection reset"),
             ]
@@ -841,7 +799,6 @@ class TestProductImporter(IntegrationTestCase):
                 self.importer.import_products_since_last_import()
 
     def test_import_product_inactive_then_active(self) -> None:
-        # Create inactive product
         existing_product = self.env["product.product"].create(
             {
                 "name": "Inactive Product",
@@ -852,7 +809,6 @@ class TestProductImporter(IntegrationTestCase):
             }
         )
 
-        # Import as active
         product_data = create_shopify_product_response(
             gid="gid://shopify/Product/333",
             status=ProductStatus.ACTIVE,
@@ -866,7 +822,6 @@ class TestProductImporter(IntegrationTestCase):
 
             self.importer.import_products_since_last_import()
 
-        # Should find inactive product and update it
         existing_product.invalidate_recordset()
         self.assertTrue(existing_product.is_published)
 
@@ -890,7 +845,6 @@ class TestProductImporter(IntegrationTestCase):
         self.assertEqual(product.weight, 0.0)
 
     def test_import_product_with_reordered_images(self) -> None:
-        """Test that image order changes are detected even if product updated_at hasn't changed"""
         sku = generate_unique_sku()
         existing_product = self.env["product.product"].create(
             {
@@ -901,7 +855,6 @@ class TestProductImporter(IntegrationTestCase):
             }
         )
 
-        # Create images in specific order
         self.env["product.image"].create(
             {
                 "name": "Image 1",
@@ -921,7 +874,6 @@ class TestProductImporter(IntegrationTestCase):
             }
         )
 
-        # Product data with images in reversed order but same updated_at
         product_data = create_shopify_product_response(
             gid="gid://shopify/Product/444",
             updated_at=datetime(2020, 1, 1).isoformat(),  # Old date
@@ -929,7 +881,6 @@ class TestProductImporter(IntegrationTestCase):
                 create_shopify_product_variant(sku=sku),
             ],
             media=[
-                # Images in reversed order
                 create_shopify_product_image(
                     gid="gid://shopify/MediaImage/222",
                     status=MediaStatus.READY,
@@ -946,14 +897,11 @@ class TestProductImporter(IntegrationTestCase):
         with patch.object(self.importer, "fetch_image_data") as mock_fetch_image:
             mock_fetch_image.return_value = self._get_valid_image_base64()
 
-            # Import using _import_one directly
             product_fields = ProductFields(**product_data)
             result = self.importer._import_one(product_fields)
 
-            # Should return True because image order changed
             self.assertTrue(result, "Import should detect image order change")
 
-        # Verify images were reordered
         existing_product.invalidate_recordset()
         images = sorted(existing_product.images, key=lambda x: x.sequence)
         self.assertEqual(len(images), 2)
@@ -961,6 +909,5 @@ class TestProductImporter(IntegrationTestCase):
         self.assertEqual(images[0].sequence, 0)
         self.assertEqual(images[1].shopify_media_id, "111")
         self.assertEqual(images[1].sequence, 1)
-        # Alt text should be updated
         self.assertEqual(images[0].name, "Image 2 Updated")
         self.assertEqual(images[1].name, "Image 1 Updated")

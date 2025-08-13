@@ -71,16 +71,11 @@ class TestProductExporter(IntegrationTestCase):
         self.exporter.service.client.update_publications.assert_not_called()
 
     def test_find_products_to_export(self) -> None:
-        # Use and modify the pre-created test products from base class
-        # Product 1: Should be exported (has shopify_next_export=True)
         prod1 = self.test_products[0]  # This is a product.product
-        # Update fields - some are on template, some on variant
-        # Using setattr to avoid PyCharm inspection issues with dynamic fields
         prod1.is_ready_for_sale = True
         prod1.is_published = True
         setattr(prod1, "shopify_next_export", True)
 
-        # Product 2: Should NOT be exported (not for sale)
         prod2 = self.test_products[1]  # This is a product.product
         prod2.write(
             {
@@ -90,11 +85,9 @@ class TestProductExporter(IntegrationTestCase):
             }
         )
 
-        # Product 3: Should NOT be exported (recently exported)
         prod3 = self.test_products[2]  # This is a product.product
         prod3.is_ready_for_sale = True
         prod3.is_published = True
-        # Using setattr to avoid PyCharm inspection issues with dynamic fields
         setattr(prod3, "shopify_last_exported_at", fields.Datetime.now() + timedelta(days=1))
 
         result = self.exporter._find_products_to_export()

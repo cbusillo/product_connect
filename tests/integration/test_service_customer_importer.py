@@ -138,7 +138,6 @@ class TestCustomerImporter(IntegrationTestCase):
             phone="+1-212-555-0199",
         )
 
-        # Update marketing states to be unsubscribed
         customer_data["defaultEmailAddress"]["marketingState"] = "UNSUBSCRIBED"
         customer_data["defaultPhoneNumber"]["marketingState"] = "UNSUBSCRIBED"
 
@@ -184,11 +183,9 @@ class TestCustomerImporter(IntegrationTestCase):
         partner = self.env["res.partner"].search([("shopify_customer_id", "=", "777")])
         self.assertTrue(partner)
 
-        # Check main partner has billing address
         self.assertEqual(partner.street, "123 Billing St")
         self.assertEqual(partner.city, "New York")
 
-        # Check child addresses
         child_addresses = partner.child_ids
         self.assertEqual(len(child_addresses), 1)
 
@@ -233,21 +230,17 @@ class TestCustomerImporter(IntegrationTestCase):
             self.assertEqual(result, expected, f"Failed for input: {input_phone}")
 
     def test_get_or_create_category(self) -> None:
-        # Test creating new category
         new_category = self.importer._get_or_create_category("Test Category")
         self.assertTrue(new_category)
         self.assertEqual(new_category.name, "Test Category")
 
-        # Test finding existing category
         existing_category = self.importer._get_or_create_category("Test Category")
         self.assertEqual(existing_category.id, new_category.id)
 
     def test_get_tax_exempt_fiscal_position(self) -> None:
-        # Test finding existing fiscal position
         fiscal_position = self.importer._get_tax_exempt_fiscal_position()
         self.assertEqual(fiscal_position.id, self.tax_exempt_fiscal_position.id)
 
-        # Delete existing and test creation
         self.tax_exempt_fiscal_position.unlink()
         new_fiscal_position = self.importer._get_tax_exempt_fiscal_position()
         self.assertTrue(new_fiscal_position)
@@ -336,7 +329,6 @@ class TestCustomerImporter(IntegrationTestCase):
                 "name": "Main Partner",
                 "shopify_customer_id": "3333",
                 "autopost_bills": "ask",
-                # Add a main address so the child is considered "different"
                 "street": "123 Main St",
                 "city": "New York",
                 "state_id": self.ny_state.id,
@@ -344,7 +336,6 @@ class TestCustomerImporter(IntegrationTestCase):
             }
         )
 
-        # Create existing child address without shopify_address_id
         ma_state = self.env["res.country.state"].search([("code", "=", "MA"), ("country_id", "=", self.usa_country.id)], limit=1)
         if not ma_state:
             ma_state = self.env["res.country.state"].create(
@@ -375,22 +366,17 @@ class TestCustomerImporter(IntegrationTestCase):
 
         address = AddressFields(**address_data)
 
-        # The process_address should find the duplicate and update it
         self.importer.process_address(address, partner, role="shipping")
 
-        # Refresh the record to get latest values
         existing_child.invalidate_recordset()
 
-        # The important assertion: the existing child should now have the shopify_address_id
         self.assertEqual(existing_child.shopify_address_id, "4001", "Existing address should be linked to Shopify ID")
 
-        # Verify no new addresses were created
         all_children = partner.child_ids
         self.assertEqual(len(all_children), 1, "No new child address should be created")
         self.assertEqual(all_children[0].id, existing_child.id, "The same child should be updated")
 
     def test_import_customer_removes_tax_exempt_if_false(self) -> None:
-        # Create partner with tax exempt position
         partner = self.env["res.partner"].create(
             {
                 "name": "Previously Tax Exempt",
@@ -415,7 +401,6 @@ class TestCustomerImporter(IntegrationTestCase):
         self.assertFalse(partner.property_account_position_id)
 
     def test_import_customer_removes_phone_blacklist_if_subscribed(self) -> None:
-        # Create partner with phone blacklisted
         partner = self.env["res.partner"].create(
             {
                 "name": "Previously Blacklisted",
@@ -433,7 +418,6 @@ class TestCustomerImporter(IntegrationTestCase):
             phone="+1-212-555-0111",
         )
 
-        # Update phone marketing state to subscribed
         customer_data["defaultPhoneNumber"]["marketingState"] = "SUBSCRIBED"
 
         shopify_customer = CustomerFields(**customer_data)
@@ -446,7 +430,6 @@ class TestCustomerImporter(IntegrationTestCase):
         self.assertFalse(partner.mobile_blacklisted)
 
     def test_import_customer_removes_email_blacklist_if_subscribed(self) -> None:
-        # Create partner with email blacklisted via mail.blacklist
         partner = self.env["res.partner"].create(
             {
                 "name": "Previously Email Blacklisted",
@@ -456,7 +439,6 @@ class TestCustomerImporter(IntegrationTestCase):
             }
         )
 
-        # Add to blacklist
         self.env["mail.blacklist"].sudo().create({"email": partner.email_normalized})
         partner.invalidate_recordset()
         self.assertTrue(partner.is_blacklisted)
@@ -468,7 +450,6 @@ class TestCustomerImporter(IntegrationTestCase):
             email="previously.blacklisted@example.com",
         )
 
-        # Update email marketing state to subscribed
         customer_data["defaultEmailAddress"]["marketingState"] = "SUBSCRIBED"
 
         shopify_customer = CustomerFields(**customer_data)
@@ -480,7 +461,6 @@ class TestCustomerImporter(IntegrationTestCase):
         self.assertFalse(partner.is_blacklisted)
 
     def test_import_customer_direct(self) -> None:
-        # Test importing a single customer directly
         customer_data = create_shopify_customer_response(
             gid="gid://shopify/Customer/8888",
             first_name="Direct",
@@ -498,14 +478,11 @@ class TestCustomerImporter(IntegrationTestCase):
         self.assertEqual(partner.name, "Direct Test")
 
     def test_import_customers_batch(self) -> None:
-        # Test importing multiple customers
         unique_id = uuid.uuid4().hex[:8]
 
-        # Use unique customer IDs to avoid conflicts with other test runs
         base_id = int(time.time() * 1000) % 1000000  # Unique base ID
 
         customers_data = []
-        # Create 3 test customers with unique IDs
         for i in range(1, 4):
             customer_data = create_shopify_customer_response(
                 gid=f"gid://shopify/Customer/{base_id + i}",
@@ -515,17 +492,14 @@ class TestCustomerImporter(IntegrationTestCase):
             )
             customers_data.append(customer_data)
 
-        # Import each customer one by one and verify immediately
         for i, customer_data in enumerate(customers_data):
             customer = CustomerFields(**customer_data)
             result = self.importer._import_one(customer)
             self.assertTrue(result, f"Import should succeed for customer {i + 1}")
 
-            # Find the imported partner by its unique ID
             customer_id = parse_shopify_id_from_gid(customer_data["id"])
             partner = self.env["res.partner"].search([("shopify_customer_id", "=", customer_id)])
 
-            # Verify this specific customer
             self.assertTrue(partner, f"Customer {customer_id} should be found")
             self.assertEqual(partner.email, f"batch.customer{i + 1}.{unique_id}@example.com")
             self.assertEqual(partner.name, f"Batch Customer{i + 1}")
@@ -539,7 +513,6 @@ class TestCustomerImporter(IntegrationTestCase):
             }
         )
 
-        # Create existing address as invoice type
         self.env["res.partner"].create(
             {
                 "parent_id": partner.id,
@@ -562,7 +535,6 @@ class TestCustomerImporter(IntegrationTestCase):
 
         self.assertTrue(result)
 
-        # Should have created a new delivery address
         delivery_address = partner.child_ids.filtered(lambda a: a.type == "delivery")
         self.assertTrue(delivery_address)
         self.assertEqual(delivery_address.shopify_address_id, "5001:delivery")
@@ -581,7 +553,6 @@ class TestCustomerImporter(IntegrationTestCase):
             default_address=address_with_phone,
         )
 
-        # Remove phone from default phone number
         customer_data["defaultPhoneNumber"] = None
 
         shopify_customer = CustomerFields(**customer_data)
@@ -646,7 +617,6 @@ class TestCustomerImporter(IntegrationTestCase):
 
         partner = self.env["res.partner"].search([("shopify_customer_id", "=", "123456789")])
         self.assertTrue(partner)
-        # Odoo should handle truncation gracefully
         self.assertLessEqual(len(partner.name), 512)  # Typical Odoo char field limit
 
     def test_import_customer_with_special_characters_in_all_fields(self) -> None:
@@ -665,7 +635,6 @@ class TestCustomerImporter(IntegrationTestCase):
 
         partner = self.env["res.partner"].search([("shopify_customer_id", "=", "123456789")])
         self.assertTrue(partner)
-        # Verify special characters are properly escaped
         self.assertIn("Robert", partner.name)
         self.assertIn("script", partner.name)  # Should be escaped, not executed
 
@@ -687,12 +656,10 @@ class TestCustomerImporter(IntegrationTestCase):
             )
 
             shopify_customer = CustomerFields(**customer_data)
-            # Should handle gracefully, not crash
             result = self.importer._import_one(shopify_customer)
             self.assertTrue(result)
 
     def test_import_customer_with_duplicate_addresses(self) -> None:
-        # Create different addresses with same content but different IDs
         address1 = create_shopify_address_response(
             province="NY",
             zip="10001",
@@ -708,7 +675,6 @@ class TestCustomerImporter(IntegrationTestCase):
             zip="10001",
         )
 
-        # Create customer with default billing address different from shipping addresses
         billing_address = create_shopify_address_response(
             gid="gid://shopify/CustomerAddress/999",
             address1="456 Oak St",
@@ -728,11 +694,9 @@ class TestCustomerImporter(IntegrationTestCase):
 
         partner = self.env["res.partner"].search([("shopify_customer_id", "=", "123456789")])
         self.assertTrue(partner)
-        # Should create 3 delivery addresses since they have different Shopify IDs
         child_addresses = partner.child_ids.filtered(lambda c: c.type == "delivery")
         self.assertEqual(len(child_addresses), 3)
 
-        # But content-wise they should be identical (duplicate detection by content)
         addresses = list(child_addresses)
         self.assertEqual(addresses[0].street, addresses[1].street)
         self.assertEqual(addresses[0].street, addresses[2].street)
@@ -740,7 +704,6 @@ class TestCustomerImporter(IntegrationTestCase):
         self.assertEqual(addresses[0].city, addresses[2].city)
 
     def test_import_customer_with_circular_references(self) -> None:
-        # Create existing partner that could cause circular reference
         self.env["res.partner"].create(
             {
                 "name": "Existing Partner",
@@ -761,13 +724,11 @@ class TestCustomerImporter(IntegrationTestCase):
         shopify_customer = CustomerFields(**customer_data)
         result = self.importer._import_one(shopify_customer)
 
-        # Should update existing, not create duplicate
         self.assertTrue(result)  # Update is successful
         partners = self.env["res.partner"].search([("shopify_customer_id", "=", "999")])
         self.assertEqual(len(partners), 1)  # No duplicate created
 
     def test_import_customer_api_rate_limit(self) -> None:
-        # Test that rate limit errors are handled properly
         from ...services.shopify.helpers import ShopifyApiError
 
         with patch.object(self.importer, "_fetch_page") as mock_fetch:
@@ -801,7 +762,6 @@ class TestCustomerImporter(IntegrationTestCase):
             self.assertTrue(result)
             partner = self.env["res.partner"].search([("shopify_customer_id", "=", str(i + 1000))])
             self.assertTrue(partner)
-            # Phone should be stored, potentially formatted
             self.assertTrue(partner.phone or partner.mobile)
 
     def test_import_customer_with_default_address_in_list(self) -> None:
@@ -809,12 +769,10 @@ class TestCustomerImporter(IntegrationTestCase):
             gid="gid://shopify/CustomerAddress/111",
         )
 
-        # Same address appears in list (realistic)
         shipping_address = create_shopify_address_response(
             gid="gid://shopify/CustomerAddress/111",  # Same as default
         )
 
-        # Additional shipping address
         alt_address = create_shopify_address_response(
             gid="gid://shopify/CustomerAddress/222",
             address1="456 Secondary St",
@@ -833,9 +791,7 @@ class TestCustomerImporter(IntegrationTestCase):
 
         partner = self.env["res.partner"].search([("shopify_customer_id", "=", "123456789")])
         self.assertTrue(partner)
-        # Should have the main address on partner
         self.assertEqual(partner.street, "123 Main St")
-        # Should have one additional shipping address (not duplicate)
         delivery_addresses = partner.child_ids.filtered(lambda c: c.type == "delivery")
         self.assertEqual(len(delivery_addresses), 1)
         self.assertEqual(delivery_addresses[0].street, "456 Secondary St")

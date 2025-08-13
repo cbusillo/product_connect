@@ -5,64 +5,39 @@ from ..fixtures.factories import MotorFactory
 
 @tagged(*UNIT_TAGS)
 class TestMotorWorkflow(UnitTestCase):
-    """Unit tests for motor workflow and product creation"""
-
     def setUp(self) -> None:
         super().setUp()
-        # Unit tests create their own minimal data as needed
 
     def test_motor_creation(self) -> None:
-        """Test basic motor creation with required fields"""
-        product = MotorFactory.create(
-            self.env,
-            motor_hp=200,
-            motor_year=2024,
-            motor_model="Test Model"
-        )
+        product = MotorFactory.create(self.env, motor_hp=200, motor_year=2024, motor_model="Test Model")
         motor = product.motor
 
         self.assertTrue(motor.exists())
         self.assertEqual(motor.horsepower, 200)
         self.assertEqual(motor.year, 2024)
-        self.assertEqual(motor.model, "TEST MODEL")  # Model gets uppercased
+        self.assertEqual(motor.model, "TEST MODEL")
         self.assertTrue(motor.serial_number)
 
     def test_motor_product_creation(self) -> None:
-        """Test creating motor as product template"""
-        motor = MotorFactory.create(
-            self.env,
-            motor_hp=150,
-            motor_year=2023,
-            motor_model="Product Test"
-        )
+        motor = MotorFactory.create(self.env, motor_hp=150, motor_year=2023, motor_model="Product Test")
 
-        # Verify motor was created as a product template
         self.assertTrue(motor.exists())
-        self.assertEqual(motor.type, "consu")  # Motors are typically 'consu' type per factory
-        self.assertGreater(motor.list_price, 0)  # Should have a price
-        self.assertTrue(motor.default_code)  # Should have SKU
+        self.assertEqual(motor.type, "consu")
+        self.assertGreater(motor.list_price, 0)
+        self.assertTrue(motor.default_code)
 
     def test_motor_product_enabling(self) -> None:
-        """Test enabling motor products for sale and purchase"""
-        motor = MotorFactory.create(
-            self.env,
-            motor_hp=175,
-            motor_year=2023,
-            motor_model="Enable Test"
-        )
+        motor = MotorFactory.create(self.env, motor_hp=175, motor_year=2023, motor_model="Enable Test")
 
-        # Test basic product flags - motors should be sellable/purchasable by default from factory
         self.assertTrue(motor.sale_ok)
         self.assertTrue(motor.purchase_ok)
 
-        # Test toggling sale flag
         motor.write({"sale_ok": False})
         self.assertFalse(motor.sale_ok)
 
         motor.write({"sale_ok": True})
         self.assertTrue(motor.sale_ok)
 
-        # Test toggling purchase flag
         motor.write({"purchase_ok": False})
         self.assertFalse(motor.purchase_ok)
 

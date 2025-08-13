@@ -22,7 +22,6 @@ class TestOrderShippingImport(IntegrationTestCase):
         self._setup_shopify_mocks()
         self._setup_delivery_carriers()
 
-        # Ensure we have a company and proper context
         self.company = self.env.company
         self.env = self.env(context=dict(self.env.context, skip_shopify_sync=True))
 
@@ -33,7 +32,6 @@ class TestOrderShippingImport(IntegrationTestCase):
         )
         self.importer = OrderImporter(self.env, self.sync_record)
 
-        # Create customer with ID matching the fixture default
         self.customer_partner = self.env["res.partner"].create(
             {
                 "name": "Test Customer",
@@ -70,7 +68,6 @@ class TestOrderShippingImport(IntegrationTestCase):
             )
             return carrier, product
 
-        # Get or create delivery carriers
         carrier_standard, _ = get_or_create_carrier(
             "Standard Shipping",
             {
@@ -137,11 +134,9 @@ class TestOrderShippingImport(IntegrationTestCase):
             },
         )
 
-        # Create service mappings - need to normalize the names
         service_map_model = self.env["delivery.carrier.service.map"]
 
         def create_service_map(carrier: "odoo.model.delivery_carrier", service_name: str) -> None:
-            """Create service mapping if it doesn't exist"""
             normalized_name = service_map_model.normalize_service_name(service_name)
             existing = service_map_model.search(
                 [("platform", "=", "shopify"), ("platform_service_normalized_name", "=", normalized_name)], limit=1
@@ -155,25 +150,19 @@ class TestOrderShippingImport(IntegrationTestCase):
                     }
                 )
 
-        # Standard shipping variations
         create_service_map(carrier_standard, "Standard Shipping")
         create_service_map(carrier_standard, "Via standard shipping")
 
-        # UPS
         create_service_map(carrier_ups, "UPS Ground")
         create_service_map(carrier_ups, "UPs Ground")
 
-        # USPS
         create_service_map(carrier_usps, "USPS Priority Mail®")
 
-        # Free shipping
         create_service_map(carrier_free, "Free Shipping")
         create_service_map(carrier_free, "Free Shipping!")
 
-        # eBay GSP
         create_service_map(carrier_ebay_gsp, "Standard Shipping (eBay GSP)")
 
-        # Shipping Insurance
         create_service_map(carrier_insurance, "Shipping Insurance")
 
     @patch.object(CustomerImporter, "import_customer")
@@ -287,7 +276,6 @@ class TestOrderShippingImport(IntegrationTestCase):
             self.assertIn("Unknown delivery service", str(e))
             self.assertIn("Super Express Overnight Delivery", str(e))
         except Exception as e:
-            # Log the actual exception type and message for debugging
             _logger.error(f"Unexpected exception type: {type(e).__name__}: {str(e)}")
             raise
 
@@ -314,7 +302,6 @@ class TestOrderShippingImport(IntegrationTestCase):
         self.assertEqual(order.carrier_id.id, free_carrier.id)
 
     def _create_and_import_order(self, shipping_price: str = "15.00") -> "odoo.model.sale_order":
-        """Helper method to create and import an order with shipping."""
         order_data = create_shopify_order_response(
             customer=create_shopify_customer_response(),
             line_items=[create_shopify_order_line_item_response(sku=self.product.default_code)],
@@ -368,7 +355,6 @@ class TestOrderShippingImport(IntegrationTestCase):
     def test_import_order_unknown_shipping_with_urls(self, mock_import_customer: MagicMock) -> None:
         mock_import_customer.return_value = True
 
-        # Set up config parameters for URL generation
         self.env["ir.config_parameter"].sudo().set_param("shopify.shop_url_key", "test-shop.myshopify.com")
         self.env["ir.config_parameter"].sudo().set_param("web.base.url", "https://odoo.example.com")
 
@@ -387,17 +373,13 @@ class TestOrderShippingImport(IntegrationTestCase):
             self.fail("Expected ShopifyDataError to be raised")
         except ShopifyDataError as e:
             error_msg = str(e)
-            # Check basic error message
             self.assertIn("Unknown delivery service 'New Express Service'", error_msg)
             self.assertIn("#TEST-URL", error_msg)
 
-            # Check Shopify order URL
             self.assertIn("https://test-shop.myshopify.com/admin/orders/5555555555", error_msg)
 
-            # Check Odoo mapping URL
             self.assertIn("https://odoo.example.com/web#action=&model=delivery.carrier.service.map&view_type=list", error_msg)
 
-            # Check normalized name is mentioned
             self.assertIn("new express service", error_msg.lower())
 
     @patch.object(CustomerImporter, "import_customer")

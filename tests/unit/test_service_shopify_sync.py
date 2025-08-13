@@ -34,7 +34,6 @@ class DummyImporter(ShopifyBaseImporter[int]):
         self.fetch_calls: list[tuple[str | None, str | None]] = []
         self.imported: list[int] = []
         self.run_query: str | None = None
-        # Mock the service to prevent real API calls
         self.service = MagicMock()
         self.service.client = MagicMock()
 
@@ -56,7 +55,6 @@ class DummyExporter(ShopifyBaseExporter[int]):
     def __init__(self, env: Environment, sync_record: DummySync) -> None:
         super().__init__(env, sync_record)
         self.exported: list[int] = []
-        # Mock the service to prevent real API calls
         self.service = MagicMock()
         self.service.client = MagicMock()
 
@@ -68,7 +66,6 @@ class DummyDeleter(ShopifyBaseDeleter[int]):
     def __init__(self, env: Environment, sync_record: DummySync) -> None:
         super().__init__(env, sync_record)
         self.deleted: list[int] = []
-        # Mock the service to prevent real API calls
         self.service = MagicMock()
         self.service.client = MagicMock()
 
@@ -84,7 +81,6 @@ def make_pages() -> list[DummyPage]:
 class TestShopifySyncItems(UnitTestCase):
     def setUp(self) -> None:
         super().setUp()
-        # Set up config parameters for tests
         config = self.env["ir.config_parameter"].sudo()
         config.set_param("shopify.shop_url_key", "dummy.example.com")
         config.set_param("shopify.api_token", "dummy_token")

@@ -1,17 +1,12 @@
-"""Integration tests for multigraph view functionality using HttpCase."""
-
 from ..common_imports import tagged, TOUR_TAGS
 from ..fixtures.base import TourTestCase
 
 
 @tagged(*TOUR_TAGS)
 class TestMultigraphIntegration(TourTestCase):
-    """Test multigraph view with real browser automation"""
-
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        # Create test data with all required fields for multigraph view
         from datetime import date
 
         cls.test_products = cls.env["product.template"].create(
@@ -33,10 +28,6 @@ class TestMultigraphIntegration(TourTestCase):
         )
 
     def test_multigraph_chart_click_no_error(self) -> None:
-        """Test that clicking multigraph chart doesn't throw resModel error"""
-        # TourTestCase handles authentication
-
-        # browser_js expects: url, code, ready condition
         self.browser_js(
             "/odoo/action-product_connect.action_product_processing_analytics",
             """
@@ -128,9 +119,6 @@ class TestMultigraphIntegration(TourTestCase):
         )
 
     def test_multigraph_view_switching(self) -> None:
-        """Test switching between multigraph and other view types"""
-        # TourTestCase handles authentication
-
         self.browser_js(
             "/odoo/action-product_connect.action_product_processing_analytics",
             """

@@ -38,7 +38,7 @@ class GraphQLCostResponse(TypedDict):
 class TestGraphQLClientIntegration(IntegrationTestCase):
     def setUp(self) -> None:
         super().setUp()
-        self._setup_shopify_mocks()  # Set up Shopify API mocks
+        self._setup_shopify_mocks()
         self.sync_record = self.env["shopify.sync"].create(
             {
                 "mode": "import_changed_products",
@@ -46,7 +46,6 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
         )
         self.service = ShopifyService(self.env, self.sync_record)
 
-        # Mock config parameters
         config = self.env["ir.config_parameter"].sudo()
         config.set_param("shopify.shop_url_key", "test-shop")
         config.set_param("shopify.api_token", "test-token")
@@ -72,7 +71,6 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
             mock_client._http_client = mock_http_client
             mock_create_client.return_value = mock_http_client
 
-            # Mock the send method to capture the request
             sent_requests = []
 
             def capture_request(request: Request, **_kwargs: Any) -> Response:
@@ -93,7 +91,6 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
 
             mock_http_client.send = capture_request
 
-            # Create a mock client with get_products method
             mock_shopify_client = Mock()
             mock_shopify_client.get_products = Mock(
                 return_value=Mock(
@@ -105,10 +102,8 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
             )
 
             with patch.object(self.service, "_client", mock_shopify_client):
-                # Trigger a GraphQL query - limit is the first positional parameter
                 self.service.client.get_products(limit=10)
 
-            # Verify the query was called
             mock_shopify_client.get_products.assert_called_once_with(limit=10)
 
     def test_graphql_response_parsing(self) -> None:
@@ -140,7 +135,6 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
             "metafields": {"nodes": []},
         }
 
-        # Test parsing into ProductFields
         product = ProductFields(**product_data)
         self.assertEqual(product.id, "gid://shopify/Product/123")
         self.assertEqual(product.title, "Test Product")
@@ -153,9 +147,8 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
             mock_http_client = MagicMock()
             mock_create_client.return_value = mock_http_client
 
-            # Mock a GraphQL error response
             mock_http_client.send.return_value = Response(
-                200,  # GraphQL returns 200 even for errors
+                200,
                 json={
                     "errors": [
                         {
@@ -251,7 +244,6 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
                 for resp in responses
             ]
 
-            # Mock paginated client responses
             mock_page1 = Mock()
             mock_page1.products.nodes = [ProductFields(**page1_response["data"]["products"]["nodes"][0])]
             mock_page1.products.page_info.has_next_page = True
@@ -266,7 +258,6 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
             mock_shopify_client.get_products = Mock(side_effect=[mock_page1, mock_page2])
 
             with patch.object(self.service, "_client", mock_shopify_client):
-                # Simulate fetching all pages
                 all_products = []
                 cursor = None
                 while True:
@@ -308,7 +299,6 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
             mock_http_client, mock_shopify_client = self._create_mock_http_response(mutation_response)
             mock_create_client.return_value = mock_http_client
 
-            # Use the actual return type structure
             mock_product_set = Mock(spec=ProductSetProductSet)
             mock_product_set.product = Mock(spec=ProductSetProductSetProduct)
             mock_product_set.product.id = "gid://shopify/Product/123"
@@ -317,7 +307,6 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
             mock_shopify_client.product_set = Mock(return_value=mock_product_set)
 
             with patch.object(self.service, "_client", mock_shopify_client):
-                # Call the actual method that exists
                 result = self.service.client.product_set(
                     input=ProductSetInput(title="Updated Product"),
                     identifier=ProductSetIdentifiers(id="gid://shopify/Product/123"),
@@ -351,7 +340,6 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
             mock_http_client, mock_shopify_client = self._create_mock_http_response(user_error_response)
             mock_create_client.return_value = mock_http_client
 
-            # Create properly typed mock response
             mock_product_set = Mock(spec=ProductSetProductSet)
             mock_product_set.product = None
 
@@ -408,7 +396,6 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
             mock_http_client, mock_shopify_client = self._create_mock_http_response(bulk_response)
             mock_create_client.return_value = mock_http_client
 
-            # Create properly typed mock response
             mock_bulk_op = Mock(spec=ProductSetBulkRunBulkOperationRunMutation)
             mock_bulk_op.bulk_operation = Mock(spec=ProductSetBulkRunBulkOperationRunMutationBulkOperation)
             mock_bulk_op.bulk_operation.id = "gid://shopify/BulkOperation/123"
@@ -474,7 +461,6 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
         }
         """
 
-        # Test that different queries can be executed
         with patch.object(self.service, "_create_http_client") as mock_create_client:
             mock_http_client = MagicMock()
             mock_create_client.return_value = mock_http_client
@@ -495,13 +481,12 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
             self.assertTrue(len(minimal_product_query) < len(full_product_query))
 
     def test_graphql_connection_types(self) -> None:
-        # noinspection SpellCheckingInspection
         connection_response = {
             "data": {
                 "orders": {
                     "edges": [
                         {
-                            "cursor": "eyJsYXN0X2lkIjoxMjM0NTY3ODk=",
+                            "cursor": "eyJsYXN0X2lkIjoxMjM0NTY3ODk=",  # noinspection SpellCheckingInspection
                             "node": {
                                 "id": "gid://shopify/Order/123",
                                 "name": "#1001",
@@ -512,24 +497,18 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
                     "pageInfo": {
                         "hasNextPage": True,
                         "hasPreviousPage": False,
-                        "startCursor": "eyJsYXN0X2lkIjoxMjM0NTY3ODk=",
-                        "endCursor": "eyJsYXN0X2lkIjoxMjM0NTY3ODk=",
+                        "startCursor": "eyJsYXN0X2lkIjoxMjM0NTY3ODk=",  # noinspection SpellCheckingInspection
+                        "endCursor": "eyJsYXN0X2lkIjoxMjM0NTY3ODk=",  # noinspection SpellCheckingInspection
                     },
                 }
             }
         }
 
-        # Test that both edges/nodes and direct nodes access work
         edges_data = connection_response["data"]["orders"]["edges"]
         self.assertEqual(len(edges_data), 1)
         self.assertEqual(edges_data[0]["node"]["name"], "#1001")
 
     def test_graphql_nullable_fields(self) -> None:
-        # Test handling of minimal/empty values in GraphQL responses
-        # This test verifies that the ProductFields model can handle empty strings
-        # and zero values which are common in real Shopify API responses
-
-        # First test a working product to ensure our test setup is correct
         working_product_data = {
             "id": "gid://shopify/Product/123",
             "title": "Test Product",
@@ -558,31 +537,29 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
             "metafields": {"nodes": []},
         }
 
-        # Verify the basic structure works
         product = ProductFields(**working_product_data)
         self.assertEqual(product.title, "Test Product")
 
-        # Now test with empty/minimal values
         minimal_product_data = {
             "id": "gid://shopify/Product/124",
             "title": "Minimal Product",
-            "vendor": "",  # Empty vendor
-            "productType": "",  # Empty type
+            "vendor": "",
+            "productType": "",
             "status": "ACTIVE",
-            "totalInventory": 0,  # Zero inventory
+            "totalInventory": 0,
             "createdAt": "2023-01-01T00:00:00Z",
             "updatedAt": "2023-01-01T00:00:00Z",
-            "descriptionHtml": "",  # Empty description
+            "descriptionHtml": "",
             "variants": {
                 "nodes": [
                     {
                         "id": "gid://shopify/ProductVariant/457",
-                        "sku": "",  # Empty SKU is allowed (Optional field)
+                        "sku": "",
                         "price": "0.00",
-                        "barcode": None,  # Null barcode is allowed (Optional field)
+                        "barcode": None,
                         "inventoryItem": {
-                            "unitCost": None,  # Null unit cost is allowed (Optional field)
-                            "measurement": {"weight": None},  # Null weight is allowed (Optional field)
+                            "unitCost": None,
+                            "measurement": {"weight": None},
                         },
                     }
                 ]
@@ -591,7 +568,6 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
             "metafields": {"nodes": []},
         }
 
-        # Ensure ProductFields can handle minimal values
         minimal_product = ProductFields(**minimal_product_data)
         self.assertEqual(minimal_product.vendor, "")
         self.assertEqual(minimal_product.product_type, "")
@@ -638,7 +614,6 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
             }
         }
 
-        # Test that different media types are handled correctly
         media_nodes = media_response["data"]["product"]["media"]["nodes"]
         self.assertEqual(len(media_nodes), 3)
         self.assertEqual(media_nodes[0]["__typename"], "MediaImage")
@@ -672,7 +647,6 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
                 headers={"content-type": "application/json"},
             )
 
-            # Test that cost information is available
             self.assertEqual(cost_response["extensions"]["cost"]["requestedQueryCost"], 102)
             self.assertEqual(cost_response["extensions"]["cost"]["actualQueryCost"], 52)
             self.assertEqual(
@@ -696,7 +670,6 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
             }
         }
 
-        # Test that aliases work correctly
         recent = alias_response["data"]["recentProducts"]["nodes"][0]
         popular = alias_response["data"]["popularProducts"]["nodes"][0]
 
@@ -718,7 +691,6 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
             ]
         }
 
-        # Test that error locations are properly reported
         error = error_with_location["errors"][0]
         self.assertEqual(error["locations"][0]["line"], 3)
         self.assertEqual(error["locations"][0]["column"], 5)
@@ -737,7 +709,6 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
             },
         }
 
-        # Test that deprecation warnings are available
         warnings = deprecation_response.get("extensions", {}).get("warnings", [])
         self.assertEqual(len(warnings), 1)
         self.assertIn("deprecated", warnings[0]["message"])
