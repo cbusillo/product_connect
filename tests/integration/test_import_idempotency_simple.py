@@ -17,6 +17,8 @@ from ...services.shopify.helpers import last_import_config_key, format_datetime_
 class TestImportIdempotencySimple(IntegrationTestCase):
     def setUp(self) -> None:
         super().setUp()
+        self._setup_shopify_mocks()
+        self.create_shopify_credentials()
         self._setup_import_idempotency_test()
 
         self.env["ir.config_parameter"].search([("key", "like", "shopify.last_import.%")]).unlink()

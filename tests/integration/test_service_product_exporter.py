@@ -36,6 +36,16 @@ class TestProductExporter(IntegrationTestCase):
         super().setUp()
         self.exporter = ProductExporter(self.env, DummySync())
 
+        from ..fixtures.factories import ProductFactory
+
+        self.test_products = []
+        for i in range(3):
+            product_template = ProductFactory.create(
+                self.env,
+                list_price=100.0 + (i * 10),
+            )
+            self.test_products.append(product_template.product_variant_id)
+
     def test_metafield_from_id_value_key(self) -> None:
         result = ProductExporter.metafield_from_id_value_key("5", "k", "v", "text")
         self.assertEqual(result.namespace, "custom")

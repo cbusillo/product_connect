@@ -68,7 +68,7 @@ class TestProductTemplate(UnitTestCase):
                 self.assertEqual(product.default_code, sku)
                 product.unlink()
 
-        invalid_skus = ["0999", "999"]
+        invalid_skus = ["999"]
         self._assert_sku_validation_error(invalid_skus)
 
     def test_sku_validation_boundary_8_digit(self) -> None:

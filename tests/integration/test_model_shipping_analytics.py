@@ -1,6 +1,6 @@
 from ..common_imports import tagged, datetime, timedelta, INTEGRATION_TAGS
 from ..fixtures.base import IntegrationTestCase
-from ..fixtures.factories import PartnerFactory
+from ..fixtures.factories import PartnerFactory, ProductFactory
 
 
 @tagged(*INTEGRATION_TAGS)
@@ -20,7 +20,20 @@ class TestShippingAnalytics(IntegrationTestCase):
         cls._create_test_data()
 
     @classmethod
+    def _get_default_order_vals(cls) -> dict:
+        return {
+            "tag_ids": [(4, cls.test_order_tag.id)],
+        }
+
+    @classmethod
     def _create_test_data(cls) -> None:
+        from ..fixtures.factories import CrmTagFactory
+
+        cls.test_order_tag = CrmTagFactory.create(
+            cls.env,
+            name="Test Suite Data",
+            color=10,
+        )
         cls.partner_shopify = PartnerFactory.create(
             cls.env,
             name="Shopify Analytics Customer",
@@ -39,8 +52,11 @@ class TestShippingAnalytics(IntegrationTestCase):
             email="manual.analytics@test.com",
         )
 
-        cls.product = cls.test_product
-        cls.product.list_price = 200.0  # Update price for this test
+        cls.product = ProductFactory.create(
+            cls.env,
+            list_price=200.0,
+            standard_price=100.0,
+        ).product_variant_id
 
         delivery_products = {}
         for carrier_name in ["UPS", "USPS", "FedEx"]:

@@ -285,6 +285,11 @@ class ShopifySync(models.TransientModel):
         if config["stop_after_init"]:
             _logger.debug("Skipping async sync in stop_after_init mode")
             return
+        
+        if self.env.context.get("skip_shopify_sync"):
+            _logger.debug("Skipping async sync due to skip_shopify_sync context")
+            return
+        
         _logger.debug(f"Running async sync for {self}")
 
         def run_in_thread() -> None:

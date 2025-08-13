@@ -19,6 +19,8 @@ from ...services.shopify.sync.importers.product_importer import ProductImporter
 class TestImportIdempotencyUnit(IntegrationTestCase):
     def setUp(self) -> None:
         super().setUp()
+        self._setup_shopify_mocks()
+        self.create_shopify_credentials()
         self._setup_import_idempotency_test()
 
     def _setup_import_idempotency_test(self) -> None:

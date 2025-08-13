@@ -293,6 +293,10 @@ class TestCustomerImporter(IntegrationTestCase):
             self.env,
             name="Main Partner",
             shopify_customer_id="2222",
+            street="123 Test Street",
+            city="Initial City",
+            state_id=self.ny_state.id,
+            country_id=self.usa_country.id,
         )
 
         address_data = create_shopify_address_response(

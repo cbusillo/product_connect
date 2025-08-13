@@ -107,7 +107,7 @@ class IntegrationTestCase(_ShopifyMockMixin, _BaseDataMixin, TransactionCase):
         super().setUpClass()
         cls.env = cls.env(user=cls.env.ref("base.user_admin"))
         test_context = DEFAULT_TEST_CONTEXT.copy()
-        test_context["skip_shopify_sync"] = False
+        test_context["skip_shopify_sync"] = True
         cls.env = cls.env(
             context=dict(
                 cls.env.context,
@@ -132,6 +132,13 @@ class IntegrationTestCase(_ShopifyMockMixin, _BaseDataMixin, TransactionCase):
             )
 
         cls._setup_class_base_data()
+        cls._reset_sku_sequence()
+
+    @classmethod
+    def _reset_sku_sequence(cls) -> None:
+        sequence = cls.env["ir.sequence"].search([("code", "=", "product.template.default_code")], limit=1)
+        if sequence:
+            sequence.sudo().write({"number_next": 800000})
 
     def create_shopify_credentials(self) -> None:
         config_param = self.env["ir.config_parameter"].sudo()
@@ -153,18 +160,83 @@ class IntegrationTestCase(_ShopifyMockMixin, _BaseDataMixin, TransactionCase):
 
 @tagged(*TOUR_TAGS)
 class TourTestCase(HttpCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        cls._setup_test_user()
+
+    @classmethod
+    def _setup_test_user(cls) -> None:
+        import secrets
+        import string
+
+        try:
+            admin_user = cls.env.ref("base.user_admin")
+            alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+            password = "Admin" + "".join(secrets.choice(alphabet) for _ in range(8)) + "!"
+            admin_user.password = password
+            cls.test_user = admin_user
+            cls._test_user_password = password
+            return
+        except (ValueError, Exception):
+            pass
+
+        test_user = cls.env["res.users"].search([("login", "=", "tour_test_user"), ("active", "=", True)], limit=1)
+
+        if not test_user:
+            alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+            password = "Test" + "".join(secrets.choice(alphabet) for _ in range(8)) + "!"
+
+            try:
+                group_ids = [cls.env.ref("base.group_user").id]  # Basic user access
+
+                try:
+                    group_ids.append(cls.env.ref("base.group_system").id)
+                except ValueError:
+                    pass
+
+                try:
+                    group_ids.append(cls.env.ref("stock.group_stock_user").id)
+                except ValueError:
+                    pass
+
+                test_user = cls.env["res.users"].create(
+                    {
+                        "name": "Tour Test User",
+                        "login": "tour_test_user",
+                        "password": password,
+                        "email": "tour.test@example.com",
+                        "groups_id": [(6, 0, group_ids)],
+                    }
+                )
+            except Exception:
+                test_user = cls.env["res.users"].create(
+                    {
+                        "name": "Tour Test User",
+                        "login": "tour_test_user",
+                        "password": password,
+                        "email": "tour.test@example.com",
+                    }
+                )
+            cls._test_user_password = password
+        else:
+            alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+            password = "Test" + "".join(secrets.choice(alphabet) for _ in range(8)) + "!"
+            test_user.password = password
+            cls._test_user_password = password
+
+        cls.test_user = test_user
+
     def setUp(self) -> None:
         super().setUp()
         self.browser_size = "1920x1080"
         self.tour_timeout = 120
 
-    def start_tour(self, url: str, tour_name: str, login: str = "admin", timeout: int | None = None) -> None:
+    def start_tour(self, url: str, tour_name: str, login: str | None = None, timeout: int | None = None) -> None:
         if timeout is None:
             timeout = self.tour_timeout
 
-        if login:
-            user = self.env.ref(f"base.user_{login}")
-            user.password = login
+        login = self.test_user.login
 
         self.browser_js(
             url,

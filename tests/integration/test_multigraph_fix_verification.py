@@ -1,5 +1,6 @@
 from ..common_imports import tagged, INTEGRATION_TAGS
 from ..fixtures.base import IntegrationTestCase
+from ..fixtures.factories import ProductFactory
 from odoo.exceptions import ValidationError
 
 
@@ -21,13 +22,13 @@ class TestMultigraphFixVerification(IntegrationTestCase):
 
         cls.multigraph_products = []
         for i in range(5):
-            product = cls._create_motor_product(
+            product = ProductFactory.create(
+                cls.env,
                 name=f"Multigraph Test Product {i + 1}",
-                default_code=f"7000000{i + 1}",  # Valid SKU
+                default_code=f"7000000{i + 1}",
                 list_price=100.0 + (i * 50),
                 standard_price=50.0 + (i * 25),
-                is_ready_for_sale=i % 2 == 0,  # Alternate ready for sale
-                with_image=True,
+                is_ready_for_sale=i % 2 == 0,
             )
 
             test_date = base_date + datetime.timedelta(days=i * 5)

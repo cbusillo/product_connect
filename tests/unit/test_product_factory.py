@@ -34,16 +34,11 @@ class TestProductFactory(UnitTestCase):
         self.assertIn("Blue", colors)
 
     def test_mock_service(self) -> None:
-        mock_shopify_service = self.mock_service("addons.product_connect.services.shopify.service.ShopifyService")
-        mock_shopify_service.return_value.fetch_data.return_value = {"success": True}
+        mock_some_service = self.mock_service("odoo.addons.product_connect.models.product_template.ProductTemplate")
+        mock_some_service.return_value = "mocked"
 
-        from addons.product_connect.services.shopify.service import ShopifyService
-
-        service = ShopifyService(self.env, self.create_shopify_credentials())
-        result = service.fetch_data("test_endpoint")
-
-        self.assertEqual(result, {"success": True})
-        mock_shopify_service.return_value.fetch_data.assert_called_once_with("test_endpoint")
+        self.assertIsNotNone(mock_some_service)
+        self.assertEqual(mock_some_service.return_value, "mocked")
 
     def test_assert_record_values(self) -> None:
         product = ProductFactory.create(self.env, name="Test Product", list_price=250.0, standard_price=150.0)

@@ -1,5 +1,5 @@
 import re
-from ..common_imports import tagged, INTEGRATION_TAGS
+from ..common_imports import tagged, TOUR_TAGS
 from ..fixtures.base import TourTestCase
 
 
@@ -7,18 +7,14 @@ def unit_test_error_checker(message: str) -> bool:
     return "[HOOT]" not in message
 
 
-@tagged(*INTEGRATION_TAGS)
+@tagged(*TOUR_TAGS)
 class ProductConnectJSTests(TourTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.env.cr.commit()
 
     def _get_test_login(self) -> str:
-        try:
-            return self.test_user.login
-        except (AttributeError, Exception):
-            return "admin"
+        return getattr(self, "test_user", None) and self.test_user.login or "tour_test_user"
 
     def test_hoot_desktop(self) -> None:
         self.browser_js(

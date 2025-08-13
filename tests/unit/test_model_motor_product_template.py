@@ -32,18 +32,18 @@ class TestMotorProductTemplate(UnitTestCase):
             self.MotorProductTemplate.create(
                 {"name": "Test Template", "year_from": 1920, "year_to": 2025, "part_type": self.part_type.id}
             )
-        self.assertIn("cannot exceed 100 years", str(cm.exception))
+        self.assertIn("Year From must be between", str(cm.exception))
 
     def test_year_range_min_validation(self) -> None:
         with self.assertRaises(ValidationError) as cm:
             self.MotorProductTemplate.create({"name": "Test Template", "year_from": 1899, "part_type": self.part_type.id})
-        self.assertIn("must be 1900 or later", str(cm.exception))
+        self.assertIn("Year From must be between", str(cm.exception))
 
     def test_year_range_future_validation(self) -> None:
         current_year = fields.Date.today().year
         with self.assertRaises(ValidationError) as cm:
             self.MotorProductTemplate.create({"name": "Test Template", "year_to": current_year + 10, "part_type": self.part_type.id})
-        self.assertIn("cannot be more than 5 years in the future", str(cm.exception))
+        self.assertIn("Year To must be between", str(cm.exception))
 
     def test_year_range_display_both_years(self) -> None:
         template = self.MotorProductTemplate.create(

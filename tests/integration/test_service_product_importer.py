@@ -784,19 +784,22 @@ class TestProductImporter(IntegrationTestCase):
                 self.importer.import_products_since_last_import()
 
     def test_import_product_inactive_then_active(self) -> None:
-        existing_product = ProductFactory.create(
+        sku = self._get_unique_sku()
+        existing_template = ProductFactory.create(
             self.env,
             name="Inactive Product",
-            default_code=self._get_unique_sku(),
+            default_code=sku,
             shopify_product_id="333",
             active=False,
-        ).product_variant_id
+            is_published=False,  # Initially not published
+        )
+        existing_product = existing_template.product_variant_id
 
         product_data = create_shopify_product_response(
             gid="gid://shopify/Product/333",
             status=ProductStatus.ACTIVE,
             variants=[
-                create_shopify_product_variant(sku=existing_product.default_code),
+                create_shopify_product_variant(sku=sku),
             ],
         )
 
@@ -805,8 +808,11 @@ class TestProductImporter(IntegrationTestCase):
 
             self.importer.import_products_since_last_import()
 
+        existing_template.invalidate_recordset()
         existing_product.invalidate_recordset()
-        self.assertTrue(existing_product.is_published)
+
+        self.assertTrue(existing_template.active, "Product template should be activated")
+        self.assertTrue(existing_template.is_published, "Product should be published after import")
 
     def test_import_product_with_null_inventory_fields(self) -> None:
         sku = generate_unique_sku()

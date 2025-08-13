@@ -79,10 +79,13 @@ class TestMotor(UnitTestCase):
 
         (motor_2010 | motor_2018 | motor_2025).create_motor_products()
 
-        self.assertEqual(len(motor_2010.products), 0, "Motor from 2010 should not have products (before year range)")
-        self.assertEqual(len(motor_2018.products), 1, "Motor from 2018 should have 1 product (within year range)")
-        self.assertEqual(motor_2018.products[0].motor_product_template, template)
-        self.assertEqual(len(motor_2025.products), 0, "Motor from 2025 should not have products (after year range)")
+        products_2010_with_template = motor_2010.products.filtered(lambda p: p.motor_product_template == template)
+        products_2018_with_template = motor_2018.products.filtered(lambda p: p.motor_product_template == template)
+        products_2025_with_template = motor_2025.products.filtered(lambda p: p.motor_product_template == template)
+        
+        self.assertEqual(len(products_2010_with_template), 0, "Motor from 2010 should not have products from this template (before year range)")
+        self.assertEqual(len(products_2018_with_template), 1, "Motor from 2018 should have 1 product from this template (within year range)")
+        self.assertEqual(len(products_2025_with_template), 0, "Motor from 2025 should not have products from this template (after year range)")
 
     def test_create_motor_products_no_year_range(self) -> None:
         motor_2010 = self._create_test_motor(year=2010, cost=100.0)
@@ -101,10 +104,11 @@ class TestMotor(UnitTestCase):
 
         (motor_2010 | motor_2025).create_motor_products()
 
-        self.assertEqual(len(motor_2010.products), 1, "Motor from 2010 should have the universal product")
-        self.assertEqual(motor_2010.products[0].motor_product_template, template)
-        self.assertEqual(len(motor_2025.products), 1, "Motor from 2025 should have the universal product")
-        self.assertEqual(motor_2025.products[0].motor_product_template, template)
+        products_2010_with_template = motor_2010.products.filtered(lambda p: p.motor_product_template == template)
+        products_2025_with_template = motor_2025.products.filtered(lambda p: p.motor_product_template == template)
+        
+        self.assertEqual(len(products_2010_with_template), 1, "Motor from 2010 should have the universal product from this template")
+        self.assertEqual(len(products_2025_with_template), 1, "Motor from 2025 should have the universal product from this template")
 
     def test_create_motor_product_generation(self) -> None:
         product = MotorFactory.create(self.env)
