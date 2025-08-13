@@ -481,12 +481,13 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
             self.assertTrue(len(minimal_product_query) < len(full_product_query))
 
     def test_graphql_connection_types(self) -> None:
+        # noinspection SpellCheckingInspection
         connection_response = {
             "data": {
                 "orders": {
                     "edges": [
                         {
-                            "cursor": "eyJsYXN0X2lkIjoxMjM0NTY3ODk=",  # noinspection SpellCheckingInspection
+                            "cursor": "eyJsYXN0X2lkIjoxMjM0NTY3ODk=",
                             "node": {
                                 "id": "gid://shopify/Order/123",
                                 "name": "#1001",
@@ -497,8 +498,8 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
                     "pageInfo": {
                         "hasNextPage": True,
                         "hasPreviousPage": False,
-                        "startCursor": "eyJsYXN0X2lkIjoxMjM0NTY3ODk=",  # noinspection SpellCheckingInspection
-                        "endCursor": "eyJsYXN0X2lkIjoxMjM0NTY3ODk=",  # noinspection SpellCheckingInspection
+                        "startCursor": "eyJsYXN0X2lkIjoxMjM0NTY3ODk=",
+                        "endCursor": "eyJsYXN0X2lkIjoxMjM0NTY3ODk=",
                     },
                 }
             }
