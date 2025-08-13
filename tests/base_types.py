@@ -2,17 +2,7 @@ from datetime import datetime
 from typing import Any, Union
 from unittest.mock import MagicMock, Mock
 
-OdooValue = Union[
-    str,
-    int,
-    float,
-    bool,
-    None,
-    list,
-    tuple,
-    datetime,
-    bytes,
-]
+OdooValue = Union[str, int, float, bool, None, list, tuple, datetime, bytes]
 
 
 MockType = Union[MagicMock, Mock]
