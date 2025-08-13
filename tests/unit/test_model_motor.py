@@ -118,7 +118,7 @@ class TestMotor(UnitTestCase):
         custom_product = MotorFactory.create(self.env, motor_hp=150, motor_year=2023, motor_model="CUSTOM-MODEL")
         custom_motor = custom_product.motor
         self.assertEqual(custom_motor.horsepower, 150)
-        self.assertEqual(custom_motor.year, 2023)
+        self.assertEqual(custom_motor.year, "2023")
         self.assertEqual(custom_motor.model, "CUSTOM-MODEL")
 
     def test_motor_factory_creation(self) -> None:

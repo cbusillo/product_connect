@@ -1,5 +1,6 @@
 from ..common_imports import tagged, datetime, timedelta, INTEGRATION_TAGS
 from ..fixtures.base import IntegrationTestCase
+from ..fixtures.factories import PartnerFactory
 
 
 @tagged(*INTEGRATION_TAGS)
@@ -20,25 +21,22 @@ class TestShippingAnalytics(IntegrationTestCase):
 
     @classmethod
     def _create_test_data(cls) -> None:
-        cls.partner_shopify = cls.env["res.partner"].create(
-            {
-                "name": "Shopify Analytics Customer",
-                "email": "shopify.analytics@test.com",
-            }
+        cls.partner_shopify = PartnerFactory.create(
+            cls.env,
+            name="Shopify Analytics Customer",
+            email="shopify.analytics@test.com",
         )
 
-        cls.partner_ebay = cls.env["res.partner"].create(
-            {
-                "name": "eBay Analytics Customer",
-                "email": "ebay.analytics@test.com",
-            }
+        cls.partner_ebay = PartnerFactory.create(
+            cls.env,
+            name="eBay Analytics Customer",
+            email="ebay.analytics@test.com",
         )
 
-        cls.partner_manual = cls.env["res.partner"].create(
-            {
-                "name": "Manual Analytics Customer",
-                "email": "manual.analytics@test.com",
-            }
+        cls.partner_manual = PartnerFactory.create(
+            cls.env,
+            name="Manual Analytics Customer",
+            email="manual.analytics@test.com",
         )
 
         cls.product = cls.test_product

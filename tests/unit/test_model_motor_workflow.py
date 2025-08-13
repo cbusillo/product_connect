@@ -14,7 +14,7 @@ class TestMotorWorkflow(UnitTestCase):
 
         self.assertTrue(motor.exists())
         self.assertEqual(motor.horsepower, 200)
-        self.assertEqual(motor.year, 2024)
+        self.assertEqual(motor.year, "2024")
         self.assertEqual(motor.model, "TEST MODEL")
         self.assertTrue(motor.serial_number)
 

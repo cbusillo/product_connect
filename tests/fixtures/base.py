@@ -3,7 +3,17 @@ from typing import Iterator, Any
 
 from odoo.models import BaseModel
 from odoo.api import Environment
-from ..common_imports import TransactionCase, HttpCase, MagicMock, patch, DEFAULT_TEST_CONTEXT
+from ..common_imports import (
+    TransactionCase,
+    HttpCase,
+    MagicMock,
+    patch,
+    DEFAULT_TEST_CONTEXT,
+    tagged,
+    UNIT_TAGS,
+    INTEGRATION_TAGS,
+    TOUR_TAGS,
+)
 
 
 class _ShopifyMockMixin:
@@ -24,6 +34,7 @@ class _ShopifyMockMixin:
             self.shopify_service_patcher.stop()
 
 
+@tagged(*UNIT_TAGS)
 class UnitTestCase(_ShopifyMockMixin, TransactionCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -89,16 +100,18 @@ class _BaseDataMixin:
         cls.usa_country, cls.ny_state, cls.shopify_category = _get_or_create_geo_data(cls.env)
 
 
+@tagged(*INTEGRATION_TAGS)
 class IntegrationTestCase(_ShopifyMockMixin, _BaseDataMixin, TransactionCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.env = cls.env(user=cls.env.ref("base.user_admin"))
+        test_context = DEFAULT_TEST_CONTEXT.copy()
+        test_context["skip_shopify_sync"] = False
         cls.env = cls.env(
             context=dict(
                 cls.env.context,
-                **DEFAULT_TEST_CONTEXT,
-                skip_shopify_sync=False,
+                **test_context,
             )
         )
         cls._setup_test_data()
@@ -138,6 +151,7 @@ class IntegrationTestCase(_ShopifyMockMixin, _BaseDataMixin, TransactionCase):
         super().tearDown()
 
 
+@tagged(*TOUR_TAGS)
 class TourTestCase(HttpCase):
     def setUp(self) -> None:
         super().setUp()

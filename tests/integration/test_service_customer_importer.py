@@ -14,6 +14,7 @@ from ..fixtures.shopify_responses import (
     create_shopify_address_response,
 )
 from ..fixtures.base import IntegrationTestCase
+from ..fixtures.factories import ShopifySyncFactory, PartnerFactory
 
 _logger = logging.getLogger(__name__)
 
@@ -23,11 +24,7 @@ class TestCustomerImporter(IntegrationTestCase):
     def setUp(self) -> None:
         super().setUp()
         self._setup_shopify_mocks()  # Set up Shopify API mocks
-        self.sync_record = self.env["shopify.sync"].create(
-            {
-                "mode": "import_changed_customers",
-            }
-        )
+        self.sync_record = ShopifySyncFactory.create(self.env, mode="import_changed_customers")
         self.importer = CustomerImporter(self.env, self.sync_record)
 
         self.tax_exempt_fiscal_position = self.env["account.fiscal.position"].create({"name": "Tax Exempt", "auto_apply": False})
@@ -86,12 +83,10 @@ class TestCustomerImporter(IntegrationTestCase):
         self.assertEqual(partner.property_account_position_id.id, self.tax_exempt_fiscal_position.id)
 
     def test_import_customer_update_existing_by_email(self) -> None:
-        existing_partner = self.env["res.partner"].create(
-            {
-                "name": "Old Name",
-                "email": "existing@example.com",
-                "autopost_bills": "ask",
-            }
+        existing_partner = PartnerFactory.create(
+            self.env,
+            name="Old Name",
+            email="existing@example.com",
         )
 
         customer_data = create_shopify_customer_response(
@@ -108,12 +103,10 @@ class TestCustomerImporter(IntegrationTestCase):
         self.assertEqual(existing_partner.name, "Updated Name")
 
     def test_import_customer_update_existing_by_phone(self) -> None:
-        existing_partner = self.env["res.partner"].create(
-            {
-                "name": "Old Name",
-                "phone": "+12125550123",
-                "autopost_bills": "ask",
-            }
+        existing_partner = PartnerFactory.create(
+            self.env,
+            name="Old Name",
+            phone="+12125550123",
         )
 
         customer_data = create_shopify_customer_response(
@@ -265,16 +258,14 @@ class TestCustomerImporter(IntegrationTestCase):
         self.assertEqual(partner.name, "customer@example.com")
 
     def test_process_address_creates_child(self) -> None:
-        partner = self.env["res.partner"].create(
-            {
-                "name": "Main Partner",
-                "shopify_customer_id": "1111",
-                "street": "123 Main St",
-                "city": "New York",
-                "state_id": self.ny_state.id,
-                "country_id": self.usa_country.id,
-                "autopost_bills": "ask",
-            }
+        partner = PartnerFactory.create(
+            self.env,
+            name="Main Partner",
+            shopify_customer_id="1111",
+            street="123 Main St",
+            city="New York",
+            state_id=self.ny_state.id,
+            country_id=self.usa_country.id,
         )
 
         address_data = create_shopify_address_response(
@@ -298,12 +289,10 @@ class TestCustomerImporter(IntegrationTestCase):
         self.assertEqual(child_address.company_name, "Test Company")
 
     def test_process_address_updates_main(self) -> None:
-        partner = self.env["res.partner"].create(
-            {
-                "name": "Main Partner",
-                "shopify_customer_id": "2222",
-                "autopost_bills": "ask",
-            }
+        partner = PartnerFactory.create(
+            self.env,
+            name="Main Partner",
+            shopify_customer_id="2222",
         )
 
         address_data = create_shopify_address_response(
@@ -324,16 +313,14 @@ class TestCustomerImporter(IntegrationTestCase):
         self.assertEqual(partner.shopify_address_id, "3001")
 
     def test_process_address_duplicate_detection(self) -> None:
-        partner = self.env["res.partner"].create(
-            {
-                "name": "Main Partner",
-                "shopify_customer_id": "3333",
-                "autopost_bills": "ask",
-                "street": "123 Main St",
-                "city": "New York",
-                "state_id": self.ny_state.id,
-                "country_id": self.usa_country.id,
-            }
+        partner = PartnerFactory.create(
+            self.env,
+            name="Main Partner",
+            shopify_customer_id="3333",
+            street="123 Main St",
+            city="New York",
+            state_id=self.ny_state.id,
+            country_id=self.usa_country.id,
         )
 
         ma_state = self.env["res.country.state"].search([("code", "=", "MA"), ("country_id", "=", self.usa_country.id)], limit=1)
@@ -342,17 +329,15 @@ class TestCustomerImporter(IntegrationTestCase):
                 {"name": "Massachusetts", "code": "MA", "country_id": self.usa_country.id}
             )
 
-        existing_child = self.env["res.partner"].create(
-            {
-                "parent_id": partner.id,
-                "type": "delivery",
-                "street": "999 Existing St",
-                "city": "Boston",
-                "zip": "02101",
-                "state_id": ma_state.id,
-                "country_id": self.usa_country.id,
-                "autopost_bills": "ask",
-            }
+        existing_child = PartnerFactory.create(
+            self.env,
+            parent_id=partner.id,
+            type="delivery",
+            street="999 Existing St",
+            city="Boston",
+            zip="02101",
+            state_id=ma_state.id,
+            country_id=self.usa_country.id,
         )
 
         address_data = create_shopify_address_response(
@@ -377,13 +362,11 @@ class TestCustomerImporter(IntegrationTestCase):
         self.assertEqual(all_children[0].id, existing_child.id, "The same child should be updated")
 
     def test_import_customer_removes_tax_exempt_if_false(self) -> None:
-        partner = self.env["res.partner"].create(
-            {
-                "name": "Previously Tax Exempt",
-                "shopify_customer_id": "4444",
-                "property_account_position_id": self.tax_exempt_fiscal_position.id,
-                "autopost_bills": "ask",
-            }
+        partner = PartnerFactory.create(
+            self.env,
+            name="Previously Tax Exempt",
+            shopify_customer_id="4444",
+            property_account_position_id=self.tax_exempt_fiscal_position.id,
         )
 
         customer_data = create_shopify_customer_response(
@@ -401,14 +384,12 @@ class TestCustomerImporter(IntegrationTestCase):
         self.assertFalse(partner.property_account_position_id)
 
     def test_import_customer_removes_phone_blacklist_if_subscribed(self) -> None:
-        partner = self.env["res.partner"].create(
-            {
-                "name": "Previously Blacklisted",
-                "shopify_customer_id": "5555",
-                "phone_blacklisted": True,
-                "mobile_blacklisted": True,
-                "autopost_bills": "ask",
-            }
+        partner = PartnerFactory.create(
+            self.env,
+            name="Previously Blacklisted",
+            shopify_customer_id="5555",
+            phone_blacklisted=True,
+            mobile_blacklisted=True,
         )
 
         customer_data = create_shopify_customer_response(
@@ -430,13 +411,11 @@ class TestCustomerImporter(IntegrationTestCase):
         self.assertFalse(partner.mobile_blacklisted)
 
     def test_import_customer_removes_email_blacklist_if_subscribed(self) -> None:
-        partner = self.env["res.partner"].create(
-            {
-                "name": "Previously Email Blacklisted",
-                "shopify_customer_id": "5556",
-                "email": "previously.blacklisted@example.com",
-                "autopost_bills": "ask",
-            }
+        partner = PartnerFactory.create(
+            self.env,
+            name="Previously Email Blacklisted",
+            shopify_customer_id="5556",
+            email="previously.blacklisted@example.com",
         )
 
         self.env["mail.blacklist"].sudo().create({"email": partner.email_normalized})
@@ -505,23 +484,19 @@ class TestCustomerImporter(IntegrationTestCase):
             self.assertEqual(partner.name, f"Batch Customer{i + 1}")
 
     def test_process_address_with_different_role_creates_copy(self) -> None:
-        partner = self.env["res.partner"].create(
-            {
-                "name": "Main Partner",
-                "shopify_customer_id": "6666",
-                "autopost_bills": "ask",
-            }
+        partner = PartnerFactory.create(
+            self.env,
+            name="Main Partner",
+            shopify_customer_id="6666",
         )
 
-        self.env["res.partner"].create(
-            {
-                "parent_id": partner.id,
-                "type": "invoice",
-                "shopify_address_id": "5001",
-                "street": "123 Invoice St",
-                "city": "Dallas",
-                "autopost_bills": "ask",
-            }
+        PartnerFactory.create(
+            self.env,
+            parent_id=partner.id,
+            type="invoice",
+            shopify_address_id="5001",
+            street="123 Invoice St",
+            city="Dallas",
         )
 
         address_data = create_shopify_address_response(
@@ -704,13 +679,11 @@ class TestCustomerImporter(IntegrationTestCase):
         self.assertEqual(addresses[0].city, addresses[2].city)
 
     def test_import_customer_with_circular_references(self) -> None:
-        self.env["res.partner"].create(
-            {
-                "name": "Existing Partner",
-                "email": "circular@example.com",
-                "shopify_customer_id": "999",
-                "autopost_bills": "ask",
-            }
+        PartnerFactory.create(
+            self.env,
+            name="Existing Partner",
+            email="circular@example.com",
+            shopify_customer_id="999",
         )
 
         customer_data = create_shopify_customer_response(

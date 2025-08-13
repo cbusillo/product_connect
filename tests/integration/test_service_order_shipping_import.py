@@ -5,6 +5,7 @@ from ...services.shopify.sync.importers.order_importer import OrderImporter
 from ...services.shopify.sync.importers.customer_importer import CustomerImporter
 from ...services.shopify.helpers import ShopifyDataError
 from ..fixtures.base import IntegrationTestCase
+from ..fixtures.factories import ShopifySyncFactory, PartnerFactory
 from ..fixtures.shopify_responses import (
     create_shopify_order_response,
     create_shopify_customer_response,
@@ -25,19 +26,14 @@ class TestOrderShippingImport(IntegrationTestCase):
         self.company = self.env.company
         self.env = self.env(context=dict(self.env.context, skip_shopify_sync=True))
 
-        self.sync_record = self.env["shopify.sync"].create(
-            {
-                "mode": "import_changed_orders",
-            }
-        )
+        self.sync_record = ShopifySyncFactory.create(self.env, mode="import_changed_orders")
         self.importer = OrderImporter(self.env, self.sync_record)
 
-        self.customer_partner = self.env["res.partner"].create(
-            {
-                "name": "Test Customer",
-                "email": "test@example.com",
-                "shopify_customer_id": "123456789",  # This matches the default in create_shopify_customer_response
-            }
+        self.customer_partner = PartnerFactory.create(
+            self.env,
+            name="Test Customer",
+            email="test@example.com",
+            shopify_customer_id="123456789",  # This matches the default in create_shopify_customer_response
         )
 
         self.product = self.env["product.product"].create(

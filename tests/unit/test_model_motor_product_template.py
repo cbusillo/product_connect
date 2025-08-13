@@ -78,7 +78,6 @@ class TestMotorProductTemplate(UnitTestCase):
 
         motor_2010 = self.Motor.create(
             {
-                "motor_number": "M-000001",
                 "year": "2010",
                 "horsepower": 100,
                 "stroke": self.stroke.id,
@@ -91,7 +90,6 @@ class TestMotorProductTemplate(UnitTestCase):
 
         motor_2015 = self.Motor.create(
             {
-                "motor_number": "M-000002",
                 "year": "2015",
                 "horsepower": 100,
                 "stroke": self.stroke.id,
@@ -104,7 +102,6 @@ class TestMotorProductTemplate(UnitTestCase):
 
         motor_2018 = self.Motor.create(
             {
-                "motor_number": "M-000003",
                 "year": "2018",
                 "horsepower": 100,
                 "stroke": self.stroke.id,
@@ -117,7 +114,6 @@ class TestMotorProductTemplate(UnitTestCase):
 
         motor_2025 = self.Motor.create(
             {
-                "motor_number": "M-000004",
                 "year": "2025",
                 "horsepower": 100,
                 "stroke": self.stroke.id,
@@ -148,7 +144,6 @@ class TestMotorProductTemplate(UnitTestCase):
 
         motor_2010 = self.Motor.create(
             {
-                "motor_number": "M-000005",
                 "year": "2010",
                 "horsepower": 100,
                 "stroke": self.stroke.id,
@@ -161,7 +156,6 @@ class TestMotorProductTemplate(UnitTestCase):
 
         motor_2025 = self.Motor.create(
             {
-                "motor_number": "M-000006",
                 "year": "2025",
                 "horsepower": 100,
                 "stroke": self.stroke.id,

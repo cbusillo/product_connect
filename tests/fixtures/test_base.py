@@ -1,6 +1,14 @@
 import secrets
 
 from ..common_imports import TransactionCase, HttpCase, tagged, STANDARD_TAGS, UNIT_TAGS, TOUR_TAGS
+from .factories import (
+    ProductTagFactory,
+    CrmTagFactory,
+    PartnerFactory,
+    ProductFactory,
+    ProductImageFactory,
+    ResUsersFactory,
+)
 
 
 @tagged(*STANDARD_TAGS)
@@ -30,19 +38,17 @@ class ProductConnectTransactionCase(TransactionCase):
 
     @classmethod
     def _create_test_tags(cls) -> None:
-        cls.test_product_tag = cls.env["product.tag"].create(
-            {
-                "name": "Test Suite Data",
-                "sequence": 999,
-                "color": 10,
-            }
+        cls.test_product_tag = ProductTagFactory.create(
+            cls.env,
+            name="Test Suite Data",
+            sequence=999,
+            color=10,
         )
 
-        cls.test_order_tag = cls.env["crm.tag"].create(
-            {
-                "name": "Test Suite Data",
-                "color": 10,
-            }
+        cls.test_order_tag = CrmTagFactory.create(
+            cls.env,
+            name="Test Suite Data",
+            color=10,
         )
 
     @classmethod
@@ -167,109 +173,98 @@ class ProductConnectTransactionCase(TransactionCase):
         product = cls.env["product.template"].create(product_vals)
 
         if with_image:
-            # noinspection SpellCheckingInspection
-            cls.env["product.image"].create(
-                {
-                    "product_tmpl_id": product.id,
-                    "image_1920": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",  # noinspection SpellCheckingInspection
-                    "name": "test_image",
-                }
+            ProductImageFactory.create(
+                cls.env,
+                product_tmpl_id=product.id,
+                image_1920="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+                name="test_image",
             )
 
         return product
 
     @classmethod
     def _create_default_test_products(cls) -> None:
-        cls.test_partner = cls.env["res.partner"].create(
-            {
-                **cls._get_default_partner_vals(),
-                "name": "Test Customer",
-            }
+        cls.test_partner = PartnerFactory.create(
+            cls.env,
+            **cls._get_default_partner_vals(),
+            name="Test Customer",
         )
 
         cls.test_partners = []
         for i in range(3):
-            partner = cls.env["res.partner"].create(
-                {
-                    **cls._get_default_partner_vals(),
-                    "name": f"Test Customer {i + 1}",
-                    "email": f"test{i + 1}@example.com",
-                }
+            partner = PartnerFactory.create(
+                cls.env,
+                **cls._get_default_partner_vals(),
+                name=f"Test Customer {i + 1}",
+                email=f"test{i + 1}@example.com",
             )
             cls.test_partners.append(partner)
 
-        cls.test_product = cls.env["product.product"].create(
-            {
-                **cls._get_default_product_vals(),
-                "name": "Test Product",
-                "default_code": "10000001",
-            }
-        )
+        cls.test_product = ProductFactory.create(
+            cls.env,
+            **cls._get_default_product_vals(),
+            name="Test Product",
+            default_code="10000001",
+        ).product_variant_id
 
-        cls.test_service = cls.env["product.product"].create(
-            {
-                **cls._get_default_product_vals(),
-                "name": "Test Service",
-                "default_code": "90000001",
-                "type": "service",
-                "list_price": 50.0,
-            }
-        )
+        cls.test_service = ProductFactory.create(
+            cls.env,
+            **cls._get_default_product_vals(),
+            name="Test Service",
+            default_code="90000001",
+            type="service",
+            list_price=50.0,
+        ).product_variant_id
 
-        cls.test_product_ready = cls.env["product.product"].create(
-            {
-                **cls._get_default_product_vals(),
-                "name": "Test Product Ready",
-                "default_code": "20000001",
-                "list_price": 200.0,
-                "is_ready_for_sale": True,
-                "is_published": True,
-            }
-        )
+        cls.test_product_ready = ProductFactory.create(
+            cls.env,
+            **cls._get_default_product_vals(),
+            name="Test Product Ready",
+            default_code="20000001",
+            list_price=200.0,
+            is_ready_for_sale=True,
+            is_published=True,
+        ).product_variant_id
 
         cls.test_products = []
         for i in range(10):
             sku_number = 30000001 + i
-            product = cls.env["product.product"].create(
-                {
-                    **cls._get_default_product_vals(),
-                    "name": f"Test Product {i + 1}",
-                    "default_code": str(sku_number),
-                    "list_price": 50.0 + (i * 10),
-                }
-            )
+            product = ProductFactory.create(
+                cls.env,
+                **cls._get_default_product_vals(),
+                name=f"Test Product {i + 1}",
+                default_code=str(sku_number),
+                list_price=50.0 + (i * 10),
+            ).product_variant_id
             cls.test_products.append(product)
 
-        cls.test_product_not_for_sale = cls.env["product.product"].create(
-            {
-                **cls._get_default_product_vals(),
-                "name": "Test Product Not For Sale",
-                "default_code": "40000001",
-                "list_price": 150.0,
-                "sale_ok": False,
-            }
-        )
+        cls.test_product_not_for_sale = ProductFactory.create(
+            cls.env,
+            **cls._get_default_product_vals(),
+            name="Test Product Not For Sale",
+            default_code="40000001",
+            list_price=150.0,
+            sale_ok=False,
+        ).product_variant_id
 
-        cls.test_product_unpublished = cls.env["product.product"].create(
-            {
-                **cls._get_default_product_vals(),
-                "name": "Test Product Unpublished",
-                "default_code": "40000002",
-                "list_price": 175.0,
-                "is_published": False,
-                "is_ready_for_sale": True,
-            }
-        )
+        cls.test_product_unpublished = ProductFactory.create(
+            cls.env,
+            **cls._get_default_product_vals(),
+            name="Test Product Unpublished",
+            default_code="40000002",
+            list_price=175.0,
+            is_published=False,
+            is_ready_for_sale=True,
+        ).product_variant_id
 
-        cls.test_product_motor = cls.env["product.product"].create(
-            {
-                **cls._get_default_product_vals(),
-                "name": "Test Motor Product",
-                "default_code": "50000001",
-                "list_price": 500.0,
-                "source": "motor",
-            }
-        )
+        cls.test_product_motor = ProductFactory.create(
+            cls.env,
+            **cls._get_default_product_vals(),
+            name="Test Motor Product",
+            default_code="50000001",
+            list_price=500.0,
+            source="motor",
+        ).product_variant_id
 
 
 @tagged(*STANDARD_TAGS)
@@ -290,24 +285,23 @@ class ProductConnectHttpCase(HttpCase):
 
         secure_password = secrets.token_urlsafe(32)
 
-        cls.test_user = cls.env["res.users"].create(
-            {
-                "name": name,
-                "login": login,
-                "password": secure_password,
-                "groups_id": [
-                    (
-                        6,
-                        0,
-                        [
-                            cls.env.ref("base.group_user").id,
-                            cls.env.ref("base.group_system").id,
-                            cls.env.ref("base.group_partner_manager").id,
-                            cls.env.ref("base.group_erp_manager").id,
-                        ],
-                    )
-                ],
-            }
+        cls.test_user = ResUsersFactory.create(
+            cls.env,
+            name=name,
+            login=login,
+            password=secure_password,
+            groups_id=[
+                (
+                    6,
+                    0,
+                    [
+                        cls.env.ref("base.group_user").id,
+                        cls.env.ref("base.group_system").id,
+                        cls.env.ref("base.group_partner_manager").id,
+                        cls.env.ref("base.group_erp_manager").id,
+                    ],
+                )
+            ],
         )
 
         cls.test_user_password = secure_password
@@ -383,11 +377,10 @@ class ProductConnectUnitCase(TransactionCase):
             }
         )
 
-        cls.test_partner = cls.env["res.partner"].create(
-            {
-                "name": "Unit Test Partner",
-                "email": "unit@test.com",
-            }
+        cls.test_partner = PartnerFactory.create(
+            cls.env,
+            name="Unit Test Partner",
+            email="unit@test.com",
         )
 
         cls.test_service = cls.env["product.template"].create(
@@ -453,22 +446,21 @@ class ProductConnectTourCase(HttpCase):
 
         password = secrets.token_urlsafe(16)
 
-        cls.tour_user = cls.env["res.users"].create(
-            {
-                "name": "Tour Test User",
-                "login": login,
-                "password": password,
-                "groups_id": [
-                    (
-                        6,
-                        0,
-                        [
-                            cls.env.ref("base.group_user").id,
-                            cls.env.ref("base.group_system").id,
-                        ],
-                    )
-                ],
-            }
+        cls.tour_user = ResUsersFactory.create(
+            cls.env,
+            name="Tour Test User",
+            login=login,
+            password=password,
+            groups_id=[
+                (
+                    6,
+                    0,
+                    [
+                        cls.env.ref("base.group_user").id,
+                        cls.env.ref("base.group_system").id,
+                    ],
+                )
+            ],
         )
 
         cls.tour_user_password = password
@@ -488,11 +480,10 @@ class ProductConnectTourCase(HttpCase):
             }
         )
 
-        cls.test_partner = cls.env["res.partner"].create(
-            {
-                "name": "Tour Test Customer",
-                "email": "tour@test.com",
-            }
+        cls.test_partner = PartnerFactory.create(
+            cls.env,
+            name="Tour Test Customer",
+            email="tour@test.com",
         )
 
     def start_tour(self, url_path: str, tour_name: str, login: str | None = None, **kwargs: object) -> None:

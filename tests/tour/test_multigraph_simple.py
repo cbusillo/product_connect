@@ -1,5 +1,6 @@
 from ..common_imports import tagged, date, TOUR_TAGS
 from ..fixtures.base import TourTestCase
+from ..fixtures.factories import ProductFactory
 
 
 @tagged(*TOUR_TAGS)
@@ -8,23 +9,21 @@ class TestMultigraphSimple(TourTestCase):
     def setUpClass(cls) -> None:
         super().setUpClass()
 
-        cls.test_products = cls.env["product.template"].create(
-            [
-                {
-                    "name": f"Ready Product {i}",
-                    "default_code": f"{20000 + i}",  # Valid SKU
-                    "list_price": 150 * i,
-                    "standard_price": 90 * i,
-                    "type": "consu",
-                    "is_ready_for_sale": True,
-                    "is_ready_for_sale_last_enabled_date": date(2025, 1, i),
-                    "initial_quantity": 20 * i,
-                    "initial_price_total": 2000 * i,
-                    "initial_cost_total": 1200 * i,
-                }
-                for i in range(1, 6)
-            ]
-        )
+        cls.test_products = [
+            ProductFactory.create(
+                cls.env,
+                name=f"Ready Product {i}",
+                default_code=f"{20000 + i}",  # Valid SKU
+                list_price=150 * i,
+                standard_price=90 * i,
+                is_ready_for_sale=True,
+                is_ready_for_sale_last_enabled_date=date(2025, 1, i),
+                initial_quantity=20 * i,
+                initial_price_total=2000 * i,
+                initial_cost_total=1200 * i,
+            )
+            for i in range(1, 6)
+        ]
 
     def test_action_loads(self) -> None:
         action = self.env.ref("product_connect.action_product_processing_analytics")
@@ -87,21 +86,20 @@ class TestMultigraphSimple(TourTestCase):
         )
 
     def test_direct_graph_view(self) -> None:
-        self.env["product.template"].create(
-            [
-                {
-                    "name": f"Test Product {i}",
-                    "default_code": f"{1000 + i}",
-                    "list_price": 100 + i * 10,
-                    "is_ready_for_sale": True,
-                    "is_ready_for_sale_last_enabled_date": "2025-01-01",
-                    "initial_quantity": 10,
-                    "initial_price_total": 1000,
-                    "initial_cost_total": 500,
-                }
-                for i in range(3)
-            ]
-        )
+        [
+            ProductFactory.create(
+                self.env,
+                name=f"Test Product {i}",
+                default_code=f"{1000 + i}",
+                list_price=100 + i * 10,
+                is_ready_for_sale=True,
+                is_ready_for_sale_last_enabled_date="2025-01-01",
+                initial_quantity=10,
+                initial_price_total=1000,
+                initial_cost_total=500,
+            )
+            for i in range(3)
+        ]
         action_id = self.env.ref("product_connect.action_product_processing_analytics").id
         self.browser_js(
             f"/odoo/action-{action_id}",

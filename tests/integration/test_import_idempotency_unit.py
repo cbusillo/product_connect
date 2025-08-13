@@ -1,5 +1,6 @@
 from ..common_imports import tagged, INTEGRATION_TAGS
 from ..fixtures.base import IntegrationTestCase
+from ..fixtures.factories import ProductFactory, ShopifySyncFactory
 from ..fixtures.shopify_responses import (
     create_shopify_order_response,
     create_shopify_customer_response,
@@ -21,19 +22,13 @@ class TestImportIdempotencyUnit(IntegrationTestCase):
         self._setup_import_idempotency_test()
 
     def _setup_import_idempotency_test(self) -> None:
-        self.test_product = self.env["product.product"].create(
-            {
-                "name": "Test Product",
-                "default_code": "80000001",
-                "list_price": 100.0,
-                "standard_price": 50.0,
-            }
-        )
-        self.sync_record = self.env["shopify.sync"].create(
-            {
-                "mode": "import_changed_orders",
-            }
-        )
+        self.test_product = ProductFactory.create(
+            self.env,
+            default_code="80000001",
+            list_price=100.0,
+            standard_price=50.0,
+        ).product_variant_id
+        self.sync_record = ShopifySyncFactory.create(self.env, mode="import_changed_orders")
 
     def test_order_import_creates_new_order(self) -> None:
         importer = OrderImporter(self.env, self.sync_record)

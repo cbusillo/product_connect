@@ -11,6 +11,7 @@ from ...services.shopify.gql.input_types import ProductSetInput, ProductSetIdent
 from ...services.shopify.service import ShopifyService
 from ...services.shopify.helpers import ShopifyApiError
 from ..fixtures.base import IntegrationTestCase
+from ..fixtures.factories import ShopifySyncFactory
 
 
 class ThrottleStatus(TypedDict):
@@ -39,11 +40,7 @@ class TestGraphQLClientIntegration(IntegrationTestCase):
     def setUp(self) -> None:
         super().setUp()
         self._setup_shopify_mocks()
-        self.sync_record = self.env["shopify.sync"].create(
-            {
-                "mode": "import_changed_products",
-            }
-        )
+        self.sync_record = ShopifySyncFactory.create(self.env, mode="import_changed_products")
         self.service = ShopifyService(self.env, self.sync_record)
 
         config = self.env["ir.config_parameter"].sudo()

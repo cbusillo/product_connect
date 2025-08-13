@@ -109,13 +109,11 @@ class TestProductTemplate(UnitTestCase):
         product.unlink()
 
     def test_is_scrap_field_default_value(self) -> None:
-        unique_sku = f"{secrets.randbelow(90000000) + 10000000}"
-        product = self.env["product.template"].create({"name": "Test Scrap Product", "default_code": unique_sku, "type": "consu"})
+        product = ProductFactory.create(self.env, name="Test Scrap Product", type="consu")
         self.assertFalse(product.is_scrap, "is_scrap should default to False")
 
     def test_is_scrap_field_can_be_set(self) -> None:
-        unique_sku = f"{secrets.randbelow(90000000) + 10000000}"
-        product = self.env["product.template"].create({"name": "Test Scrap Product", "default_code": unique_sku, "type": "consu"})
+        product = ProductFactory.create(self.env, name="Test Scrap Product", type="consu")
         product.is_scrap = True
         self.assertTrue(product.is_scrap, "is_scrap should be True after setting")
 
@@ -139,13 +137,11 @@ class TestProductTemplate(UnitTestCase):
             self.skipTest("is_scrap field not available in current model")
 
     def test_name_field_validation(self) -> None:
-        unique_sku = f"99{secrets.randbelow(999999):06d}"
-        product = self.env["product.template"].create({"name": "", "default_code": unique_sku, "type": "consu"})
+        product = ProductFactory.create(self.env, name="", type="consu")
         self.assertEqual(product.name, "", "Empty string name should be allowed")
         product.unlink()
 
-        valid_sku = f"88{secrets.randbelow(999999):06d}"
-        product = self.env["product.template"].create({"name": "Test Product Name", "default_code": valid_sku, "type": "consu"})
+        product = ProductFactory.create(self.env, name="Test Product Name", type="consu")
         self.assertEqual(product.name, "Test Product Name")
 
         product.name = "Updated Product Name"

@@ -14,6 +14,7 @@ from ..fixtures.shopify_responses import (
 )
 from ..fixtures.test_service_utils import create_mock_simple_response
 from ..fixtures.base import IntegrationTestCase
+from ..fixtures.factories import ProductFactory, ShopifySyncFactory
 
 
 @tagged(*INTEGRATION_TAGS)
@@ -102,11 +103,7 @@ class TestProductImporter(IntegrationTestCase):
 
         self.env["ir.config_parameter"].set_param("shopify.last_import.product", "2000-01-01T00:00:00Z")
 
-        self.sync_record = self.env["shopify.sync"].create(
-            {
-                "mode": "import_changed_products",
-            }
-        )
+        self.sync_record = ShopifySyncFactory.create(self.env, mode="import_changed_products")
         self.importer = ProductImporter(self.env, self.sync_record)
 
         self.manufacturer = self.env["product.manufacturer"].search([("name", "=", "Test Manufacturer")])
@@ -296,14 +293,12 @@ class TestProductImporter(IntegrationTestCase):
         self.assertTrue(reimport_sync)
 
     def test_import_product_with_failed_images(self) -> None:
-        existing_product = self.env["product.product"].create(
-            {
-                "name": "Existing Product",
-                "default_code": self._get_unique_sku(),
-                "shopify_product_id": "888",
-                "type": "consu",
-            }
-        )
+        existing_product = ProductFactory.create(
+            self.env,
+            name="Existing Product",
+            default_code=self._get_unique_sku(),
+            shopify_product_id="888",
+        ).product_variant_id
 
         product_data = create_shopify_product_response(
             gid="gid://shopify/Product/888",
@@ -348,15 +343,13 @@ class TestProductImporter(IntegrationTestCase):
             self.assertIn("No variants found", str(cm.exception))
 
     def test_update_existing_product(self) -> None:
-        existing_product = self.env["product.product"].create(
-            {
-                "name": "Old Name",
-                "default_code": self._get_unique_sku(),
-                "shopify_product_id": "777",
-                "list_price": 50.00,
-                "type": "consu",
-            }
-        )
+        existing_product = ProductFactory.create(
+            self.env,
+            name="Old Name",
+            default_code=self._get_unique_sku(),
+            shopify_product_id="777",
+            list_price=50.00,
+        ).product_variant_id
 
         with patch(
             "odoo.addons.product_connect.services.shopify.sync.importers.product_importer.determine_latest_odoo_product_modification_time"
@@ -386,13 +379,11 @@ class TestProductImporter(IntegrationTestCase):
 
     def test_skip_up_to_date_product(self) -> None:
         sku = generate_unique_sku()
-        self.env["product.product"].create(
-            {
-                "name": "Current Product",
-                "default_code": sku,
-                "shopify_product_id": "666",
-                "type": "consu",
-            }
+        ProductFactory.create(
+            self.env,
+            name="Current Product",
+            default_code=sku,
+            shopify_product_id="666",
         )
 
         product_data = create_shopify_product_response(
@@ -537,14 +528,12 @@ class TestProductImporter(IntegrationTestCase):
 
     def test_images_already_in_sync(self) -> None:
         sku = generate_unique_sku()
-        existing_product = self.env["product.product"].create(
-            {
-                "name": "Product with Images",
-                "default_code": sku,
-                "shopify_product_id": "555",
-                "type": "consu",
-            }
-        )
+        existing_product = ProductFactory.create(
+            self.env,
+            name="Product with Images",
+            default_code=sku,
+            shopify_product_id="555",
+        ).product_variant_id
 
         self.env["product.image"].create(
             {
@@ -696,23 +685,19 @@ class TestProductImporter(IntegrationTestCase):
         self.assertTrue(product.bin)
 
     def test_import_product_with_conflicting_sku_and_id(self) -> None:
-        self.env["product.product"].create(
-            {
-                "name": "Product 1",
-                "default_code": self._get_unique_sku(),
-                "shopify_product_id": "111",
-                "type": "consu",
-            }
+        ProductFactory.create(
+            self.env,
+            name="Product 1",
+            default_code=self._get_unique_sku(),
+            shopify_product_id="111",
         )
 
-        product2 = self.env["product.product"].create(
-            {
-                "name": "Product 2",
-                "default_code": self._get_unique_sku(),
-                "shopify_product_id": "222",
-                "type": "consu",
-            }
-        )
+        product2 = ProductFactory.create(
+            self.env,
+            name="Product 2",
+            default_code=self._get_unique_sku(),
+            shopify_product_id="222",
+        ).product_variant_id
 
         product_data = create_shopify_product_response(
             gid="gid://shopify/Product/222",
@@ -799,15 +784,13 @@ class TestProductImporter(IntegrationTestCase):
                 self.importer.import_products_since_last_import()
 
     def test_import_product_inactive_then_active(self) -> None:
-        existing_product = self.env["product.product"].create(
-            {
-                "name": "Inactive Product",
-                "default_code": self._get_unique_sku(),
-                "shopify_product_id": "333",
-                "type": "consu",
-                "active": False,
-            }
-        )
+        existing_product = ProductFactory.create(
+            self.env,
+            name="Inactive Product",
+            default_code=self._get_unique_sku(),
+            shopify_product_id="333",
+            active=False,
+        ).product_variant_id
 
         product_data = create_shopify_product_response(
             gid="gid://shopify/Product/333",
@@ -846,14 +829,12 @@ class TestProductImporter(IntegrationTestCase):
 
     def test_import_product_with_reordered_images(self) -> None:
         sku = generate_unique_sku()
-        existing_product = self.env["product.product"].create(
-            {
-                "name": "Product with Images",
-                "default_code": sku,
-                "shopify_product_id": "444",
-                "type": "consu",
-            }
-        )
+        existing_product = ProductFactory.create(
+            self.env,
+            name="Product with Images",
+            default_code=sku,
+            shopify_product_id="444",
+        ).product_variant_id
 
         self.env["product.image"].create(
             {

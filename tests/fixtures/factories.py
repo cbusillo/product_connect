@@ -334,3 +334,218 @@ class SaleOrderFactory:
         defaults.update(kwargs)
 
         return SaleOrderFactory.create(env, **defaults)
+
+
+class ShopifySyncFactory:
+    @staticmethod
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.shopify_sync":
+        defaults = {
+            "mode": kwargs.get("mode", "import_changed_products"),
+            "start_time": datetime.now(),
+        }
+        defaults.update(kwargs)
+        return env["shopify.sync"].create(defaults)
+
+
+class ProductManufacturerFactory:
+    @staticmethod
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.product_manufacturer":
+        defaults = {
+            "name": generate_unique_name("Test Manufacturer"),
+            "is_motor_manufacturer": kwargs.get("is_motor_manufacturer", False),
+        }
+        defaults.update(kwargs)
+        return env["product.manufacturer"].create(defaults)
+
+
+class ProductConditionFactory:
+    @staticmethod
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.product_condition":
+        defaults = {
+            "name": kwargs.get("name", generate_unique_name("Test Condition")),
+            "sequence": kwargs.get("sequence", 10),
+        }
+        defaults.update(kwargs)
+        return env["product.condition"].create(defaults)
+
+
+class MotorStrokeFactory:
+    @staticmethod
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.motor_stroke":
+        defaults = {
+            "name": kwargs.get("name", "4-Stroke"),
+            "code": kwargs.get("code", "4"),
+        }
+        defaults.update(kwargs)
+        return env["motor.stroke"].sudo().create(defaults)
+
+
+class MotorConfigurationFactory:
+    @staticmethod
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.motor_configuration":
+        defaults = {
+            "name": kwargs.get("name", "V6"),
+            "code": kwargs.get("code", "V6"),
+        }
+        defaults.update(kwargs)
+        return env["motor.configuration"].sudo().create(defaults)
+
+
+class DeliveryCarrierFactory:
+    @staticmethod
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.delivery_carrier":
+        defaults = {
+            "name": kwargs.get("name", generate_unique_name("Test Carrier")),
+            "delivery_type": kwargs.get("delivery_type", "fixed"),
+            "product_id": kwargs.get("product_id") or env.ref("delivery.product_product_delivery").id,
+            "fixed_price": kwargs.get("fixed_price", 10.0),
+        }
+        defaults.update(kwargs)
+        return env["delivery.carrier"].create(defaults)
+
+
+class ProductTagFactory:
+    @staticmethod
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.product_tag":
+        defaults = {
+            "name": generate_unique_name("Test Tag"),
+            "sequence": kwargs.get("sequence", 10),
+            "color": kwargs.get("color", random.randint(1, 11)),
+        }
+        defaults.update(kwargs)
+        return env["product.tag"].create(defaults)
+
+
+class CrmTagFactory:
+    @staticmethod
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.crm_tag":
+        defaults = {
+            "name": generate_unique_name("Test CRM Tag"),
+            "color": kwargs.get("color", random.randint(1, 11)),
+        }
+        defaults.update(kwargs)
+        return env["crm.tag"].create(defaults)
+
+
+class ProductImageFactory:
+    @staticmethod
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.product_image":
+        defaults = {
+            "name": kwargs.get("name", "test_image"),
+            "image_1920": kwargs.get(
+                "image_1920", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+            ),
+        }
+        if "product_tmpl_id" not in kwargs and "product_tmpl_id" not in defaults:
+            product = ProductFactory.create(env)
+            defaults["product_tmpl_id"] = product.id
+        defaults.update(kwargs)
+        return env["product.image"].create(defaults)
+
+
+class SaleOrderLineFactory:
+    @staticmethod
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.sale_order_line":
+        order_id = kwargs.get("order_id")
+        if not order_id:
+            order = SaleOrderFactory.create(env)
+            order_id = order.id
+
+        product_id = kwargs.get("product_id")
+        if not product_id:
+            product = ProductFactory.create(env)
+            product_id = product.product_variant_id.id
+
+        defaults = {
+            "order_id": order_id,
+            "product_id": product_id,
+            "product_uom_qty": kwargs.get("product_uom_qty", random.randint(1, 10)),
+            "price_unit": kwargs.get("price_unit", 100.0),
+        }
+        defaults.update(kwargs)
+        return env["sale.order.line"].create(defaults)
+
+
+class ProductTypeFactory:
+    @staticmethod
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.product_type":
+        defaults = {
+            "name": generate_unique_name("Test Product Type"),
+            "sequence": kwargs.get("sequence", 10),
+        }
+        defaults.update(kwargs)
+        return env["product.type"].create(defaults)
+
+
+class ProductAttributeFactory:
+    @staticmethod
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.product_attribute":
+        defaults = {
+            "name": generate_unique_name("Test Attribute"),
+            "create_variant": kwargs.get("create_variant", "always"),
+            "display_type": kwargs.get("display_type", "radio"),
+            "sequence": kwargs.get("sequence", 10),
+        }
+        defaults.update(kwargs)
+        return env["product.attribute"].create(defaults)
+
+    @staticmethod
+    def create_with_values(
+        env: Environment, value_count: int = 3, **kwargs: OdooValue
+    ) -> tuple["odoo.model.product_attribute", list["odoo.model.product_attribute_value"]]:
+        attribute = ProductAttributeFactory.create(env, **kwargs)
+
+        values = []
+        for i in range(value_count):
+            value = env["product.attribute.value"].create(
+                {
+                    "name": f"Value {i + 1}",
+                    "attribute_id": attribute.id,
+                    "sequence": 10 + i,
+                }
+            )
+            values.append(value)
+
+        return attribute, values
+
+
+class ResUsersFactory:
+    @staticmethod
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.res_users":
+        import secrets
+
+        timestamp = datetime.now().timestamp()
+        defaults = {
+            "name": generate_unique_name("Test User"),
+            "login": f"test_user_{timestamp}_{secrets.token_hex(4)}",
+            "password": secrets.token_urlsafe(32),
+            "email": f"test_{timestamp}@example.com",
+            "groups_id": [(6, 0, [env.ref("base.group_user").id])],
+        }
+        defaults.update(kwargs)
+        return env["res.users"].create(defaults)
+
+
+class CurrencyFactory:
+    @staticmethod
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.res_currency":
+        defaults = {
+            "name": kwargs.get("name", f"TST{random.randint(100, 999)}"),
+            "symbol": kwargs.get("symbol", "$"),
+            "rate": kwargs.get("rate", 1.0),
+            "position": kwargs.get("position", "before"),
+            "rounding": kwargs.get("rounding", 0.01),
+        }
+        defaults.update(kwargs)
+        return env["res.currency"].create(defaults)
+
+
+class FiscalPositionFactory:
+    @staticmethod
+    def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.account_fiscal_position":
+        defaults = {
+            "name": generate_unique_name("Test Fiscal Position"),
+            "sequence": kwargs.get("sequence", 10),
+        }
+        defaults.update(kwargs)
+        return env["account.fiscal.position"].create(defaults)

@@ -29,6 +29,7 @@ from ..fixtures.shopify_responses import (
     create_money_bag,
 )
 from ..fixtures.base import IntegrationTestCase
+from ..fixtures.factories import ShopifySyncFactory, PartnerFactory
 
 _logger = logging.getLogger(__name__)
 
@@ -38,11 +39,7 @@ class TestOrderImporter(IntegrationTestCase):
     def setUp(self) -> None:
         super().setUp()
         self._setup_shopify_mocks()  # Set up Shopify API mocks
-        self.sync_record = self.env["shopify.sync"].create(
-            {
-                "mode": "import_changed_orders",
-            }
-        )
+        self.sync_record = ShopifySyncFactory.create(self.env, mode="import_changed_orders")
         self.importer = OrderImporter(self.env, self.sync_record)
 
         self.usd_currency = self.env["res.currency"].search([("name", "=", "USD")], limit=1)
@@ -75,13 +72,11 @@ class TestOrderImporter(IntegrationTestCase):
             }
         )
 
-        self.customer_partner = self.env["res.partner"].create(
-            {
-                "name": "Test Customer",
-                "email": "test@example.com",
-                "shopify_customer_id": "123456789",
-                "autopost_bills": "ask",
-            }
+        self.customer_partner = PartnerFactory.create(
+            self.env,
+            name="Test Customer",
+            email="test@example.com",
+            shopify_customer_id="123456789",
         )
 
         self.ups_carrier = self.env["delivery.carrier"].create(

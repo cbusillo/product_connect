@@ -1,5 +1,6 @@
 from ..common_imports import tagged, UNIT_TAGS
 from ..fixtures.base import UnitTestCase
+from ..fixtures.factories import ProductFactory
 
 
 @tagged(*UNIT_TAGS)
@@ -11,32 +12,28 @@ class TestMultigraphPython(UnitTestCase):
         cls.products_with_metrics = []
 
         for i in range(3):
-            product = cls.env["product.template"].create(
-                {
-                    "name": f"January Product {i + 1}",
-                    "default_code": f"6000000{i + 1}",
-                    "type": "consu",
-                    "list_price": 100.0 + (i * 10),
-                    "standard_price": 60.0 + (i * 5),
-                    "initial_quantity": 100 + (i * 10),
-                    "is_ready_for_sale": True,
-                    "is_ready_for_sale_last_enabled_date": f"2024-01-{15 + i}",
-                }
+            product = ProductFactory.create(
+                cls.env,
+                name=f"January Product {i + 1}",
+                default_code=f"6000000{i + 1}",
+                list_price=100.0 + (i * 10),
+                standard_price=60.0 + (i * 5),
+                initial_quantity=100 + (i * 10),
+                is_ready_for_sale=True,
+                is_ready_for_sale_last_enabled_date=f"2024-01-{15 + i}",
             )
             cls.products_with_metrics.append(product)
 
         for i in range(3):
-            product = cls.env["product.template"].create(
-                {
-                    "name": f"February Product {i + 1}",
-                    "default_code": f"6000001{i + 1}",
-                    "type": "consu",
-                    "list_price": 100.0 + (i * 10),
-                    "standard_price": 60.0 + (i * 5),
-                    "initial_quantity": 150 + (i * 15),
-                    "is_ready_for_sale": True,
-                    "is_ready_for_sale_last_enabled_date": f"2024-02-{10 + i}",
-                }
+            product = ProductFactory.create(
+                cls.env,
+                name=f"February Product {i + 1}",
+                default_code=f"6000001{i + 1}",
+                list_price=100.0 + (i * 10),
+                standard_price=60.0 + (i * 5),
+                initial_quantity=150 + (i * 15),
+                is_ready_for_sale=True,
+                is_ready_for_sale_last_enabled_date=f"2024-02-{10 + i}",
             )
             cls.products_with_metrics.append(product)
 
@@ -133,17 +130,15 @@ class TestMultigraphPython(UnitTestCase):
         self.assertEqual(len(result), 0, "Should return empty result for no data")
 
     def test_multigraph_null_values(self) -> None:
-        product_null = self.env["product.template"].create(
-            {
-                "name": "Product with Null Metrics",
-                "default_code": "70000001",
-                "type": "consu",
-                "initial_price_total": 0.0,
-                "initial_cost_total": 0.0,
-                "initial_quantity": 0,
-                "is_ready_for_sale": True,
-                "is_ready_for_sale_last_enabled_date": "2024-03-01",
-            }
+        product_null = ProductFactory.create(
+            self.env,
+            name="Product with Null Metrics",
+            default_code="70000001",
+            initial_price_total=0.0,
+            initial_cost_total=0.0,
+            initial_quantity=0,
+            is_ready_for_sale=True,
+            is_ready_for_sale_last_enabled_date="2024-03-01",
         )
 
         result = self.env["product.template"].read_group(

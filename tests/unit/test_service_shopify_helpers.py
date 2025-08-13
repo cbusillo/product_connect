@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 from ..common_imports import datetime, patch, MagicMock, UserError, tagged, UNIT_TAGS
 from ..fixtures.base import UnitTestCase
+from ..fixtures.factories import ProductFactory, PartnerFactory
 from ...services.shopify import helpers
 from ...services.shopify.gql.base_model import BaseModel
 
@@ -11,19 +12,11 @@ class TestShopifyHelpers(UnitTestCase):
     def setUp(self) -> None:
         super().setUp()
         self.env = self.env(context=dict(self.env.context, skip_shopify_sync=True))
-        self.test_partner = self.env["res.partner"].create(
-            {
-                "name": "Test Partner",
-                "autopost_bills": "ask",
-            }
+        self.test_partner = PartnerFactory.create(
+            self.env,
+            name="Test Partner",
         )
-        self.test_product = self.env["product.product"].create(
-            {
-                "name": "Test Product",
-                "list_price": 100.0,
-                "standard_price": 50.0,
-            }
-        )
+        self.test_product = ProductFactory.create(self.env)
 
     def test_normalise_values(self) -> None:
         cases: list[tuple[str, Callable[[str], str], str]] = [
@@ -145,7 +138,7 @@ class TestShopifyHelpers(UnitTestCase):
             self.assertEqual(partner.name, "new")
 
     def test_write_if_changed_float(self) -> None:
-        product = self.env["product.product"].create({"name": "Test", "list_price": 1.23})
+        product = ProductFactory.create(self.env, list_price=1.23)
 
         with patch.object(self.env["product.product"].__class__, "write", wraps=product.write) as mock_write:
             self.assertFalse(helpers.write_if_changed(product, {"list_price": 1.23}))
@@ -247,12 +240,11 @@ class TestShopifyHelpers(UnitTestCase):
         self.assertEqual(helpers.parse_shopify_sku_field_to_sku_and_bin("SKU1 Bin"), ("SKU1", "Bin"))
 
     def test_determine_latest_modification_none(self) -> None:
-        product = self.env["product.product"].create(
-            {
-                "name": "Test Product No Date",
-                "list_price": 10.0,
-                "standard_price": 5.0,
-            }
+        product = ProductFactory.create(
+            self.env,
+            name="Test Product No Date",
+            list_price=10.0,
+            standard_price=5.0,
         )
         self.env.cr.execute("UPDATE product_product SET write_date = NULL WHERE id = %s", (product.id,))
         self.env.cr.execute("UPDATE product_template SET write_date = NULL WHERE id = %s", (product.product_tmpl_id.id,))
@@ -293,11 +285,9 @@ class TestShopifyHelpers(UnitTestCase):
             }
         )
 
-        new_partner = self.env["res.partner"].create(
-            {
-                "name": "New Partner",
-                "autopost_bills": "ask",
-            }
+        new_partner = PartnerFactory.create(
+            self.env,
+            name="New Partner",
         )
 
         with patch.object(self.env["sale.order"].__class__, "write", wraps=sale_order.write) as mock_write:
@@ -313,12 +303,10 @@ class TestShopifyHelpers(UnitTestCase):
             self.assertEqual(sale_order.partner_id.id, new_partner.id)
 
     def test_write_if_changed_with_float_field(self) -> None:
-        product = self.env["product.product"].create(
-            {
-                "name": "Test Product",
-                "list_price": 100.0,
-                "standard_price": 50.0,
-            }
+        product = ProductFactory.create(
+            self.env,
+            list_price=100.0,
+            standard_price=50.0,
         )
 
         with patch.object(self.env["product.product"].__class__, "write", wraps=product.write) as mock_write:

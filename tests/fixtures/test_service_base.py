@@ -1,7 +1,9 @@
 from .test_base import ProductConnectTransactionCase
 from .base import _BaseDataMixin, _ShopifyMockMixin
+from ..common_imports import tagged, STANDARD_TAGS
 
 
+@tagged(*STANDARD_TAGS)
 class ShopifyTestBase(_ShopifyMockMixin, _BaseDataMixin, ProductConnectTransactionCase):
     @classmethod
     def setUpClass(cls) -> None:

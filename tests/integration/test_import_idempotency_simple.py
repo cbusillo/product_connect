@@ -2,6 +2,7 @@ from datetime import timezone
 from typing import Any
 from ..common_imports import tagged, datetime, timedelta, patch, MagicMock, INTEGRATION_TAGS
 from ..fixtures.base import IntegrationTestCase
+from ..fixtures.factories import ProductFactory, ShopifySyncFactory
 from ..fixtures.shopify_responses import (
     create_shopify_order_response,
     create_shopify_customer_response,
@@ -21,19 +22,13 @@ class TestImportIdempotencySimple(IntegrationTestCase):
         self.env["ir.config_parameter"].search([("key", "like", "shopify.last_import.%")]).unlink()
 
     def _setup_import_idempotency_test(self) -> None:
-        self.test_product = self.env["product.product"].create(
-            {
-                "name": "Test Product",
-                "default_code": "80000002",
-                "list_price": 100.0,
-                "standard_price": 50.0,
-            }
-        )
-        self.sync_record = self.env["shopify.sync"].create(
-            {
-                "mode": "import_changed_orders",
-            }
-        )
+        self.test_product = ProductFactory.create(
+            self.env,
+            default_code="80000002",
+            list_price=100.0,
+            standard_price=50.0,
+        ).product_variant_id
+        self.sync_record = ShopifySyncFactory.create(self.env, mode="import_changed_orders")
 
     def test_import_since_last_import_filters_correctly(self) -> None:
         importer = OrderImporter(self.env, self.sync_record)

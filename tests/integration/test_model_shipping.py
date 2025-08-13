@@ -1,5 +1,14 @@
 from ..common_imports import tagged, INTEGRATION_TAGS
 from ..fixtures.base import IntegrationTestCase
+from ..fixtures.factories import (
+    ShopifySyncFactory,
+    PartnerFactory,
+    CurrencyFactory,
+    ProductFactory,
+    DeliveryCarrierFactory,
+    SaleOrderFactory,
+    SaleOrderLineFactory,
+)
 import logging
 
 _logger = logging.getLogger(__name__)
@@ -17,47 +26,42 @@ class TestShipping(IntegrationTestCase):
     def _create_test_data(cls) -> None:
         cls.usd_currency = cls.env["res.currency"].search([("name", "=", "USD")], limit=1)
         if not cls.usd_currency:
-            cls.usd_currency = cls.env["res.currency"].create({"name": "USD", "symbol": "$", "rate": 1.0})
+            cls.usd_currency = CurrencyFactory.create(cls.env, name="USD", symbol="$", rate=1.0)
 
-        cls.partner = cls.env["res.partner"].create(
-            {
-                "name": "Test Shipping Customer",
-                "email": "shipping@test.com",
-            }
+        cls.partner = PartnerFactory.create(
+            cls.env,
+            name="Test Shipping Customer",
+            email="shipping@test.com",
         )
 
-        cls.product = cls.env["product.product"].create(
-            {
-                "name": "Test Shipping Product",
-                "default_code": "12345",
-                "type": "consu",
-                "list_price": 100.0,
-            }
-        )
+        cls.product = ProductFactory.create(
+            cls.env,
+            name="Test Shipping Product",
+            default_code="12345",
+            type="consu",
+            list_price=100.0,
+        ).product_variant_id
 
-        cls.delivery_product = cls.env["product.product"].create(
-            {
-                "name": "Test Delivery Service",
-                "default_code": "99999",
-                "type": "service",
-                "list_price": 0.0,
-            }
-        )
+        cls.delivery_product = ProductFactory.create(
+            cls.env,
+            name="Test Delivery Service",
+            default_code="99999",
+            type="service",
+            list_price=0.0,
+        ).product_variant_id
 
-        cls.carrier = cls.env["delivery.carrier"].create(
-            {
-                "name": "Test Shipping Carrier",
-                "delivery_type": "fixed",
-                "fixed_price": 10.0,
-                "product_id": cls.delivery_product.id,
-            }
+        cls.carrier = DeliveryCarrierFactory.create(
+            cls.env,
+            name="Test Shipping Carrier",
+            delivery_type="fixed",
+            fixed_price=10.0,
+            product_id=cls.delivery_product.id,
         )
 
     def test_shipping_fields_default_values(self) -> None:
-        order = self.env["sale.order"].create(
-            {
-                "partner_id": self.partner.id,
-            }
+        order = SaleOrderFactory.create(
+            self.env,
+            partner_id=self.partner.id,
         )
 
         self.assertEqual(order.shipping_charge, 0.0)
@@ -70,13 +74,12 @@ class TestShipping(IntegrationTestCase):
         self.assertFalse(order.shipping_tracking_numbers)
 
     def test_shipping_margin_calculation(self) -> None:
-        order = self.env["sale.order"].create(
-            {
-                "partner_id": self.partner.id,
-                "currency_id": self.usd_currency.id,
-                "shipping_charge": 25.00,
-                "shipping_paid": 18.50,
-            }
+        order = SaleOrderFactory.create(
+            self.env,
+            partner_id=self.partner.id,
+            currency_id=self.usd_currency.id,
+            shipping_charge=25.00,
+            shipping_paid=18.50,
         )
 
         self.assertEqual(order.shipping_margin, 6.50)
@@ -93,65 +96,59 @@ class TestShipping(IntegrationTestCase):
         self.assertEqual(order.shipping_margin, 20.0)
 
     def test_source_platform_values(self) -> None:
-        order = self.env["sale.order"].create(
-            {
-                "partner_id": self.partner.id,
-                "source_platform": "shopify",
-                "shopify_order_id": "SHOP123456789",
-            }
+        order = SaleOrderFactory.create(
+            self.env,
+            partner_id=self.partner.id,
+            source_platform="shopify",
+            shopify_order_id="SHOP123456789",
         )
 
         self.assertEqual(order.source_platform, "shopify")
         self.assertEqual(order.shopify_order_id, "SHOP123456789")
         self.assertFalse(order.ebay_order_id)
 
-        ebay_order = self.env["sale.order"].create(
-            {
-                "partner_id": self.partner.id,
-                "source_platform": "ebay",
-                "ebay_order_id": "12-34567-89012",
-            }
+        ebay_order = SaleOrderFactory.create(
+            self.env,
+            partner_id=self.partner.id,
+            source_platform="ebay",
+            ebay_order_id="12-34567-89012",
         )
 
         self.assertEqual(ebay_order.source_platform, "ebay")
         self.assertEqual(ebay_order.ebay_order_id, "12-34567-89012")
         self.assertFalse(ebay_order.shopify_order_id)
 
-        manual_order = self.env["sale.order"].create(
-            {
-                "partner_id": self.partner.id,
-                "source_platform": "manual",
-            }
+        manual_order = SaleOrderFactory.create(
+            self.env,
+            partner_id=self.partner.id,
+            source_platform="manual",
         )
         self.assertEqual(manual_order.source_platform, "manual")
 
-        order_no_platform = self.env["sale.order"].create(
-            {
-                "partner_id": self.partner.id,
-                "source_platform": False,
-            }
+        order_no_platform = SaleOrderFactory.create(
+            self.env,
+            partner_id=self.partner.id,
+            source_platform=False,
         )
         self.assertFalse(order_no_platform.source_platform)
 
     def test_copy_method(self) -> None:
-        order = self.env["sale.order"].create(
-            {
-                "partner_id": self.partner.id,
-                "source_platform": "shopify",
-                "shopify_order_id": "SHOP123",
-                "ebay_order_id": "EBAY456",
-                "shipstation_order_id": "SHIP789",
-                "shipping_charge": 20.0,
-                "shipping_paid": 15.0,
-            }
+        order = SaleOrderFactory.create(
+            self.env,
+            partner_id=self.partner.id,
+            source_platform="shopify",
+            shopify_order_id="SHOP123",
+            ebay_order_id="EBAY456",
+            shipstation_order_id="SHIP789",
+            shipping_charge=20.0,
+            shipping_paid=15.0,
         )
 
-        self.env["sale.order.line"].create(
-            {
-                "order_id": order.id,
-                "product_id": self.product.id,
-                "product_uom_qty": 1,
-            }
+        SaleOrderLineFactory.create(
+            self.env,
+            order_id=order.id,
+            product_id=self.product.id,
+            product_uom_qty=1,
         )
 
         copied_order = order.copy()
@@ -167,11 +164,10 @@ class TestShipping(IntegrationTestCase):
     def test_shopify_note_field(self) -> None:
         test_note = "Payment: PayPal\nOrder Notes: Rush delivery\neBay Item: 123456"
 
-        order = self.env["sale.order"].create(
-            {
-                "partner_id": self.partner.id,
-                "shopify_note": test_note,
-            }
+        order = SaleOrderFactory.create(
+            self.env,
+            partner_id=self.partner.id,
+            shopify_note=test_note,
         )
 
         self.assertEqual(order.shopify_note, test_note)
@@ -183,12 +179,11 @@ class TestShipping(IntegrationTestCase):
     def test_shipping_tracking_numbers(self) -> None:
         tracking_data = "UPS: 1Z999AA10123456784\nUSPS: 9400100000000000000000"
 
-        order = self.env["sale.order"].create(
-            {
-                "partner_id": self.partner.id,
-                "carrier_id": self.carrier.id,
-                "shipping_tracking_numbers": tracking_data,
-            }
+        order = SaleOrderFactory.create(
+            self.env,
+            partner_id=self.partner.id,
+            carrier_id=self.carrier.id,
+            shipping_tracking_numbers=tracking_data,
         )
 
         self.assertEqual(order.shipping_tracking_numbers, tracking_data)
@@ -196,21 +191,19 @@ class TestShipping(IntegrationTestCase):
         self.assertIn("9400100000000000000000", order.shipping_tracking_numbers)
 
     def test_shipping_fields_in_different_states(self) -> None:
-        order = self.env["sale.order"].create(
-            {
-                "partner_id": self.partner.id,
-                "shipping_charge": 30.0,
-                "shipping_paid": 25.0,
-            }
+        order = SaleOrderFactory.create(
+            self.env,
+            partner_id=self.partner.id,
+            shipping_charge=30.0,
+            shipping_paid=25.0,
         )
 
-        self.env["sale.order.line"].create(
-            {
-                "order_id": order.id,
-                "product_id": self.product.id,
-                "product_uom_qty": 1,
-                "price_unit": 100.0,
-            }
+        SaleOrderLineFactory.create(
+            self.env,
+            order_id=order.id,
+            product_id=self.product.id,
+            product_uom_qty=1,
+            price_unit=100.0,
         )
 
         self.assertEqual(order.state, "draft")
@@ -230,12 +223,11 @@ class TestShipping(IntegrationTestCase):
         self.assertEqual(order.shipping_margin, 15.0)
 
     def test_shipping_with_multiple_currencies(self) -> None:
-        order = self.env["sale.order"].create(
-            {
-                "partner_id": self.partner.id,
-                "shipping_charge": 100.0,
-                "shipping_paid": 80.0,
-            }
+        order = SaleOrderFactory.create(
+            self.env,
+            partner_id=self.partner.id,
+            shipping_charge=100.0,
+            shipping_paid=80.0,
         )
 
         self.assertEqual(order.shipping_margin, 20.0)
@@ -301,19 +293,14 @@ class TestShipping(IntegrationTestCase):
     def test_unknown_shipping_method_handling(self) -> None:
         from ...services.shopify.sync.importers.order_importer import OrderImporter
 
-        sync_record = self.env["shopify.sync"].create(
-            {
-                "mode": "import_changed_orders",
-            }
-        )
+        sync_record = ShopifySyncFactory.create(self.env, mode="import_changed_orders")
 
         OrderImporter(self.env, sync_record)
 
-        self.env["sale.order"].create(
-            {
-                "partner_id": self.partner.id,
-                "currency_id": self.usd_currency.id,
-            }
+        SaleOrderFactory.create(
+            self.env,
+            partner_id=self.partner.id,
+            currency_id=self.usd_currency.id,
         )
 
         service_map = self.env["delivery.carrier.service.map"]
@@ -325,33 +312,30 @@ class TestShipping(IntegrationTestCase):
         self.assertFalse(existing_mapping, "This test requires 'Unknown Carrier Express' to be unmapped")
 
     def test_shipping_charge_capture(self) -> None:
-        order = self.env["sale.order"].create(
-            {
-                "partner_id": self.partner.id,
-                "currency_id": self.usd_currency.id,
-            }
+        order = SaleOrderFactory.create(
+            self.env,
+            partner_id=self.partner.id,
+            currency_id=self.usd_currency.id,
         )
 
-        self.env["sale.order.line"].create(
-            {
-                "order_id": order.id,
-                "product_id": self.product.id,
-                "product_uom_qty": 1,
-                "price_unit": 100.0,
-            }
+        SaleOrderLineFactory.create(
+            self.env,
+            order_id=order.id,
+            product_id=self.product.id,
+            product_uom_qty=1,
+            price_unit=100.0,
         )
 
         ups_carrier = self.env["delivery.carrier"].search([("name", "=", "UPS Ground")], limit=1)
         self.assertTrue(ups_carrier)
 
-        delivery_line = self.env["sale.order.line"].create(
-            {
-                "order_id": order.id,
-                "product_id": ups_carrier.product_id.id,
-                "product_uom_qty": 1,
-                "price_unit": 15.99,
-                "is_delivery": True,
-            }
+        delivery_line = SaleOrderLineFactory.create(
+            self.env,
+            order_id=order.id,
+            product_id=ups_carrier.product_id.id,
+            product_uom_qty=1,
+            price_unit=15.99,
+            is_delivery=True,
         )
 
         order.carrier_id = ups_carrier.id
