@@ -252,9 +252,10 @@ class ProductImporter(ShopifyBaseImporter[ProductFields]):
                 "manufacturer": self.get_or_create_manufacturer(shopify_product.vendor).id if shopify_product.vendor else False,
                 "is_published": True,  # Always true for products imported from Shopify
                 "is_ready_for_sale": True,
+                "active": True,
             }
 
-            template_vals = {}
+            template_vals = {"active": True}
 
             condition_metafield = metafields_by_key.get("condition")
             if condition_metafield:
