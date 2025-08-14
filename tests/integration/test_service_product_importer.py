@@ -159,7 +159,7 @@ class TestProductImporter(IntegrationTestCase):
         result = self.importer._import_one(product_fields)
         self.assertTrue(result)
 
-        product = self.env["product.product"].search([("default_code", "=", sku)])
+        product = self.env["product.product"].search([("default_code", "=", sku), ("active", "in", [True, False])])
         self.assertTrue(product, f"Product with SKU {sku} not found")
         return product
 
@@ -435,7 +435,9 @@ class TestProductImporter(IntegrationTestCase):
         )
 
         product = self._import_product_and_verify(product_data, sku)
-        self.assertTrue(product.is_published)
+        # Products from Shopify should always be active and published regardless of status
+        self.assertTrue(product.active, "Products from Shopify should always be active")
+        self.assertTrue(product.is_published, "Products from Shopify should always be published")
 
     def test_create_manufacturer_if_not_exists(self) -> None:
         sku = generate_unique_sku()

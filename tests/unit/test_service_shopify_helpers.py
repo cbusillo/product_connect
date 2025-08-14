@@ -245,12 +245,12 @@ class TestShopifyHelpers(UnitTestCase):
         # we'll test with a mock object instead
         from unittest.mock import MagicMock
         from datetime import datetime
-        
+
         mock_product = MagicMock()
         mock_product.write_date = None
         mock_product.product_tmpl_id.write_date = None
         mock_product.shopify_last_exported_at = None
-        
+
         result = helpers.determine_latest_odoo_product_modification_time(mock_product)
         self.assertEqual(result, helpers.DEFAULT_DATETIME)
 

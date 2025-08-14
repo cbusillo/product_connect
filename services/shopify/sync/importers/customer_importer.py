@@ -289,7 +289,8 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
                 break
 
         # New address_type logic and early return for main address update
-        if not is_different_address:
+        # For billing addresses, always update the main partner record (unless existing_address is a different record)
+        if role == "billing" and not existing_address:
             main_address_vals: "odoo.values.res_partner" = {
                 "shopify_address_id": shopify_address_id,
                 "street": (address.address_1 or "").strip(),
@@ -303,6 +304,14 @@ class CustomerImporter(ShopifyBaseImporter[CustomerFields]):
                 main_address_vals["phone"] = formatted_phone
             changed = write_if_changed(partner, main_address_vals)
             self._geolocalize_partner(partner)
+            return changed
+
+        # If the address is the same as current main address, just update shopify_address_id
+        if not is_different_address:
+            main_address_vals: "odoo.values.res_partner" = {
+                "shopify_address_id": shopify_address_id,
+            }
+            changed = write_if_changed(partner, main_address_vals)
             return changed
 
         address_type: AddressType = "invoice" if role == "billing" else "delivery"
