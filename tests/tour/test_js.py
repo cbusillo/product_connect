@@ -14,7 +14,10 @@ class ProductConnectJSTests(TourTestCase):
         super().setUpClass()
 
     def _get_test_login(self) -> str:
-        return getattr(self, "test_user", None) and self.test_user.login or "tour_test_user"
+        """Get the secure test user login."""
+        if hasattr(self, "test_user") and self.test_user:
+            return self.test_user.login
+        return "tour_test_user"
 
     def test_hoot_desktop(self) -> None:
         self.browser_js(

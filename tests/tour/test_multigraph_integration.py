@@ -114,7 +114,7 @@ class TestMultigraphIntegration(TourTestCase):
             await checkAndClick();
             """,
             "document.querySelector('.o_multigraph_renderer, .o_list_view, .o_pivot_view') !== null",
-            login="admin",
+            login=self._get_test_login(),
             timeout=15000,  # 15 seconds - fail fast
         )
 
@@ -211,6 +211,6 @@ class TestMultigraphIntegration(TourTestCase):
             await testViewSwitching();
             """,
             "document.querySelector('.o_multigraph_view, .o_pivot_view, .o_list_view') !== null",
-            login="admin",
+            login=self._get_test_login(),
             timeout=15000,  # 15 seconds - fail fast
         )

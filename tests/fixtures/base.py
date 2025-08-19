@@ -2,6 +2,8 @@ from contextlib import contextmanager
 from typing import Iterator, Any
 import logging
 import os
+import secrets
+import string
 
 from odoo.models import BaseModel
 from odoo.api import Environment
@@ -181,38 +183,62 @@ class TourTestCase(HttpCase):
 
     @classmethod
     def _setup_test_user(cls) -> None:
-        # Get test password from environment if available (set during DB clone)
-        test_password = os.environ.get('ODOO_TEST_PASSWORD')
-        if test_password:
-            _logger.info("Using test password from environment for tour tests")
-            # Update the admin user's password for this test session
-            admin_user = cls.env['res.users'].browse(2)
-            admin_user.password = test_password
-            cls.test_user = admin_user
-            cls._test_user_password = test_password
+        """Create or configure a secure test user with dynamically generated password."""
+        # Generate cryptographically secure password
+        password_chars = string.ascii_letters + string.digits
+        cls.test_password = ''.join(secrets.choice(password_chars) for _ in range(20))
+        
+        # Find or create test user
+        test_user = cls.env['res.users'].search([('login', '=', 'tour_test_user')], limit=1)
+        
+        if not test_user:
+            # Create new test user
+            system_group = cls.env.ref('base.group_system')
+            test_user = cls.env['res.users'].create({
+                'name': 'Tour Test User',
+                'login': 'tour_test_user',
+                'email': 'tour_test@example.com',
+                'password': cls.test_password,
+                'groups_id': [(6, 0, [system_group.id])],
+                'active': True,
+            })
+            _logger.info("Created new tour test user with system permissions")
         else:
-            # Fallback to standard authentication
-            _logger.info("No test password in environment, using standard auth")
-            try:
-                admin_user = cls.env.ref("base.user_admin")
-                cls.test_user = admin_user
-                cls._test_user_password = "admin"  # Default for non-production tests
-                _logger.info("Using admin user with default password")
-            except (ValueError, Exception) as e:
-                _logger.warning(f"Could not get admin user: {e}")
-                cls.test_user = None
-                cls._test_user_password = None
+            # Update existing test user password
+            test_user.sudo().write({
+                'password': cls.test_password,
+                'active': True,
+            })
+            # Ensure user has system permissions
+            system_group = cls.env.ref('base.group_system')
+            if system_group not in test_user.groups_id:
+                test_user.sudo().write({
+                    'groups_id': [(4, system_group.id)],
+                })
+            _logger.info("Updated existing tour test user with new secure password")
+        
+        cls.test_user = test_user
+        _logger.info("Tour test user configured successfully")
+
+    def _get_test_login(self) -> str:
+        """Get the secure test user login."""
+        if hasattr(self, "test_user") and self.test_user:
+            return self.test_user.login
+        return "tour_test_user"
 
     def setUp(self) -> None:
         super().setUp()
         self.browser_size = "1920x1080"
         self.tour_timeout = 120
 
-    def start_tour(self, url: str, tour_name: str, login: str | None = "admin", timeout: int | None = None) -> None:
+    def start_tour(self, url: str, tour_name: str, login: str | None = None, timeout: int | None = None) -> None:
         if timeout is None:
             timeout = self.tour_timeout
 
-        # Use standard authentication - test password is set up during DB clone
+        # Use secure test user authentication if no specific login provided
+        if login is None:
+            login = self.test_user.login
+
         self.browser_js(
             url,
             f"odoo.__DEBUG__.services['web_tour.tour'].run('{tour_name}')",

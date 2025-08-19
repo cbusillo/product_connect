@@ -1,9 +1,9 @@
-import secrets
 import psycopg2
 
 from ..common_imports import tagged, ValidationError, UNIT_TAGS
 from ..fixtures.base import UnitTestCase
 from ..fixtures.factories import ProductFactory, MotorFactory
+from ..test_helpers import generate_unique_sku
 
 
 @tagged(*UNIT_TAGS)
@@ -158,8 +158,7 @@ class TestProductTemplate(UnitTestCase):
 
         # Test that creating a product without a name raises an IntegrityError
         with self.assertRaises(psycopg2.IntegrityError) as context:
-            # Use a deterministic SKU to avoid collisions
-            # Use a fixed unique value for this specific test
-            test_sku = "779999"
+            # Use a unique SKU to avoid database collisions
+            test_sku = generate_unique_sku()
             self.env["product.template"].create({"default_code": test_sku, "type": "consu"})
         self.assertIn("null value", str(context.exception).lower())

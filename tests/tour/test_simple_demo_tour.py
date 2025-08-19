@@ -34,6 +34,6 @@ class TestSimpleDemoTour(HttpCase):
             "/web",
             "odoo.__DEBUG__.services['web_tour.tour'].run('test_basic_tour')",
             "odoo.__DEBUG__.services['web_tour.tour'].tours['test_basic_tour'].ready",
-            login="admin",
+            login=self._get_test_login(),
             timeout=60
         )

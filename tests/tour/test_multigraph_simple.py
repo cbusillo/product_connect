@@ -81,7 +81,7 @@ class TestMultigraphSimple(TourTestCase):
             }
             """,
             ready="document.querySelector('.o_action_manager') !== null",
-            login="admin",
+            login=self._get_test_login(),
             timeout=15000,  # 15 seconds should be enough
         )
 
@@ -138,6 +138,6 @@ class TestMultigraphSimple(TourTestCase):
             }
             """,
             ready="document.querySelector('.o_action_manager') !== null",
-            login="admin",
+            login=self._get_test_login(),
             timeout=20000,
         )

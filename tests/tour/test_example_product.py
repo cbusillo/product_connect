@@ -26,7 +26,7 @@ class TestExampleProductTour(TourTestCase):
         'example_product_tour' tour defined in the JavaScript file.
         """
         # Start the tour - this will launch a browser and execute the JavaScript tour
-        self.start_tour("/odoo", "example_product_tour", login="admin")
+        self.start_tour("/odoo", "example_product_tour", login=self._get_test_login())
         
     def test_product_navigation(self) -> None:
         """Test navigating through product views.
@@ -36,4 +36,4 @@ class TestExampleProductTour(TourTestCase):
         # You could create another tour or reuse the same one with different parameters
         self.start_tour("/odoo/action-product_connect.action_product_template", 
                        "example_product_tour", 
-                       login="admin")
+                       login=self._get_test_login())

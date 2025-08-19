@@ -57,7 +57,7 @@ class TestMultigraphBrowser(TourTestCase):
             
             console.log('Multigraph view test completed successfully!');
             """,
-            login="admin",
+            login=self._get_test_login(),
             ready="document.querySelector('.o_graph_view, .o_list_view') !== null",
             timeout=30000,
         )
