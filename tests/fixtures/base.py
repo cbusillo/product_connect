@@ -1,11 +1,12 @@
 from contextlib import contextmanager
 from typing import Iterator, Any
+import logging
+import os
 
 from odoo.models import BaseModel
 from odoo.api import Environment
+from odoo.tests import HttpCase, TransactionCase
 from ..common_imports import (
-    TransactionCase,
-    HttpCase,
     MagicMock,
     patch,
     DEFAULT_TEST_CONTEXT,
@@ -14,6 +15,8 @@ from ..common_imports import (
     INTEGRATION_TAGS,
     TOUR_TAGS,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 class _ShopifyMockMixin:
@@ -46,6 +49,15 @@ class UnitTestCase(_ShopifyMockMixin, TransactionCase):
                 **DEFAULT_TEST_CONTEXT,
             )
         )
+        cls._reset_sku_sequence()
+    
+    @classmethod
+    def _reset_sku_sequence(cls) -> None:
+        """Reset SKU sequence to avoid exhaustion during test runs"""
+        sequence = cls.env["ir.sequence"].search([("code", "=", "product.template.default_code")], limit=1)
+        if sequence:
+            # Reset to 8000 to give plenty of room for test SKUs (991999 available)
+            sequence.sudo().write({"number_next": 8000})
 
     def tearDown(self) -> None:
         self._teardown_shopify_mocks()
@@ -136,9 +148,11 @@ class IntegrationTestCase(_ShopifyMockMixin, _BaseDataMixin, TransactionCase):
 
     @classmethod
     def _reset_sku_sequence(cls) -> None:
+        """Reset SKU sequence to avoid exhaustion during test runs"""
         sequence = cls.env["ir.sequence"].search([("code", "=", "product.template.default_code")], limit=1)
         if sequence:
-            sequence.sudo().write({"number_next": 800000})
+            # Reset to 8000 to give plenty of room for test SKUs (991999 available)
+            sequence.sudo().write({"number_next": 8000})
 
     def create_shopify_credentials(self) -> None:
         config_param = self.env["ir.config_parameter"].sudo()
@@ -167,77 +181,38 @@ class TourTestCase(HttpCase):
 
     @classmethod
     def _setup_test_user(cls) -> None:
-        import secrets
-        import string
-
-        try:
-            admin_user = cls.env.ref("base.user_admin")
-            alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
-            password = "Admin" + "".join(secrets.choice(alphabet) for _ in range(8)) + "!"
-            admin_user.password = password
+        # Get test password from environment if available (set during DB clone)
+        test_password = os.environ.get('ODOO_TEST_PASSWORD')
+        if test_password:
+            _logger.info("Using test password from environment for tour tests")
+            # Update the admin user's password for this test session
+            admin_user = cls.env['res.users'].browse(2)
+            admin_user.password = test_password
             cls.test_user = admin_user
-            cls._test_user_password = password
-            return
-        except (ValueError, Exception):
-            pass
-
-        test_user = cls.env["res.users"].search([("login", "=", "tour_test_user"), ("active", "=", True)], limit=1)
-
-        if not test_user:
-            alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
-            password = "Test" + "".join(secrets.choice(alphabet) for _ in range(8)) + "!"
-
-            try:
-                group_ids = [cls.env.ref("base.group_user").id]  # Basic user access
-
-                try:
-                    group_ids.append(cls.env.ref("base.group_system").id)
-                except ValueError:
-                    pass
-
-                try:
-                    group_ids.append(cls.env.ref("stock.group_stock_user").id)
-                except ValueError:
-                    pass
-
-                test_user = cls.env["res.users"].create(
-                    {
-                        "name": "Tour Test User",
-                        "login": "tour_test_user",
-                        "password": password,
-                        "email": "tour.test@example.com",
-                        "groups_id": [(6, 0, group_ids)],
-                    }
-                )
-            except Exception:
-                test_user = cls.env["res.users"].create(
-                    {
-                        "name": "Tour Test User",
-                        "login": "tour_test_user",
-                        "password": password,
-                        "email": "tour.test@example.com",
-                    }
-                )
-            cls._test_user_password = password
+            cls._test_user_password = test_password
         else:
-            alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
-            password = "Test" + "".join(secrets.choice(alphabet) for _ in range(8)) + "!"
-            test_user.password = password
-            cls._test_user_password = password
-
-        cls.test_user = test_user
+            # Fallback to standard authentication
+            _logger.info("No test password in environment, using standard auth")
+            try:
+                admin_user = cls.env.ref("base.user_admin")
+                cls.test_user = admin_user
+                cls._test_user_password = "admin"  # Default for non-production tests
+                _logger.info("Using admin user with default password")
+            except (ValueError, Exception) as e:
+                _logger.warning(f"Could not get admin user: {e}")
+                cls.test_user = None
+                cls._test_user_password = None
 
     def setUp(self) -> None:
         super().setUp()
         self.browser_size = "1920x1080"
         self.tour_timeout = 120
 
-    def start_tour(self, url: str, tour_name: str, login: str | None = None, timeout: int | None = None) -> None:
+    def start_tour(self, url: str, tour_name: str, login: str | None = "admin", timeout: int | None = None) -> None:
         if timeout is None:
             timeout = self.tour_timeout
 
-        login = self.test_user.login
-
+        # Use standard authentication - test password is set up during DB clone
         self.browser_js(
             url,
             f"odoo.__DEBUG__.services['web_tour.tour'].run('{tour_name}')",
