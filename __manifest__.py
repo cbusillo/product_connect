@@ -71,23 +71,28 @@
     ],
     "assets": {
         "web.assets_backend": [
-            "product_connect/static/src/js/external/qr-scanner.umd.min.js",
             "product_connect/static/src/scss/*",
+            "product_connect/static/src/js/utils/*",
             "product_connect/static/src/js/forms/*",
             "product_connect/static/src/js/lists/*",
-            "product_connect/static/src/js/utils/*",
             "product_connect/static/src/js/widgets/*",
             "product_connect/static/src/xml/*",
         ],
         "web.assets_backend_lazy": [
+            "product_connect/static/src/js/external/qr-scanner.umd.min.js",
             "product_connect/static/src/views/multigraph/*.js",
             "product_connect/static/src/views/multigraph/*.xml",
             "product_connect/static/src/views/multigraph/*.scss",
         ],
-        "web.assets_unit_tests": [
-            "product_connect/static/tests/**/*.test.js",
+        "product_connect.test_helpers": [
+            "product_connect/static/tests/helpers/*.js",
+        ],
+        "web.assets_unit_tests_setup": [
+            ("include", "product_connect.test_helpers"),
         ],
         "web.assets_tests": [
+            ("include", "product_connect.test_helpers"),
+            "product_connect/static/tests/**/*.test.js",
             "product_connect/static/tests/tours/**/*.js",
         ],
     },
