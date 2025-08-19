@@ -1,4 +1,5 @@
 import psycopg2
+import secrets
 
 from ..common_imports import tagged, ValidationError, UNIT_TAGS
 from ..fixtures.base import UnitTestCase
