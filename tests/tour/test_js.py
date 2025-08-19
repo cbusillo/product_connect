@@ -7,7 +7,7 @@ def unit_test_error_checker(message: str) -> bool:
     return "[HOOT]" not in message
 
 
-@tagged(*TOUR_TAGS)
+@tagged(*TOUR_TAGS, "product_connect")
 class ProductConnectJSTests(TourTestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -18,7 +18,7 @@ class ProductConnectJSTests(TourTestCase):
 
     def test_hoot_desktop(self) -> None:
         self.browser_js(
-            "/web/tests?headless&loglevel=2&preset=desktop&timeout=15000",
+            "/web/tests?headless&loglevel=2&preset=desktop&timeout=15000&filter=product_connect",
             code="",
             login=self._get_test_login(),
             timeout=1800,
@@ -28,7 +28,7 @@ class ProductConnectJSTests(TourTestCase):
 
     def test_hoot_mobile(self) -> None:
         self.browser_js(
-            "/web/tests?headless&loglevel=2&preset=mobile&tag=-headless&timeout=15000",
+            "/web/tests?headless&loglevel=2&preset=mobile&tag=-headless&timeout=15000&filter=product_connect",
             code="",
             login=self._get_test_login(),
             timeout=1800,

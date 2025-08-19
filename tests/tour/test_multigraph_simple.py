@@ -3,7 +3,7 @@ from ..fixtures.base import TourTestCase
 from ..fixtures.factories import ProductFactory
 
 
-@tagged(*TOUR_TAGS)
+@tagged(*TOUR_TAGS, "product_connect")
 class TestMultigraphSimple(TourTestCase):
     @classmethod
     def setUpClass(cls) -> None:

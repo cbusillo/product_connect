@@ -2,7 +2,7 @@ from ..common_imports import tagged, TOUR_TAGS
 from ..fixtures.base import TourTestCase
 
 
-@tagged(*TOUR_TAGS)
+@tagged(*TOUR_TAGS, "product_connect")
 class TestMultigraphBrowser(TourTestCase):
     def test_multigraph_view_no_errors(self) -> None:
         action_id = self.env.ref("product_connect.action_product_processing_analytics").id

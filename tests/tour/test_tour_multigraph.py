@@ -2,7 +2,7 @@ from ..common_imports import tagged, TOUR_TAGS
 from ..fixtures.base import TourTestCase
 
 
-@tagged(*TOUR_TAGS)
+@tagged(*TOUR_TAGS, "product_connect")
 class TestMultigraphTour(TourTestCase):
     @classmethod
     def setUpClass(cls) -> None:
