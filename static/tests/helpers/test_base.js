@@ -1,3 +1,5 @@
+/** @odoo-module **/
+
 /**
  * Base test utilities for multigraph tests
  * Provides consistent setup similar to Python test base classes
