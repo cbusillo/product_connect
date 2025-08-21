@@ -1,3 +1,4 @@
+/** @odoo-module */
 import { describe, expect, test } from "@odoo/hoot"
 import { MultigraphArchParser } from "@product_connect/views/multigraph/multigraph_arch_parser"
 import { parseXML } from "@web/core/utils/xml"

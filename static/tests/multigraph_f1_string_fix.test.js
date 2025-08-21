@@ -1,7 +1,9 @@
+/** @odoo-module */
+ 
 import { describe, expect, test } from "@odoo/hoot"
 import { MultigraphArchParser } from "@product_connect/views/multigraph/multigraph_arch_parser"
 import { parseXML } from "@web/core/utils/xml"
-import { createTestMultigraphModel } from "@product_connect/tests/helpers/test_base"
+import { createTestMultigraphModel } from "@product_connect/../tests/helpers/test_base"
 
 describe("Multigraph f1.string Error Prevention", () => {
     test("arch parser always provides label for measures", () => {

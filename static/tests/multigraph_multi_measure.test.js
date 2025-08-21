@@ -1,6 +1,8 @@
+/** @odoo-module */
+ 
 // noinspection JSUnresolvedReference - Test accesses properties that should exist in full implementation  
 import { test, expect } from "@odoo/hoot"
-import { createTestMultigraphModel } from "@product_connect/tests/helpers/test_base"
+import { createTestMultigraphModel } from "@product_connect/../tests/helpers/test_base"
 import { MultigraphArchParser } from "@product_connect/views/multigraph/multigraph_arch_parser"
 
 test("MultigraphModel handles multiple measures", async () => {

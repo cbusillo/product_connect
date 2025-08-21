@@ -1,3 +1,6 @@
+/** @odoo-module */
+ 
+
 import { describe, test, expect } from "@odoo/hoot";
 
 describe("Basic Product Connect Tests", () => {

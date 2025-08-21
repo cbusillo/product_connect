@@ -173,6 +173,7 @@ class ProductConnectTransactionCase(TransactionCase):
         product = cls.env["product.template"].create(product_vals)
 
         if with_image:
+            # noinspection SpellCheckingInspection
             ProductImageFactory.create(
                 cls.env,
                 product_tmpl_id=product.id,

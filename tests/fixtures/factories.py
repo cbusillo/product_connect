@@ -430,6 +430,7 @@ class CrmTagFactory:
 class ProductImageFactory:
     @staticmethod
     def create(env: Environment, **kwargs: OdooValue) -> "odoo.model.product_image":
+        # noinspection SpellCheckingInspection
         defaults = {
             "name": kwargs.get("name", "test_image"),
             "image_1920": kwargs.get(

@@ -1,3 +1,4 @@
+/** @odoo-module */
 import { test, expect } from "@odoo/hoot"
 import { multigraphView } from "@product_connect/views/multigraph/multigraph_view"
 import { MultigraphModel } from "@product_connect/views/multigraph/multigraph_model"

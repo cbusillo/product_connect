@@ -1,3 +1,4 @@
+/** @odoo-module */
 // noinspection JSUnresolvedReference - Test file stubs private methods for testing internal behavior
 import { describe, expect, test, beforeEach } from "@odoo/hoot"
 import { MultigraphModel } from "@product_connect/views/multigraph/multigraph_model"
@@ -63,7 +64,7 @@ describe("MultigraphModel Data Processing", () => {
             measures: ["revenue", "cost", "quantity"],
         }
 
-        await model._loadMultiAxisData({
+        await model._loadData({
             context: {},
             domain: [],
             groupBy: ["date:month"],
@@ -124,7 +125,7 @@ describe("MultigraphModel Data Processing", () => {
             measures: ["revenue", "cost"],
         }
 
-        await model._loadMultiAxisData({
+        await model._loadData({
             context: {},
             domain: [],
             groupBy: ["partner_id"],
@@ -181,7 +182,7 @@ describe("MultigraphModel Data Processing", () => {
             measures: ["revenue", "cost", "quantity"],
         }
 
-        await model._loadMultiAxisData({
+        await model._loadData({
             context: {},
             domain: [],
             groupBy: ["date"],
@@ -236,7 +237,7 @@ describe("MultigraphModel Data Processing", () => {
             measures: measures.map(m => m.fieldName),
         }
 
-        await model._loadMultiAxisData({
+        await model._loadData({
             context: {},
             domain: [],
             groupBy: ["date"],
@@ -306,7 +307,7 @@ describe("MultigraphModel Data Processing", () => {
             measures: ["revenue", "cost"],
         }
 
-        await model._loadMultiAxisData({
+        await model._loadData({
             context: {},
             domain: [],
             groupBy: [],
@@ -355,7 +356,7 @@ describe("MultigraphModel Data Processing", () => {
             measures: ["revenue"],
         }
 
-        await model._loadMultiAxisData({
+        await model._loadData({
             context: { graph_groupbys: ["date:month"] },
             domain: [],
             groupBy: [], // Empty groupBy
@@ -394,7 +395,7 @@ describe("MultigraphModel Data Processing", () => {
             measures: ["revenue"],
         }
 
-        await model._loadMultiAxisData({
+        await model._loadData({
             context: {},
             domain: [],
             groupBy: [],

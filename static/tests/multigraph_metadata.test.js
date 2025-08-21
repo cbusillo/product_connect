@@ -1,6 +1,8 @@
+/** @odoo-module */
+ 
 // noinspection JSUnresolvedReference - Test file checks for planned features in development
 import { describe, expect, test, beforeEach } from "@odoo/hoot"
-import { createTestMultigraphModel } from "@product_connect/tests/helpers/test_base"
+import { createTestMultigraphModel } from "@product_connect/../tests/helpers/test_base"
 
 describe("MultigraphModel Metadata Handling", () => {
     let model

@@ -16,3 +16,6 @@ from . import test_service_shopify_helpers
 from . import test_service_shopify_sync
 from . import test_simple_unit
 from . import test_tour_coverage
+
+# Import JavaScript unit tests
+from ..js import js_unit_tests

@@ -1,3 +1,4 @@
+/** @odoo-module */
 import { expect, test } from "@odoo/hoot";
 import { queryAll } from "@odoo/hoot-dom";
 import { animationFrame } from "@odoo/hoot-mock";  // Used for chart rendering timing

@@ -1,3 +1,4 @@
+/** @odoo-module */
 import { describe, test, expect } from "@odoo/hoot";
 import { animationFrame } from "@odoo/hoot-mock";
 import { mountView } from "@web/../tests/web_test_helpers";

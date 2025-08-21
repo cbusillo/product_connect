@@ -1,3 +1,5 @@
+/** @odoo-module */
+
 /**
  * Tour test for multigraph view functionality
  * Following Odoo 18 patterns for tour tests

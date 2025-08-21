@@ -2,16 +2,17 @@
 
 import os
 import logging
-from odoo.tests import HttpCase, tagged
+from odoo.tests import tagged
 
 _logger = logging.getLogger(__name__)
 _logger.info("IMPORTING test_simple_demo_tour.py - THIS SHOULD APPEAR IN LOGS")
 
 
 from ..base_types import TOUR_TAGS
+from ..fixtures.base import TourTestCase
 
 @tagged(*TOUR_TAGS)
-class TestSimpleDemoTour(HttpCase):
+class TestSimpleDemoTour(TourTestCase):
     """Test using standard Odoo pattern with demo data"""
     
     @classmethod

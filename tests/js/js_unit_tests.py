@@ -1,5 +1,5 @@
 import re
-from ..common_imports import tagged, TOUR_TAGS
+from ..common_imports import tagged, UNIT_TAGS
 from ..fixtures.base import TourTestCase
 
 
@@ -7,7 +7,8 @@ def unit_test_error_checker(message: str) -> bool:
     return "[HOOT]" not in message
 
 
-@tagged(*TOUR_TAGS, "product_connect")
+# This runs JavaScript unit tests via browser - it's a unit test runner, not a tour
+@tagged(*UNIT_TAGS, "js_test", "product_connect")
 class ProductConnectJSTests(TourTestCase):
     @classmethod
     def setUpClass(cls) -> None:

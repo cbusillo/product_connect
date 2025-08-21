@@ -2,11 +2,44 @@ import { GraphModel } from "@web/views/graph/graph_model"
 
 export class MultigraphModel extends GraphModel {
     setup(params) {
+        // Store custom measure configuration before parent processing
+        this.customMeasures = params.measures || []
+        this.customMeasureConfig = {}
+        
+        // Process custom measures and store configuration
+        if (Array.isArray(params.measures)) {
+            params.measures.forEach(measure => {
+                this.customMeasureConfig[measure.fieldName] = {
+                    axis: measure.axis,
+                    widget: measure.widget,
+                    label: measure.label,
+                    type: measure.type
+                }
+            })
+            
+            // Convert measures array to field names for parent class
+            params.measures = params.measures.map(m => m.fieldName)
+            params.measureFields = params.measures
+        }
+        
+        // Ensure all fields have string property to prevent f1.string errors
+        if (params.fields) {
+            Object.keys(params.fields).forEach(fieldName => {
+                if (!params.fields[fieldName].string) {
+                    params.fields[fieldName].string = fieldName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                }
+            })
+        }
+        
         super.setup(params)
         this.measures = this.metaData.measures || []
-        this.axisConfig = this.metaData.axisConfig || {}
+        this.axisConfig = this.metaData.axisConfig || params.axisConfig || {}
         this.resModel = this.metaData.resModel
-        this.data = null
+        this.data = {
+            datasets: [],
+            labels: [],
+            domains: []
+        }
     }
 
     async load(searchParams) {
@@ -161,5 +194,43 @@ export class MultigraphModel extends GraphModel {
     hasData() {
         return this.data && this.data.datasets && this.data.datasets.length > 0 &&
             this.data.datasets.some(ds => ds.data && ds.data.length > 0)
+    }
+
+    _buildMetaData(params = {}) {
+        // Build metadata for tests - ensure all fields have string property
+        const fields = { ...this.metaData.fields }
+        Object.keys(fields).forEach(fieldName => {
+            if (!fields[fieldName].string) {
+                fields[fieldName].string = fieldName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+            }
+        })
+
+        return {
+            ...this.metaData,
+            fields,
+            axisConfig: this.axisConfig
+        }
+    }
+
+    _computeCustomReportMeasures() {
+        // Compute report measures with custom configuration
+        const reportMeasures = {}
+        
+        if (this.metaData && this.metaData.measures) {
+            this.metaData.measures.forEach(fieldName => {
+                const customConfig = this.customMeasureConfig[fieldName] || {}
+                const field = this.metaData.fields[fieldName] || {}
+                
+                reportMeasures[fieldName] = {
+                    fieldName,
+                    axis: customConfig.axis || 'y',
+                    widget: customConfig.widget || field.widget || null,
+                    label: customConfig.label || field.string || fieldName,
+                    type: customConfig.type || field.type
+                }
+            })
+        }
+        
+        return reportMeasures
     }
 }

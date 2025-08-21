@@ -1,6 +1,6 @@
 # Import all integration test modules
 from . import test_import_idempotency_simple
-from . import test_import_idempotency_unit
+from . import test_import_idempotency
 from . import test_model_shipping_analytics
 from . import test_model_shipping
 from . import test_multigraph_fix_verification

@@ -1,3 +1,4 @@
+/** @odoo-module */
 import { describe, expect, test } from "@odoo/hoot"
 import { click, queryAll } from "@odoo/hoot-dom"
 import { animationFrame } from "@odoo/hoot-mock"

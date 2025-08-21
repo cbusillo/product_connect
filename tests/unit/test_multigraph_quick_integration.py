@@ -1,9 +1,9 @@
 from ..common_imports import tagged, UNIT_TAGS
-from ..fixtures.test_base import ProductConnectHttpCase
+from ..fixtures.base import UnitTestCase
 
 
 @tagged(*UNIT_TAGS)
-class TestMultigraphQuickIntegration(ProductConnectHttpCase):
+class TestMultigraphQuickIntegration(UnitTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()

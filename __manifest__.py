@@ -90,9 +90,14 @@
         "web.assets_unit_tests_setup": [
             ("include", "product_connect.test_helpers"),
         ],
-        "web.assets_tests": [
+        # JavaScript unit tests (Hoot/QUnit) - helpers must be included first
+        "web.assets_unit_tests": [
             ("include", "product_connect.test_helpers"),
-            "product_connect/static/tests/**/*.test.js",
+            "product_connect/static/tests/*.test.js",
+            "product_connect/static/tests/views/*.test.js",
+        ],
+        # Browser tours only - DO NOT include unit tests here
+        "web.assets_tests": [
             "product_connect/static/tests/tours/**/*.js",
         ],
     },
