@@ -25,12 +25,10 @@ class TestExampleProductTour(TourTestCase):
         This test starts at the /odoo URL and runs through the
         'example_product_tour' tour defined in the JavaScript file.
         """
-        # Start directly on the Products action to avoid flaky app menu interactions
-        self.start_tour(
-            "/odoo/action-product_connect.action_product_template",
-            "example_product_tour",
-            login=self._get_test_login(),
-        )
+        # Use the fixed start_tour method with proper completion detection
+        self.start_tour("/odoo/action-product_connect.action_product_template", 
+                       "example_product_tour", 
+                       login=self._get_test_login())
         
     def test_product_navigation(self) -> None:
         """Test navigating through product views.

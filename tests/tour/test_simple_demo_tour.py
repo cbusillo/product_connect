@@ -29,12 +29,5 @@ class TestSimpleDemoTour(TourTestCase):
     
     def test_simple_navigation(self):
         """Test basic navigation without production data dependencies"""
-        # This uses the standard Odoo HttpCase pattern
-        # With production clones, we use the test password set up during DB clone
-        self.browser_js(
-            "/web",
-            "odoo.__DEBUG__.services['web_tour.tour'].run('test_basic_tour')",
-            "odoo.__DEBUG__.services['web_tour.tour'].tours['test_basic_tour'].ready",
-            login=self._get_test_login(),
-            timeout=60
-        )
+        # Use the fixed start_tour method with proper completion detection
+        self.start_tour("/web", "test_basic_tour", login=self._get_test_login())

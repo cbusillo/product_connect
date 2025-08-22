@@ -5,7 +5,6 @@ import { registry } from "@web/core/registry";
 registry.category("web_tour.tours").add("test_basic_tour", {
     test: true,
     url: "/odoo",
-    wait_for: Promise.resolve(),
     steps: () => [
         {
             content: "Wait for Odoo to load",

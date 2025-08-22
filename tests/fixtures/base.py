@@ -239,10 +239,12 @@ class TourTestCase(HttpCase):
         if login is None:
             login = self.test_user.login
 
+        # Use Odoo 18 compatible tour pattern
+        # Wait for tour to exist and be runnable, then check for completion
         self.browser_js(
             url,
             f"odoo.__DEBUG__.services['web_tour.tour'].run('{tour_name}')",
-            f"odoo.__DEBUG__.services['web_tour.tour'].tours['{tour_name}'].ready",
+            f"!odoo.__DEBUG__.services['web_tour.tour'].isRunning()",
             login=login,
             timeout=timeout,
         )
