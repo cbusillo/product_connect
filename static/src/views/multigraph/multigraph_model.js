@@ -32,7 +32,10 @@ export class MultigraphModel extends GraphModel {
         }
         
         super.setup(params)
-        this.measures = this.metaData.measures || []
+        // Preserve the rich measure objects if provided; otherwise fall back to parent metadata
+        this.measures = Array.isArray(this.customMeasures) && this.customMeasures.length
+            ? this.customMeasures
+            : (this.metaData.measures || [])
         this.axisConfig = this.metaData.axisConfig || params.axisConfig || {}
         this.resModel = this.metaData.resModel
         this.data = {

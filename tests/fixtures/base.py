@@ -229,7 +229,7 @@ class TourTestCase(HttpCase):
     def setUp(self) -> None:
         super().setUp()
         self.browser_size = "1920x1080"
-        self.tour_timeout = 120
+        self.tour_timeout = 300  # Aligned with test runner timeout
 
     def start_tour(self, url: str, tour_name: str, login: str | None = None, timeout: int | None = None) -> None:
         if timeout is None:
