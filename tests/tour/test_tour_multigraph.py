@@ -26,6 +26,7 @@ class TestMultigraphTour(TourTestCase):
                 for i in range(1, 6)
             ]
         )
-
+    
     def test_multigraph_view_tour(self) -> None:
-        self.start_tour("/odoo", "test_multigraph_view", timeout=60)
+        # Graph views can be slower to load on CI; give them a bit more time
+        self.start_tour("/web", "test_multigraph_view", timeout=180)

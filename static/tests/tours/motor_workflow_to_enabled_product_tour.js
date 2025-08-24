@@ -4,7 +4,7 @@ import { registry } from "@web/core/registry";
 
 registry.category("web_tour.tours").add("motor_workflow_to_enabled_product_tour", {
     test: true,
-    url: "/odoo",
+    url: "/web",
     steps: () => [
         {
             content: "Wait for Odoo to load",

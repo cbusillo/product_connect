@@ -8,7 +8,7 @@ import { registry } from "@web/core/registry";
  */
 registry.category("web_tour.tours").add("example_product_tour", {
     test: true,
-    url: "/odoo/action-product_connect.action_product_template",
+    url: "/web#action=product_connect.action_product_template",
     steps: () => [
         {
             content: "Wait for web client to be ready",

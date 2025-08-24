@@ -180,6 +180,19 @@ class TourTestCase(HttpCase):
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls._setup_test_user()
+        cls._cleanup_browser_processes()
+
+    @classmethod
+    def _cleanup_browser_processes(cls) -> None:
+        """Clean up any existing browser processes to prevent accumulation."""
+        import subprocess
+        try:
+            # Kill any zombie chromium processes
+            subprocess.run(['pkill', '-f', 'chromium'], capture_output=True, timeout=5)
+            subprocess.run(['pkill', '-f', 'chrome'], capture_output=True, timeout=5)
+            _logger.info("Cleaned up existing browser processes")
+        except Exception as e:
+            _logger.warning(f"Failed to cleanup browser processes: {e}")
 
     @classmethod
     def _setup_test_user(cls) -> None:
@@ -229,28 +242,57 @@ class TourTestCase(HttpCase):
     def setUp(self) -> None:
         super().setUp()
         self.browser_size = "1920x1080"
-        self.tour_timeout = 300  # Aligned with test runner timeout
-
-    def start_tour(self, url: str, tour_name: str, login: str | None = None, timeout: int | None = None) -> None:
+        self.tour_timeout = 120  # Reduced from 300 to prevent excessive hanging
+        self._setup_browser_environment()
+        
+    def _setup_browser_environment(self) -> None:
+        """Configure browser environment for headless operation."""
+        import os
+        # Set essential browser environment variables for tour testing
+        # Don't override existing container environment variables unless needed
+        browser_env = {
+            'HEADLESS_CHROMIUM': '1',
+            'CHROMIUM_BIN': '/usr/bin/chromium',
+            # Use more aggressive flags to prevent hangs in container environment
+            'CHROMIUM_FLAGS': '--headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --disable-software-rasterizer --window-size=1920,1080 --no-first-run --no-default-browser-check --disable-web-security --disable-features=VizDisplayCompositor,TranslateUI,site-per-process,IsolateOrigins,BlockInsecurePrivateNetworkRequests --virtual-time-budget=30000 --run-all-compositor-stages-before-draw --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows',
+        }
+        for key, value in browser_env.items():
+            # Only set if not already defined in container environment
+            if key not in os.environ or not os.environ[key]:
+                os.environ[key] = value
+        
+        _logger.info(f"Browser environment configured: CHROMIUM_FLAGS={os.environ.get('CHROMIUM_FLAGS', 'not set')}")
+        
+    def start_tour(self, url: str, tour_name: str, login: str | None = None, timeout: int | None = None, step_delay: float = 0.5) -> None:
+        """Start tour with improved error handling and timeout management."""
         if timeout is None:
             timeout = self.tour_timeout
-
-        # Use secure test user authentication if no specific login provided
+        # Default to our prepared test user if none provided
         if login is None:
             login = self.test_user.login
-
-        # Use Odoo 18 compatible tour pattern
-        # Wait for tour to exist and be runnable, then check for completion
-        self.browser_js(
-            url,
-            f"odoo.__DEBUG__.services['web_tour.tour'].run('{tour_name}')",
-            f"!odoo.__DEBUG__.services['web_tour.tour'].isRunning()",
-            login=login,
-            timeout=timeout,
-        )
+            
+        _logger.info(f"Starting tour '{tour_name}' at '{url}' with user '{login}' (timeout: {timeout}s)")
+        
+        try:
+            # Clean up any existing browser processes before starting
+            self._cleanup_browser_processes()
+            
+            # Use Odoo's built-in implementation with timeout handling
+            super().start_tour(url, tour_name, login=login, timeout=timeout, step_delay=step_delay)
+            
+        except Exception as e:
+            _logger.error(f"Tour '{tour_name}' failed: {e}")
+            # Clean up after failure
+            self._cleanup_browser_processes()
+            raise
+        finally:
+            # Always clean up browser processes after tour completes
+            self._cleanup_browser_processes()
 
     def register_tour(self, tour_definition: dict) -> None:
+        """Register a tour definition (placeholder for compatibility)."""
         pass
 
     def take_screenshot(self, name: str = "screenshot") -> None:
+        """Take a screenshot during tour execution (placeholder for compatibility)."""
         pass

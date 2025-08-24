@@ -9,7 +9,7 @@ import { registry } from "@web/core/registry";
 
 registry.category("web_tour.tours").add("test_multigraph_view", {
     test: true,
-    url: "/odoo",
+    url: "/web",
     // Increase timeout for complex view loading
     timeout: 60000,
     steps: () => [
