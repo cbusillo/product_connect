@@ -52,7 +52,7 @@ class UnitTestCase(_ShopifyMockMixin, TransactionCase):
             )
         )
         cls._reset_sku_sequence()
-    
+
     @classmethod
     def _reset_sku_sequence(cls) -> None:
         """Reset SKU sequence to avoid exhaustion during test runs"""
@@ -174,8 +174,32 @@ class IntegrationTestCase(_ShopifyMockMixin, _BaseDataMixin, TransactionCase):
         super().tearDown()
 
 
+class MultiWorkerHttpCase(HttpCase):
+    """HttpCase that works with multi-worker mode (--workers > 0)."""
+
+    @classmethod
+    def http_port(cls):
+        """Override to work with PreforkServer in multi-worker mode."""
+        import odoo.service.server
+
+        if odoo.service.server.server is None:
+            return None
+
+        server = odoo.service.server.server
+
+        # Handle single-worker mode (has httpd attribute)
+        if hasattr(server, "httpd"):
+            return server.httpd.server_port
+
+        # Handle multi-worker mode (PreforkServer)
+        # Use the configured port from tools.config
+        import odoo.tools.config as config
+
+        return int(config.get("http_port", 8069))
+
+
 @tagged(*TOUR_TAGS)
-class TourTestCase(HttpCase):
+class TourTestCase(MultiWorkerHttpCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -186,10 +210,11 @@ class TourTestCase(HttpCase):
     def _cleanup_browser_processes(cls) -> None:
         """Clean up any existing browser processes to prevent accumulation."""
         import subprocess
+
         try:
             # Kill any zombie chromium processes
-            subprocess.run(['pkill', '-f', 'chromium'], capture_output=True, timeout=5)
-            subprocess.run(['pkill', '-f', 'chrome'], capture_output=True, timeout=5)
+            subprocess.run(["pkill", "-f", "chromium"], capture_output=True, timeout=5)
+            subprocess.run(["pkill", "-f", "chrome"], capture_output=True, timeout=5)
             _logger.info("Cleaned up existing browser processes")
         except Exception as e:
             _logger.warning(f"Failed to cleanup browser processes: {e}")
@@ -199,37 +224,43 @@ class TourTestCase(HttpCase):
         """Create or configure a secure test user with dynamically generated password."""
         # Generate cryptographically secure password
         password_chars = string.ascii_letters + string.digits
-        cls.test_password = ''.join(secrets.choice(password_chars) for _ in range(20))
-        
+        cls.test_password = "".join(secrets.choice(password_chars) for _ in range(20))
+
         # Find or create test user
-        test_user = cls.env['res.users'].search([('login', '=', 'tour_test_user')], limit=1)
-        
+        test_user = cls.env["res.users"].search([("login", "=", "tour_test_user")], limit=1)
+
         if not test_user:
             # Create new test user
-            system_group = cls.env.ref('base.group_system')
-            test_user = cls.env['res.users'].create({
-                'name': 'Tour Test User',
-                'login': 'tour_test_user',
-                'email': 'tour_test@example.com',
-                'password': cls.test_password,
-                'groups_id': [(6, 0, [system_group.id])],
-                'active': True,
-            })
+            system_group = cls.env.ref("base.group_system")
+            test_user = cls.env["res.users"].create(
+                {
+                    "name": "Tour Test User",
+                    "login": "tour_test_user",
+                    "email": "tour_test@example.com",
+                    "password": cls.test_password,
+                    "groups_id": [(6, 0, [system_group.id])],
+                    "active": True,
+                }
+            )
             _logger.info("Created new tour test user with system permissions")
         else:
             # Update existing test user password
-            test_user.sudo().write({
-                'password': cls.test_password,
-                'active': True,
-            })
+            test_user.sudo().write(
+                {
+                    "password": cls.test_password,
+                    "active": True,
+                }
+            )
             # Ensure user has system permissions
-            system_group = cls.env.ref('base.group_system')
+            system_group = cls.env.ref("base.group_system")
             if system_group not in test_user.groups_id:
-                test_user.sudo().write({
-                    'groups_id': [(4, system_group.id)],
-                })
+                test_user.sudo().write(
+                    {
+                        "groups_id": [(4, system_group.id)],
+                    }
+                )
             _logger.info("Updated existing tour test user with new secure password")
-        
+
         cls.test_user = test_user
         _logger.info("Tour test user configured successfully")
 
@@ -244,42 +275,45 @@ class TourTestCase(HttpCase):
         self.browser_size = "1920x1080"
         self.tour_timeout = 120  # Reduced from 300 to prevent excessive hanging
         self._setup_browser_environment()
-        
+
     def _setup_browser_environment(self) -> None:
         """Configure browser environment for headless operation."""
         import os
+
         # Set essential browser environment variables for tour testing
         # Don't override existing container environment variables unless needed
         browser_env = {
-            'HEADLESS_CHROMIUM': '1',
-            'CHROMIUM_BIN': '/usr/bin/chromium',
+            "HEADLESS_CHROMIUM": "1",
+            "CHROMIUM_BIN": "/usr/bin/chromium",
             # Use more aggressive flags to prevent hangs in container environment
-            'CHROMIUM_FLAGS': '--headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --disable-software-rasterizer --window-size=1920,1080 --no-first-run --no-default-browser-check --disable-web-security --disable-features=VizDisplayCompositor,TranslateUI,site-per-process,IsolateOrigins,BlockInsecurePrivateNetworkRequests --virtual-time-budget=30000 --run-all-compositor-stages-before-draw --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows',
+            "CHROMIUM_FLAGS": "--headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --disable-software-rasterizer --window-size=1920,1080 --no-first-run --no-default-browser-check --disable-web-security --disable-features=VizDisplayCompositor,TranslateUI,site-per-process,IsolateOrigins,BlockInsecurePrivateNetworkRequests --virtual-time-budget=30000 --run-all-compositor-stages-before-draw --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows",
         }
         for key, value in browser_env.items():
             # Only set if not already defined in container environment
             if key not in os.environ or not os.environ[key]:
                 os.environ[key] = value
-        
+
         _logger.info(f"Browser environment configured: CHROMIUM_FLAGS={os.environ.get('CHROMIUM_FLAGS', 'not set')}")
-        
-    def start_tour(self, url: str, tour_name: str, login: str | None = None, timeout: int | None = None, step_delay: float = 0.5) -> None:
+
+    def start_tour(
+        self, url: str, tour_name: str, login: str | None = None, timeout: int | None = None, step_delay: float = 0.5
+    ) -> None:
         """Start tour with improved error handling and timeout management."""
         if timeout is None:
             timeout = self.tour_timeout
         # Default to our prepared test user if none provided
         if login is None:
             login = self.test_user.login
-            
+
         _logger.info(f"Starting tour '{tour_name}' at '{url}' with user '{login}' (timeout: {timeout}s)")
-        
+
         try:
             # Clean up any existing browser processes before starting
             self._cleanup_browser_processes()
-            
+
             # Use Odoo's built-in implementation with timeout handling
             super().start_tour(url, tour_name, login=login, timeout=timeout, step_delay=step_delay)
-            
+
         except Exception as e:
             _logger.error(f"Tour '{tour_name}' failed: {e}")
             # Clean up after failure
