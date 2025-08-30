@@ -25,6 +25,7 @@
         "delivery_ups_rest",
         "delivery_usps_rest",
         "base_geolocalize",
+        "external_ids",
     ],
     "description": "Module to connect to various product sources and manage product data for motor parts.",
     "data": [
