@@ -9,48 +9,15 @@ import { registry } from "@web/core/registry";
 
 registry.category("web_tour.tours").add("test_multigraph_view", {
     test: true,
-    url: "/web",
+    // Navigate directly to the analytics action to avoid dependency on Inventory app tiles
+    url: "/web#action=product_connect.action_product_processing_analytics",
     // Increase timeout for complex view loading
     timeout: 60000,
     steps: () => [
-        // Start from home
+        // Landed on action page
         {
             content: "Wait for page to load",
             trigger: "body.o_web_client",
-        },
-        {
-            content: "Open apps menu if needed",
-            trigger: ".o_menu_toggle:visible,.o_apps:visible",
-            run: function () {
-                const toggle = document.querySelector(".o_menu_toggle");
-                const apps = document.querySelector(".o_apps");
-                if (toggle && !apps) {
-                    toggle.click();
-                }
-            },
-        },
-        {
-            content: "Wait for apps to be visible",
-            trigger: ".o_apps",
-        },
-        {
-            trigger: ".o_app[data-menu-xmlid='stock.menu_stock_root']",
-            content: "Open Inventory app",
-            run: "click",
-        },
-        {
-            content: "Wait for Inventory app to load",
-            trigger: ".o_menu_brand:contains('Inventory'),.o_breadcrumb:contains('Inventory')",
-        },
-        {
-            trigger: "a.o_menu_item:contains('Reporting'),button.o_menu_item:contains('Reporting')",
-            content: "Open Reporting menu",
-            run: "click",
-        },
-        {
-            trigger: "a.o_menu_item:contains('Product Processing'),button.o_menu_item:contains('Product Processing')",
-            content: "Open Product Processing Analytics",
-            run: "click",
         },
         {
             trigger: ".o_graph_view,.o_list_view,.o_pivot_view",

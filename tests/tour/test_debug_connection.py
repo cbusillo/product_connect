@@ -48,9 +48,13 @@ class TestDebugConnection(TourTestCase):
 
         # Check if we can curl the server
         for host in hosts_to_try:
+            # noinspection HttpUrlsUsage
             url = f"http://{host}:{port}/web/webclient/version_info"
             result = subprocess.run(
-                ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", url], capture_output=True, text=True, timeout=5
+                ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", url],
+                capture_output=True,
+                text=True,
+                timeout=20,
             )
             _logger.info(f"HTTP response from {url}: {result.stdout}")
 

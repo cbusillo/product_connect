@@ -13,6 +13,7 @@ from odoo.tests import HttpCase, TransactionCase, tagged
 from .base_types import (
     INTEGRATION_TAGS,
     STANDARD_TAGS,
+    JS_TAGS,
     TEST_SHOPIFY_ID_MAX,
     TEST_SHOPIFY_ID_MIN,
     TEST_SKU_PREFIX,
@@ -53,6 +54,7 @@ __all__ = [
     "DEFAULT_TEST_CONTEXT",
     "STANDARD_TAGS",
     "UNIT_TAGS",
+    "JS_TAGS",
     "INTEGRATION_TAGS",
     "TOUR_TAGS",
     "TEST_SKU_PREFIX",

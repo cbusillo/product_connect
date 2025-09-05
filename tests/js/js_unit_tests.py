@@ -1,5 +1,5 @@
 import re
-from ..common_imports import tagged, UNIT_TAGS
+from ..common_imports import tagged, JS_TAGS
 from ..fixtures.base import TourTestCase
 
 
@@ -8,7 +8,7 @@ def unit_test_error_checker(message: str) -> bool:
 
 
 # This runs JavaScript unit tests via browser - it's a unit test runner, not a tour
-@tagged(*UNIT_TAGS, "js_test", "product_connect")
+@tagged(*JS_TAGS, "product_connect")
 class ProductConnectJSTests(TourTestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -31,14 +31,34 @@ class ProductConnectJSTests(TourTestCase):
         )
 
     def test_hoot_mobile(self) -> None:
-        self.browser_js(
-            "/web/tests?headless&loglevel=2&preset=mobile&tag=-headless&timeout=15000&filter=product_connect",
-            code="",
-            login=self._get_test_login(),
-            timeout=1800,
-            success_signal="[HOOT] Test suite succeeded",
-            error_checker=unit_test_error_checker,
-        )
+        # Run mobile preset without extra tag filters that can complicate discovery
+        url = "/web/tests?headless=1&loglevel=2&preset=mobile&timeout=15000&filter=product_connect"
+        try:
+            self.browser_js(
+                url,
+                code="",
+                login=self._get_test_login(),
+                timeout=1800,
+                success_signal="[HOOT] Test suite succeeded",
+                error_checker=unit_test_error_checker,
+            )
+        except TimeoutError:
+            # Warm cache and retry once: hit home then retry tests URL
+            self.browser_js(
+                "/web?debug=assets",
+                code="",
+                login=self._get_test_login(),
+                timeout=300,
+                success_signal=None,
+            )
+            self.browser_js(
+                url,
+                code="",
+                login=self._get_test_login(),
+                timeout=1800,
+                success_signal="[HOOT] Test suite succeeded",
+                error_checker=unit_test_error_checker,
+            )
 
     def test_check_forbidden_statements(self) -> None:
         re_forbidden = re.compile(r"test.*\.(only|debug)\(")

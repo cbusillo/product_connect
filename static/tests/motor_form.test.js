@@ -101,7 +101,8 @@ describe("Motor Form Integration Tests", () => {
         });
 
         expect(".o_field_widget[name=manufacturer] input").toHaveValue("TestMaker");
-        expect(".o_field_widget[name=horsepower] input").toHaveValue("100");
+        // Float display can be locale/formatter dependent (e.g., 100 vs 100.00)
+        expect(".o_field_widget[name=horsepower] input").toMatchValue(/^(100|100\.00)$/);
         expect(".o_field_widget[name=location] input").toHaveValue("A1");
         expect(".o_field_widget[name=serial_number] input").toHaveValue("SN001");
     });

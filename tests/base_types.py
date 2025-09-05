@@ -22,6 +22,7 @@ STANDARD_TAGS = ["post_install", "-at_install"]
 UNIT_TAGS = STANDARD_TAGS + ["unit_test"]
 INTEGRATION_TAGS = STANDARD_TAGS + ["integration_test"]
 TOUR_TAGS = STANDARD_TAGS + ["tour_test"]
+JS_TAGS = STANDARD_TAGS + ["js_test"]
 PERFORMANCE_TAGS = STANDARD_TAGS + ["performance_test"]
 
 TEST_SKU_PREFIX = "TEST"

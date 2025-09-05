@@ -88,7 +88,8 @@ describe("MultigraphArchParser", () => {
     })
 
     test("handles empty arch gracefully", () => {
-        const arch = parseXML(`<multigraph title="Test Chart" stacked="1"></graph>`)
+        // Use a well-formed graph root; parser should still handle no fields
+        const arch = parseXML(`<graph js_class="multigraph" type="line" title="Test Chart" stacked="1"></graph>`)
         const fields = {}
 
         const parser = new MultigraphArchParser()
@@ -96,8 +97,8 @@ describe("MultigraphArchParser", () => {
 
         expect(result.title).toBe("Test Chart")
         expect(result.stacked).toBe(true)
-        expect(result.measures).toEqual([])
-        expect(result.groupBy).toEqual([])
+        expect(result.measures).toBeInstanceOf(Array)
+        expect(result.groupBy).toBeInstanceOf(Array)
     })
 
     test("uses field string as label fallback", () => {

@@ -50,10 +50,18 @@ class TestWorkerConnectivity(TourTestCase):
             # Try curl to the actual web endpoint
             try:
                 result = subprocess.run(
-                    ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"http://127.0.0.1:{port}/web/login"],
+                    [
+                        "curl",
+                        "-s",
+                        "-o",
+                        "/dev/null",
+                        "-w",
+                        "%{http_code}",
+                        f"http://127.0.0.1:{port}/web/login",
+                    ],
                     capture_output=True,
                     text=True,
-                    timeout=2,
+                    timeout=10,
                 )
                 http_code = result.stdout.strip()
                 if http_code == "200":
@@ -68,6 +76,9 @@ class TestWorkerConnectivity(TourTestCase):
         odoo_processes = [line for line in ps_result.stdout.split("\n") if "odoo-bin" in line]
         _logger.info(f"Found {len(odoo_processes)} odoo-bin processes")
 
-        # Check listening ports
-        netstat_result = subprocess.run(["netstat", "-tlnp"], capture_output=True, text=True)
-        _logger.info(f"Listening on 8069: {':8069' in netstat_result.stdout}")
+        # Check listening ports (best-effort; skip if unavailable/permission denied)
+        try:
+            netstat_result = subprocess.run(["netstat", "-tlnp"], capture_output=True, text=True)
+            _logger.info(f"Listening on 8069: {':8069' in netstat_result.stdout}")
+        except Exception as e:
+            _logger.warning(f"Skipping netstat check due to error: {e}")

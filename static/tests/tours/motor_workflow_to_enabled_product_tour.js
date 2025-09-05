@@ -13,8 +13,14 @@ registry.category("web_tour.tours").add("motor_workflow_to_enabled_product_tour"
         // Navigate to Inventory app
         {
             content: "Click on home menu",
-            trigger: ".o_menu_toggle",
-            run: "click",
+            trigger: ".o_menu_toggle:visible,.o_apps:visible",
+            run: function () {
+                const toggle = document.querySelector(".o_menu_toggle");
+                const apps = document.querySelector(".o_apps");
+                if (toggle && !apps) {
+                    toggle.click();
+                }
+            },
         },
         {
             content: "Wait for apps view",

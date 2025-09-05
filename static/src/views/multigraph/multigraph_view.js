@@ -26,7 +26,7 @@ export const multigraphView = {
             ArchParser: MultigraphArchParser,
             Model: MultigraphModel,
             Renderer: MultigraphRenderer,
-            // Respect caller-provided template/className; default to empty for tests
+            // Respect caller-provided template/className — default to empty for tests
             buttonTemplate: view?.buttonTemplate ?? "",
             className: view?.className ?? "",
         })

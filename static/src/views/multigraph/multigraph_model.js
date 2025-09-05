@@ -1,6 +1,14 @@
 import { GraphModel } from "@web/views/graph/graph_model"
 
 export class MultigraphModel extends GraphModel {
+    constructor(env = { services: {} }) {
+        // Allow tests to instantiate without full env; parent will read services from env
+        super(env)
+        // Backfill orm if tests inject it directly on instance
+        if (!this.orm && env.services && env.services.orm) {
+            this.orm = env.services.orm
+        }
+    }
     setup(params) {
         // Store custom measure configuration before parent processing
         this.customMeasures = params.measures || []
@@ -32,6 +40,9 @@ export class MultigraphModel extends GraphModel {
         }
         
         super.setup(params)
+        // Ensure a default mode is present for tests and renderer expectations
+        this.metaData = this.metaData || {}
+        this.metaData.mode = this.metaData.mode || "line"
         // Preserve the rich measure objects if provided; otherwise fall back to parent metadata
         this.measures = Array.isArray(this.customMeasures) && this.customMeasures.length
             ? this.customMeasures
