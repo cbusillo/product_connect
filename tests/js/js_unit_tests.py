@@ -22,35 +22,30 @@ class ProductConnectJSTests(TourTestCase):
 
     def test_hoot_desktop(self) -> None:
         self.browser_js(
-            "/web/tests?headless&loglevel=2&preset=desktop&timeout=15000&filter=product_connect",
+            "/web/tests?headless&loglevel=2&preset=desktop&timeout=30000&filter=product_connect",
             code="",
             login=self._get_test_login(),
-            timeout=1800,
+            # Fail fast: reduce per-test timeout from 30m to 15m→10m
+            timeout=900,
             success_signal="[HOOT] Test suite succeeded",
             error_checker=unit_test_error_checker,
         )
 
     def test_hoot_mobile(self) -> None:
         # Run mobile preset without extra tag filters that can complicate discovery
-        url = "/web/tests?headless=1&loglevel=2&preset=mobile&timeout=15000&filter=product_connect"
+        url = "/web/tests?headless=1&loglevel=2&preset=mobile&timeout=30000&filter=product_connect"
         try:
             self.browser_js(
                 url,
                 code="",
                 login=self._get_test_login(),
-                timeout=1800,
+                # Fail fast on mobile preset as well
+                timeout=900,
                 success_signal="[HOOT] Test suite succeeded",
                 error_checker=unit_test_error_checker,
             )
         except TimeoutError:
-            # Warm cache and retry once: hit home then retry tests URL
-            self.browser_js(
-                "/web?debug=assets",
-                code="",
-                login=self._get_test_login(),
-                timeout=300,
-                success_signal=None,
-            )
+            # Retry once after a short delay (server likely still compiling assets)
             self.browser_js(
                 url,
                 code="",

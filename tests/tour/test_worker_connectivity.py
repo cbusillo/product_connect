@@ -78,6 +78,7 @@ class TestWorkerConnectivity(TourTestCase):
 
         # Check listening ports (best-effort; skip if unavailable/permission denied)
         try:
+            # noinspection SpellCheckingInspection
             netstat_result = subprocess.run(["netstat", "-tlnp"], capture_output=True, text=True)
             _logger.info(f"Listening on 8069: {':8069' in netstat_result.stdout}")
         except Exception as e:

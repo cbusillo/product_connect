@@ -274,27 +274,35 @@ class TourTestCase(MultiWorkerHttpCase):
         self.browser_size = "1920x1080"
         self.tour_timeout = 120  # Reduced from 300 to prevent excessive hanging
         self._setup_browser_environment()
-        # Generic HTTP warmup to avoid 20s DevTools Page.navigate timeouts.
-        # Do plain HTTP requests before launching browser_js so assets/routes are hot.
-        try:
-            import requests
+        # Optional HTTP warmup: disabled by default to avoid long timeouts on busy CI.
+        # Enable by setting TOUR_WARMUP=1 in environment.
+        import os as _os
 
-            port = self.http_port()
-            base = f"http://127.0.0.1:{port}"
-            warm_paths = [
-                "/web/webclient/version_info",
-                "/web",
-                "/web/tests?headless=1&loglevel=1",
-            ]
-            for path in warm_paths:
-                url = base + path
-                try:
-                    _logger.info(f"Warm-up: GET {url}")
-                    requests.get(url, timeout=30)
-                except Exception as e:
-                    _logger.warning(f"Warm-up request failed for {url}: {e}")
-        except Exception as outer:
-            _logger.warning(f"Warm-up setup skipped due to error: {outer}")
+        if _os.environ.get("TOUR_WARMUP", "0") != "0":
+            try:
+                import requests
+                import time
+
+                port = self.http_port()
+                base = f"http://127.0.0.1:{port}"
+
+                # Fail fast: shorter per-attempt timeout and fewer retries
+                def warm(url: str, retries: int = 2, timeout: int = 15, delay: float = 1.0) -> None:
+                    for attempt in range(1, retries + 1):
+                        try:
+                            _logger.info(f"Warm-up [{attempt}/{retries}]: GET {url} (timeout={timeout}s)")
+                            resp = requests.get(url, timeout=timeout)
+                            if resp.status_code < 500:
+                                return
+                            _logger.warning(f"Warm-up {url} returned HTTP {resp.status_code}")
+                        except Exception as e:
+                            _logger.warning(f"Warm-up attempt {attempt} failed for {url}: {e}")
+                        time.sleep(delay)
+
+                # Warm minimal endpoints first, then heavier tests harness last
+                warm(base + "/odoo")
+            except Exception as outer:
+                _logger.warning(f"Warm-up setup skipped due to error: {outer}")
 
     def _setup_browser_environment(self) -> None:
         """Configure browser environment for headless operation."""
@@ -331,18 +339,21 @@ class TourTestCase(MultiWorkerHttpCase):
             # Clean up any existing browser processes before starting
             self._cleanup_browser_processes()
 
-            # Warm up server endpoints on cold start to avoid Page.navigate timeouts
-            try:
-                import requests
+            # Optional warm-up: honor TOUR_WARMUP env (default disabled for speed/stability)
+            import os as _os
 
-                port = self.http_port()
-                base = f"http://127.0.0.1:{port}"
-                for path in ("/web/webclient/version_info", "/web"):
-                    warm_url = base + path
-                    _logger.info(f"Warming up server with GET {warm_url}")
-                    requests.get(warm_url, timeout=30)
-            except Exception as warm_err:
-                _logger.warning(f"Warm-up request failed (will proceed anyway): {warm_err}")
+            if _os.environ.get("TOUR_WARMUP", "0") != "0":
+                try:
+                    import requests
+
+                    port = self.http_port()
+                    base = f"http://127.0.0.1:{port}"
+                    for path in ("/odoo",):
+                        warm_url = base + path
+                        _logger.info(f"Warming up server with GET {warm_url}")
+                        requests.get(warm_url, timeout=30)
+                except Exception as warm_err:
+                    _logger.warning(f"Warm-up request failed (will proceed anyway): {warm_err}")
 
             # Use Odoo's built-in implementation with timeout handling
             super().start_tour(url, tour_name, login=login, timeout=timeout, step_delay=step_delay)

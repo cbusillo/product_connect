@@ -50,13 +50,16 @@ class TestDebugConnection(TourTestCase):
         for host in hosts_to_try:
             # noinspection HttpUrlsUsage
             url = f"http://{host}:{port}/web/webclient/version_info"
-            result = subprocess.run(
-                ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", url],
-                capture_output=True,
-                text=True,
-                timeout=20,
-            )
-            _logger.info(f"HTTP response from {url}: {result.stdout}")
+            try:
+                result = subprocess.run(
+                    ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", url],
+                    capture_output=True,
+                    text=True,
+                    timeout=8,  # fail fast; informational only
+                )
+                _logger.info(f"HTTP response from {url}: {result.stdout}")
+            except subprocess.TimeoutExpired:
+                _logger.warning(f"HTTP check timed out for {url}; proceeding (socket connectivity already verified)")
 
     def test_browser_url_format(self):
         """Check what URL format the browser is actually using"""
