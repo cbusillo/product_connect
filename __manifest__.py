@@ -1,10 +1,9 @@
 {
-    "name": "Product Connect Module",
+    "name": "Product Connect",
     "version": "18.0.8.1",
     "category": "Industries",
-    "author": "Chris Busillo",
-    "company": "Shiny Computers",
-    "website": "https://www.shinycomputers.com",
+    "author": "Chris Busillo (Shiny Computers)",
+    "maintainers": ["cbusillo"],
     "depends": [
         "base",
         "product",
@@ -27,7 +26,11 @@
         "base_geolocalize",
         "external_ids",
     ],
-    "description": "Module to connect to various product sources and manage product data for motor parts.",
+    "summary": "Connect to product sources and manage motor parts inventory with Shopify integration",
+    "description": """
+Comprehensive motor parts management system with Shopify integration.
+Handles inventory, repairs, and multi-channel sales for marine equipment.
+    """,
     "data": [
         "data/motor_test_section_data.xml",  # motor data order is important (relations)
         "data/motor_test_selection_data.xml",
