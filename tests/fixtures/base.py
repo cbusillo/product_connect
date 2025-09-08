@@ -299,8 +299,10 @@ class TourTestCase(MultiWorkerHttpCase):
                             _logger.warning(f"Warm-up attempt {attempt} failed for {url}: {e}")
                         time.sleep(delay)
 
-                # Warm minimal endpoints first, then heavier tests harness last
+                # Warm minimal endpoints first, then the JS tests harness to avoid 20s DevTools navigate timeouts
                 warm(base + "/odoo")
+                # Preload the hoot/QUnit test harness & assets for our module
+                warm(base + "/odoo/tests?headless=1&filter=product_connect")
             except Exception as outer:
                 _logger.warning(f"Warm-up setup skipped due to error: {outer}")
 
@@ -320,6 +322,14 @@ class TourTestCase(MultiWorkerHttpCase):
             # Only set if not already defined in container environment
             if key not in os.environ or not os.environ[key]:
                 os.environ[key] = value
+
+        # Optional extra Chrome verbosity for debugging DevTools navigation/connectivity issues
+        # Enable via JS_DEBUG=1 in the environment.
+        if os.environ.get("JS_DEBUG", "0") != "0":
+            extra = "--enable-logging=stderr --v=1"
+            current = os.environ.get("CHROMIUM_FLAGS", "").strip()
+            if extra not in current:
+                os.environ["CHROMIUM_FLAGS"] = (current + " " + extra).strip()
 
         _logger.info(f"Browser environment configured: CHROMIUM_FLAGS={os.environ.get('CHROMIUM_FLAGS', 'not set')}")
 

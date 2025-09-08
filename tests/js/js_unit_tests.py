@@ -1,4 +1,8 @@
+import os
 import re
+import time
+from typing import Tuple
+from ..fixtures.base import _logger
 from ..common_imports import tagged, JS_TAGS
 from ..fixtures.base import TourTestCase
 
@@ -21,8 +25,28 @@ class ProductConnectJSTests(TourTestCase):
         return "tour_test_user"
 
     def test_hoot_desktop(self) -> None:
+        url = "/odoo/tests?headless&loglevel=2&preset=desktop&timeout=30000&filter=product_connect"
+        # Pre-wait for the test harness endpoint to be responsive to avoid DevTools navigate timeouts
+        port = self.http_port()
+        base = f"http://127.0.0.1:{port}"
+        full = base + url
+        try:
+            import requests
+
+            deadline = time.time() + 60
+            while time.time() < deadline:
+                try:
+                    r = requests.get(full, timeout=3)
+                    if r.status_code < 500:
+                        break
+                except Exception:
+                    pass
+                time.sleep(0.5)
+        except Exception:
+            pass
+
         self.browser_js(
-            "/odoo/tests?headless&loglevel=2&preset=desktop&timeout=30000&filter=product_connect",
+            url,
             code="",
             login=self._get_test_login(),
             # Fail fast: reduce per-test timeout from 30m to 15m→10m
@@ -34,6 +58,24 @@ class ProductConnectJSTests(TourTestCase):
     def test_hoot_mobile(self) -> None:
         # Run mobile preset without extra tag filters that can complicate discovery
         url = "/odoo/tests?headless=1&loglevel=2&preset=mobile&timeout=30000&filter=product_connect"
+        # Pre-wait for the test harness endpoint to be responsive
+        port = self.http_port()
+        base = f"http://127.0.0.1:{port}"
+        full = base + url
+        try:
+            import requests
+
+            deadline = time.time() + 60
+            while time.time() < deadline:
+                try:
+                    r = requests.get(full, timeout=3)
+                    if r.status_code < 500:
+                        break
+                except Exception:
+                    pass
+                time.sleep(0.5)
+        except Exception:
+            pass
         try:
             self.browser_js(
                 url,
@@ -82,3 +124,39 @@ class ProductConnectJSTests(TourTestCase):
                         self.fail(f"`only()` or `debug()` used in file {file_path}")
             except FileNotFoundError:
                 pass
+    def _preflight_get(self, url: str, timeout: int = 10) -> Tuple[int, float, int, str]:
+        """Fetch URL and return (status, seconds, size, snippet). Never raises."""
+        try:
+            import requests
+
+            t0 = time.perf_counter()
+            resp = requests.get(url, timeout=timeout, allow_redirects=True)
+            dt = time.perf_counter() - t0
+            body = resp.text or ""
+            snippet = body[:160].replace("\n", " ")
+            return resp.status_code, dt, len(resp.content or b""), snippet
+        except Exception as e:  # pragma: no cover - diagnostics only
+            return 0, -1.0, 0, f"error: {e}"
+
+    def test_000_preflight_endpoints(self) -> None:
+        """Optional diagnostics for server and test harness responsiveness.
+
+        Enabled when JS_PRECHECK=1 in the environment. Logs timings and does not fail.
+        """
+        if os.environ.get("JS_PRECHECK", "0") == "0":
+            self.skipTest("JS_PRECHECK disabled")
+
+        port = self.http_port()
+        base = f"http://127.0.0.1:{port}"
+        targets = [
+            ("/odoo", {}),
+            ("/odoo/tests?headless=1", {}),
+            ("/odoo/tests?headless=1&filter=product_connect", {}),
+        ]
+        for path, _ in targets:
+            url = base + path
+            status, secs, size, snippet = self._preflight_get(url)
+            _logger.info(
+                f"[JS-PREFLIGHT] GET {path} -> status={status} time={secs:.2f}s size={size} snippet={snippet!r}"
+            )
+        # never assert; this is diagnostics-only
