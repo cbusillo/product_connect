@@ -51,9 +51,9 @@ class TestSimpleFix(TourTestCase):
 
         try:
             # Use requests to check if we can reach the server
-            response = requests.get(f"http://127.0.0.1:{port}/web/login", timeout=5)
+            response = requests.get(f"http://127.0.0.1:{port}/odoo/login", timeout=5)
             _logger.info(f"Server response status: {response.status_code}")
-            self.assertEqual(response.status_code, 200, "Should get 200 response from /web/login")
+            self.assertEqual(response.status_code, 200, "Should get 200 response from /odoo/login")
         except Exception as e:
             _logger.error(f"Failed to reach server: {e}")
             self.fail(f"Could not reach server: {e}")

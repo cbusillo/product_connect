@@ -374,7 +374,7 @@ class TestOrderShippingImport(IntegrationTestCase):
 
             self.assertIn("https://test-shop.myshopify.com/admin/orders/5555555555", error_msg)
 
-            self.assertIn("https://odoo.example.com/web#action=&model=delivery.carrier.service.map&view_type=list", error_msg)
+            self.assertIn("https://odoo.example.com/odoo#action=&model=delivery.carrier.service.map&view_type=list", error_msg)
 
             self.assertIn("new express service", error_msg.lower())
 

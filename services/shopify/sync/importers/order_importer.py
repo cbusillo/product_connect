@@ -363,7 +363,7 @@ class OrderImporter(ShopifyBaseImporter[OrderFields]):
                 order_url = f"https://{shop_url_key}/admin/orders/{shopify_order_id}" if shop_url_key else ""
 
                 base_url = self.env["ir.config_parameter"].sudo().get_param("web.base.url", "")
-                mapping_url = f"{base_url}/web#action=&model=delivery.carrier.service.map&view_type=list" if base_url else ""
+                mapping_url = f"{base_url}/odoo#action=&model=delivery.carrier.service.map&view_type=list" if base_url else ""
 
                 error_msg = (
                     f"Unknown delivery service '{service_name}' in order {shopify_order.name}. "

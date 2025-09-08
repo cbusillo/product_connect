@@ -22,7 +22,7 @@ class ProductConnectJSTests(TourTestCase):
 
     def test_hoot_desktop(self) -> None:
         self.browser_js(
-            "/web/tests?headless&loglevel=2&preset=desktop&timeout=30000&filter=product_connect",
+            "/odoo/tests?headless&loglevel=2&preset=desktop&timeout=30000&filter=product_connect",
             code="",
             login=self._get_test_login(),
             # Fail fast: reduce per-test timeout from 30m to 15m→10m
@@ -33,7 +33,7 @@ class ProductConnectJSTests(TourTestCase):
 
     def test_hoot_mobile(self) -> None:
         # Run mobile preset without extra tag filters that can complicate discovery
-        url = "/web/tests?headless=1&loglevel=2&preset=mobile&timeout=30000&filter=product_connect"
+        url = "/odoo/tests?headless=1&loglevel=2&preset=mobile&timeout=30000&filter=product_connect"
         try:
             self.browser_js(
                 url,

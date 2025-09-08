@@ -590,7 +590,7 @@ class Motor(models.Model):
             ]
         )
 
-        download_url = f"/web/binary/download_single?attachment_id={attachment.id}"
+        download_url = f"/odoo/binary/download_single?attachment_id={attachment.id}"
         shutil.rmtree(temp_path)
 
         return {

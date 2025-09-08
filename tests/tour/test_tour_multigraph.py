@@ -26,13 +26,13 @@ class TestMultigraphTour(TourTestCase):
                 for i in range(1, 6)
             ]
         )
-    
+
     def test_multigraph_view_tour(self) -> None:
         # Land directly on the analytics action to avoid flaky doAction flows
         # Graph views can be slower to load on CI; give them a bit more time
         # Force initial view to pivot to avoid multigraph controller dev-only sample model path
         self.start_tour(
-            "/web#action=product_connect.action_product_processing_analytics&view_type=pivot",
+            "/odoo#action=product_connect.action_product_processing_analytics&view_type=pivot",
             "test_multigraph_view",
             timeout=180,
         )

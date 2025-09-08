@@ -6,7 +6,7 @@ from odoo.http import request, Response, NotFound
 
 
 class SingleDownloadController(http.Controller):
-    @http.route("/web/binary/download_single", type="http", auth="user")
+    @http.route("/odoo/binary/download_single", type="http", auth="user")
     def download_single(self, attachment_id: str, **_kwargs: str) -> Response | NotFound:
         attachment = request.env["ir.attachment"].browse(int(attachment_id))
         if not attachment.exists():

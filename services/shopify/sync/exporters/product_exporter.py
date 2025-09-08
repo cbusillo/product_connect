@@ -278,7 +278,7 @@ class ProductExporter(ShopifyBaseExporter["odoo.model.product_product"]):
             shopify_product_set_input.files = [
                 FileSetInput(
                     alt=odoo_product.name,
-                    originalSource=self.odoo_base_url + "/web/image/product.image/" + str(odoo_image.id) + "/image_1920",
+                    originalSource=self.odoo_base_url + "/odoo/image/product.image/" + str(odoo_image.id) + "/image_1920",
                 )
                 for odoo_image in sorted(odoo_product.images, key=image_order_key)
             ]

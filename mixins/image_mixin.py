@@ -122,6 +122,6 @@ class ImageMixin(models.AbstractModel):
         self.ensure_one()
         return {
             "type": "ir.actions.act_url",
-            "url": f"/web/image?model={self._name}&id={self.id}&field=image_1920",
+            "url": f"/odoo/image?model={self._name}&id={self.id}&field=image_1920",
             "target": "new",
         }
