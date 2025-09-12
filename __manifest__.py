@@ -1,6 +1,6 @@
 {
     "name": "Product Connect",
-    "version": "18.0.8.1",
+    "version": "18.0.8.2",
     "category": "Industries",
     "author": "Chris Busillo (Shiny Computers)",
     "maintainers": ["cbusillo"],
@@ -25,6 +25,7 @@
         "delivery_usps_rest",
         "base_geolocalize",
         "external_ids",
+        "hr_employee_name_extended",
     ],
     "summary": "Connect to product sources and manage motor parts inventory with Shopify integration",
     "description": """
@@ -32,6 +33,9 @@ Comprehensive motor parts management system with Shopify integration.
 Handles inventory, repairs, and multi-channel sales for marine equipment.
     """,
     "data": [
+        # Security first
+        "security/ir.model.access.csv",
+        # Seed/reference data (order matters where noted)
         "data/motor_test_section_data.xml",  # motor data order is important (relations)
         "data/motor_test_selection_data.xml",
         "data/motor_test_template_data.xml",
@@ -43,9 +47,11 @@ Handles inventory, repairs, and multi-channel sales for marine equipment.
         "data/delivery_products.xml",  # delivery data order is important (relations)
         "data/delivery_carriers.xml",
         "data/delivery_carrier_mappings.xml",
+        # Reports
         "report/motor_product_reports.xml",
         "report/motor_reports.xml",
         "report/product_reports.xml",
+        # Views
         "views/delivery_carrier_views.xml",
         "views/motor_views.xml",  # motor_views needs to be loaded first (menu parent)
         "views/motor_part_template_views.xml",
@@ -71,7 +77,6 @@ Handles inventory, repairs, and multi-channel sales for marine equipment.
         "views/sale_order_views.xml",
         "views/shipping_analytics_views.xml",
         "views/shopify_sync_views.xml",
-        "security/ir.model.access.csv",
     ],
     "assets": {
         "web.assets_backend": [
@@ -84,21 +89,24 @@ Handles inventory, repairs, and multi-channel sales for marine equipment.
         ],
         "web.assets_backend_lazy": [
             "product_connect/static/src/js/external/qr-scanner.umd.min.js",
-            "product_connect/static/src/views/multigraph/*.js",
-            "product_connect/static/src/views/multigraph/*.xml",
-            "product_connect/static/src/views/multigraph/*.scss",
+            # Load all custom view code/templates/styles recursively
+            "product_connect/static/src/views/**/*.js",
+            "product_connect/static/src/views/**/*.xml",
+            "product_connect/static/src/views/**/*.scss",
         ],
         "product_connect.test_helpers": [
             "product_connect/static/tests/helpers/*.js",
         ],
         "web.assets_unit_tests_setup": [
             ("include", "product_connect.test_helpers"),
+            # Ensure all custom view code is available in the unit test harness
+            "product_connect/static/src/views/**/*.js",
+            "product_connect/static/src/views/**/*.xml",
         ],
         # JavaScript unit tests (Hoot/QUnit) - helpers must be included first
         "web.assets_unit_tests": [
             ("include", "product_connect.test_helpers"),
             "product_connect/static/tests/*.test.js",
-            "product_connect/static/tests/views/*.test.js",
         ],
         # Browser tours only - DO NOT include unit tests here
         "web.assets_tests": [
