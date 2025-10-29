@@ -3,7 +3,7 @@
 
 import { describe, test, expect } from "@odoo/hoot";
 
-describe("Basic Product Connect Tests", () => {
+describe("@product_connect Basic Product Connect Tests", () => {
     test("should pass basic test", async () => {
         expect(true).toBe(true);
         expect(1 + 1).toBe(2);

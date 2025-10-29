@@ -5,7 +5,7 @@ import { MultigraphArchParser } from "@product_connect/views/multigraph/multigra
 import { parseXML } from "@web/core/utils/xml"
 import { createTestMultigraphModel } from "@product_connect/../tests/helpers/test_base"
 
-describe("Multigraph f1.string Error Prevention", () => {
+describe("@product_connect Multigraph f1.string Error Prevention", () => {
     test("arch parser always provides label for measures", () => {
         const arch = parseXML(`
             <graph js_class="multigraph" type="line">

@@ -2,7 +2,7 @@
 import { describe, expect, test, beforeEach } from "@odoo/hoot";
 import { MultigraphModel } from "@product_connect/views/multigraph/multigraph_model";
 
-describe("MultigraphModel", () => {
+describe("@product_connect MultigraphModel", () => {
     let model;
     let mockOrm;
 

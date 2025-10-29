@@ -11,6 +11,8 @@ export const multigraphView = {
     type: "multigraph",
     display_name: "MultiGraph",
     icon: "fa fa-line-chart",
+    // Ensure standard graph root class is present for selectors/tours
+    className: `${graphView.className ?? 'o_graph_view'} o_multigraph_view`,
     multiRecord: true,
     buttonTemplate: "web.MultigraphView.Buttons",
     searchMenuTypes: ["filter", "groupBy", "comparison", "favorite"],
@@ -26,9 +28,10 @@ export const multigraphView = {
             ArchParser: MultigraphArchParser,
             Model: MultigraphModel,
             Renderer: MultigraphRenderer,
-            // Respect caller-provided template/className — default to empty for tests
-            buttonTemplate: view?.buttonTemplate ?? "",
-            className: view?.className ?? "",
+            // Keep GraphView's default className ("o_graph_view") so tours/selectors work
+            // and only override if the caller explicitly provides one.
+            buttonTemplate: view?.buttonTemplate ?? graphView.buttonTemplate,
+            className: view?.className ?? graphView.className,
         })
 
         // Extend/modify the modelParams for multigraph specifics

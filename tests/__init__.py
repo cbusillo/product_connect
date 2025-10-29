@@ -65,6 +65,7 @@ _exposed_modules = _expose_subdir_tests()
 # Manually import JS unit tests (renamed to avoid tour contamination)
 try:
     from .js import js_unit_tests
+
     # Expose it as test_js_units for Odoo's test discovery
     sys.modules[__name__].test_js_units = js_unit_tests
     _logger.info("Manually imported JS unit tests module")

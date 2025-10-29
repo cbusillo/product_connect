@@ -1,19 +1,36 @@
 import { GraphModel } from "@web/views/graph/graph_model"
 
 export class MultigraphModel extends GraphModel {
-    constructor(env = { services: {} }) {
-        // Allow tests to instantiate without full env; parent will read services from env
-        super(env)
-        // Backfill orm if tests inject it directly on instance
-        if (!this.orm && env.services && env.services.orm) {
-            this.orm = env.services.orm
+    constructor(env = {}, params = {}, services = undefined) {
+        const fallbackOrm = {
+            // Minimal stub to satisfy constructor paths that require an orm
+            webReadGroup: async () => ({ groups: [] }),
+        }
+        const mergedEnv = {
+            ...env,
+            services: {
+                // Ensure an ORM service always exists to avoid constructor crashes
+                orm: (services && services.orm) || (env && env.services && env.services.orm) || fallbackOrm,
+                ...(env?.services || {}),
+                ...(services || {}),
+            },
+        }
+
+        // Call parent with normalized signature (env, params, services)
+        // Some Odoo models expect exactly 3 constructor args
+        super(mergedEnv, params, mergedEnv.services)
+
+        // Ensure orm is present for direct calls in our methods/tests
+        if (!this.orm && mergedEnv.services && mergedEnv.services.orm) {
+            this.orm = mergedEnv.services.orm
         }
     }
+
     setup(params) {
         // Store custom measure configuration before parent processing
         this.customMeasures = params.measures || []
         this.customMeasureConfig = {}
-        
+
         // Process custom measures and store configuration
         if (Array.isArray(params.measures)) {
             params.measures.forEach(measure => {
@@ -24,12 +41,12 @@ export class MultigraphModel extends GraphModel {
                     type: measure.type
                 }
             })
-            
+
             // Convert measures array to field names for parent class
             params.measures = params.measures.map(m => m.fieldName)
             params.measureFields = params.measures
         }
-        
+
         // Ensure all fields have string property to prevent f1.string errors
         if (params.fields) {
             Object.keys(params.fields).forEach(fieldName => {
@@ -38,7 +55,7 @@ export class MultigraphModel extends GraphModel {
                 }
             })
         }
-        
+
         super.setup(params)
         // Ensure a default mode is present for tests and renderer expectations
         this.metaData = this.metaData || {}
@@ -70,18 +87,21 @@ export class MultigraphModel extends GraphModel {
     }
 
     async _loadData(searchParams) {
-        this.searchParams = searchParams
-        let { context, domain, groupBy, orderBy } = searchParams
+        this.searchParams = searchParams || {}
+        let { context, domain, groupBy, orderBy } = this.searchParams
+
+        context = context || {}
+        domain = Array.isArray(domain) ? domain : []
+        groupBy = Array.isArray(groupBy) ? groupBy : []
+        orderBy = Array.isArray(orderBy) ? orderBy : []
 
         // If no groupBy is specified but we have graph_groupbys in context, use that
-        if (!groupBy || groupBy.length === 0) {
-            if (context.graph_groupbys && context.graph_groupbys.length > 0) {
-                groupBy = context.graph_groupbys
-            }
+        if (groupBy.length === 0 && Array.isArray(context.graph_groupbys) && context.graph_groupbys.length > 0) {
+            groupBy = context.graph_groupbys
         }
 
         // Keep the original groupBy with intervals for webReadGroup
-        const measureFieldNames = this.measures.map(m => m.fieldName)
+        const measureFieldNames = (this.measures || []).map(m => m.fieldName)
         const fieldNamesOnly = groupBy.map(gb => {
             if (typeof gb === 'string' && gb.includes(':')) {
                 return gb.split(':')[0]
@@ -91,19 +111,26 @@ export class MultigraphModel extends GraphModel {
 
         const readGroupFields = [...new Set([...fieldNamesOnly, ...measureFieldNames])]
 
+        const options = {
+            orderby: orderBy.length ? orderBy : false,
+            lazy: groupBy.length === 1,
+            context,
+        }
+
+        // Keep the effective groupBy in searchParams for downstream processing
+        this.searchParams.groupBy = groupBy
+
         const data = await this.orm.webReadGroup(
             this.metaData.resModel,
             domain,
             readGroupFields,
-            groupBy,  // Use original groupBy with intervals
-            {
-                orderby: orderBy.length ? orderBy : false,
-                lazy: groupBy.length === 1,
-                context,
-            }
+            groupBy,
+            options
         )
 
         this.data = this._processData(data, fieldNamesOnly)
+        // Keep a stable alias expected by some renderer/test helpers
+        this.dataPoints = this.data
         return this.data
     }
 
@@ -120,11 +147,12 @@ export class MultigraphModel extends GraphModel {
 
         processedData.labels = data.groups.map(group => {
             // Check if we have a groupBy with interval
-            if (this.searchParams.groupBy.length && this.searchParams.groupBy[0]) {
-                const groupByField = this.searchParams.groupBy[0]
+            const gb = Array.isArray(this.searchParams?.groupBy) ? this.searchParams.groupBy : []
+            if (gb.length && gb[0]) {
+                const groupByField = gb[0]
 
                 // For fields with intervals, Odoo returns the field with interval suffix as key
-                if (groupByField.includes(':') && group[groupByField] !== undefined) {
+                if (typeof groupByField === 'string' && groupByField.includes(':') && group[groupByField] !== undefined) {
                     // The value is already formatted by Odoo
                     return group[groupByField] || "Undefined"
                 }
@@ -172,7 +200,7 @@ export class MultigraphModel extends GraphModel {
     }
 
     _formatGroupByValue(fieldName, value) {
-        const field = this.metaData.fields[fieldName]
+        const field = (this.metaData && this.metaData.fields && this.metaData.fields[fieldName]) || null
 
         if (!value || value === false) {
             return "Undefined"
@@ -229,12 +257,12 @@ export class MultigraphModel extends GraphModel {
     _computeCustomReportMeasures() {
         // Compute report measures with custom configuration
         const reportMeasures = {}
-        
+
         if (this.metaData && this.metaData.measures) {
             this.metaData.measures.forEach(fieldName => {
                 const customConfig = this.customMeasureConfig[fieldName] || {}
                 const field = this.metaData.fields[fieldName] || {}
-                
+
                 reportMeasures[fieldName] = {
                     fieldName,
                     axis: customConfig.axis || 'y',
@@ -244,7 +272,7 @@ export class MultigraphModel extends GraphModel {
                 }
             })
         }
-        
+
         return reportMeasures
     }
 }

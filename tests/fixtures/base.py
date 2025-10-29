@@ -231,13 +231,22 @@ class TourTestCase(MultiWorkerHttpCase):
         if not test_user:
             # Create new test user
             system_group = cls.env.ref("base.group_system")
+            # Some modules (e.g., discuss_record_links) reuse this base without 'stock' installed.
+            # Make the stock manager group optional to avoid hard dependency in JS/tour tests.
+            try:
+                stock_manager = cls.env.ref("stock.group_stock_manager")
+            except Exception:  # ValueError when external id not found
+                stock_manager = None
+
+            group_ids = [system_group.id] + ([stock_manager.id] if stock_manager else [])
             test_user = cls.env["res.users"].create(
                 {
                     "name": "Tour Test User",
                     "login": "tour_test_user",
                     "email": "tour_test@example.com",
                     "password": cls.test_password,
-                    "groups_id": [(6, 0, [system_group.id])],
+                    # Ensure the user can access features used by tours; 'stock' is optional
+                    "groups_id": [(6, 0, group_ids)],
                     "active": True,
                 }
             )
@@ -250,14 +259,19 @@ class TourTestCase(MultiWorkerHttpCase):
                     "active": True,
                 }
             )
-            # Ensure user has system permissions
+            # Ensure user has system permissions (stock group is optional)
             system_group = cls.env.ref("base.group_system")
+            try:
+                stock_manager = cls.env.ref("stock.group_stock_manager")
+            except Exception:
+                stock_manager = None
+            to_add = []
             if system_group not in test_user.groups_id:
-                test_user.sudo().write(
-                    {
-                        "groups_id": [(4, system_group.id)],
-                    }
-                )
+                to_add.append(system_group.id)
+            if stock_manager and stock_manager not in test_user.groups_id:
+                to_add.append(stock_manager.id)
+            if to_add:
+                test_user.sudo().write({"groups_id": [(4, gid) for gid in to_add]})
             _logger.info("Updated existing tour test user with new secure password")
 
         cls.test_user = test_user
@@ -272,7 +286,10 @@ class TourTestCase(MultiWorkerHttpCase):
     def setUp(self) -> None:
         super().setUp()
         self.browser_size = "1920x1080"
-        self.tour_timeout = 120  # Reduced from 300 to prevent excessive hanging
+        # Allow overriding tour timeout via env var TOUR_TIMEOUT (seconds)
+        import os as _os  # noqa: PLC0415
+
+        self.tour_timeout = int(_os.environ.get("TOUR_TIMEOUT", "120"))
         self._setup_browser_environment()
         # Optional HTTP warmup: disabled by default to avoid long timeouts on busy CI.
         # Enable by setting TOUR_WARMUP=1 in environment.

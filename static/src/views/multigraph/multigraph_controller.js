@@ -1,4 +1,5 @@
 import { GraphController } from "@web/views/graph/graph_controller"
+import { useService } from "@web/core/utils/hooks"
 
 /**
  * @typedef {import("./multigraph_model").MultigraphModel} MultigraphModel
@@ -12,6 +13,7 @@ export class MultigraphController extends GraphController {
     }
 
     setup() {
+        this.orm = useService("orm")
         super.setup()
     }
 

@@ -8,7 +8,8 @@ import { registry } from "@web/core/registry";
  */
 registry.category("web_tour.tours").add("example_product_tour", {
     test: true,
-    url: "/web#action=product_connect.action_product_template",
+    // Use the simpler list-edit action to avoid enterprise-only fields in stock tree view
+    url: "/web#action=product_connect.action_product_template_list_edit",
     steps: () => [
         {
             content: "Wait for web client to be ready",
@@ -16,15 +17,15 @@ registry.category("web_tour.tours").add("example_product_tour", {
             run() {
                 // Ensure we are on the intended action route. In some environments the
                 // webclient may auto-navigate to a default app (e.g., CRM) on first load.
-                const target = "/web#action=product_connect.action_product_template"
-                if (window.location.hash.indexOf("product_connect.action_product_template") === -1) {
+                const target = "/web#action=product_connect.action_product_template_list_edit"
+                if (window.location.hash.indexOf("product_connect.action_product_template_list_edit") === -1) {
                     window.location.href = target
                 }
                 // Also force via the Action service to be robust to routing races
                 try {
                     const svc = odoo?.__DEBUG__?.services?.action
                     if (svc && typeof svc.doAction === 'function') {
-                        svc.doAction("product_connect.action_product_template")
+                        svc.doAction("product_connect.action_product_template_list_edit")
                     }
                 } catch (e) {
                     // non-fatal
@@ -41,7 +42,7 @@ registry.category("web_tour.tours").add("example_product_tour", {
                     // As a fallback, force-load the action again
                     try {
                         const svc = odoo?.__DEBUG__?.services?.action
-                        svc?.doAction?.("product_connect.action_product_template")
+                        svc?.doAction?.("product_connect.action_product_template_list_edit")
                     } catch (e) {
                     }
                 }

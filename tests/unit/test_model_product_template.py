@@ -32,7 +32,7 @@ class TestProductTemplate(UnitTestCase):
         for idx, length in enumerate(valid_sku_patterns):
             # Use deterministic SKU based on test method and index to avoid duplicates
             # Start with 9 to ensure we get the right length, add index for uniqueness
-            base_num = int(f"9{idx:0{length-1}d}")
+            base_num = int(f"9{idx:0{length - 1}d}")
             unique_sku = f"{base_num:0{length}d}"
 
             with self.subTest(sku=unique_sku):

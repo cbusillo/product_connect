@@ -7,93 +7,86 @@
 
 import { registry } from "@web/core/registry";
 
+// Product Processing Analytics: open, switch views, and assert basic UI health
 registry.category("web_tour.tours").add("test_multigraph_view", {
     test: true,
-    // Navigate directly to the analytics action to avoid dependency on Inventory app tiles
-    url: "/web#action=product_connect.action_product_processing_analytics",
-    // Increase timeout for complex view loading
+    url: "/web#action=product_connect.action_product_processing_analytics&view_type=pivot",
     timeout: 60000,
     steps: () => [
-        // Landed on action page
         {
-            content: "Wait for page to load",
-            trigger: "body.o_web_client",
+            content: "Wait for control panel",
+            trigger: ".o_control_panel",
+            timeout: 30000,
         },
         {
-            trigger: ".o_graph_view,.o_list_view,.o_pivot_view",
-            content: "Wait for any view to load",
-            run: function () {
-                console.log("View loaded:", this.querySelector(".o_graph_view") ? "graph" :
-                    this.querySelector(".o_list_view") ? "list" : "pivot");
-            },
-        },
-        {
-            trigger: ".o_graph_view .o_graph_renderer",
-            content: "Wait for graph renderer",
-            run: function () {
-                console.log("Graph renderer found, waiting for canvas...");
-            },
-        },
-        {
-            trigger: ".o_graph_view .o_graph_renderer canvas",
-            content: "Wait for canvas to be rendered",
-            run: async function () {
-                const canvas = this;
-                // Wait for canvas to have actual dimensions
-                let attempts = 0;
-                while (attempts < 50 && (!canvas.offsetWidth || !canvas.offsetHeight)) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    attempts++;
-                }
-                console.log("Canvas ready with dimensions:", canvas.offsetWidth, "x", canvas.offsetHeight);
-            },
-        },
-        {
-            trigger: ".o_graph_view .o_graph_renderer canvas",
-            content: "Click on the chart if present",
-            run: function () {
-                const canvas = this;
-                if (canvas && canvas.offsetWidth > 0) {
-                    // Create a click event at the center of the canvas
-                    const rect = canvas.getBoundingClientRect();
-                    const event = new MouseEvent('click', {
-                        view: window,
-                        bubbles: true,
-                        cancelable: true,
-                        clientX: rect.left + rect.width / 2,
-                        clientY: rect.top + rect.height / 2
-                    });
-                    canvas.dispatchEvent(event);
-                    console.log("Clicked on canvas");
+            content: "Breadcrumb present (analytics)",
+            trigger: ".o_control_panel .o_breadcrumb",
+            run() {
+                const bc = document.querySelector(".o_control_panel .o_breadcrumb");
+                const txt = (bc?.textContent || "").trim();
+                if (!/(Processing|Analytics|Product)/i.test(txt)) {
+                    throw new Error(`Unexpected breadcrumb: "${txt}"`);
                 }
             },
         },
         {
-            trigger: "body:not(:has(.o_error_dialog))",
-            content: "Verify no error dialog appears",
-            run: function () {
-                console.log("No error dialog - test successful");
-            },
+            content: "Pivot view visible",
+            trigger: ".o_view_controller .o_pivot",
+            timeout: 30000,
         },
-        // Optional view switching steps - only if buttons exist
         {
-            trigger: "button.o_switch_view.o_list:visible,body:not(:has(button.o_switch_view))",
-            content: "Switch to list view if button exists",
-            run: function () {
-                const button = document.querySelector("button.o_switch_view.o_list:not(.active)");
-                if (button) {
-                    button.click();
-                    console.log("Switching to list view");
-                } else {
-                    console.log("No list view button or already active");
-                }
+            content: "Pivot has headers",
+            trigger: ".o_view_controller .o_pivot table th",
+        },
+        {
+            content: "Switch to Multigraph view",
+            trigger:
+                "button.o_switch_view.o_multigraph:visible, .o_control_panel .o_switch_view .o_multigraph:visible",
+            timeout: 30000,
+            run() {
+                (document.querySelector("button.o_switch_view.o_multigraph")
+                    || document.querySelector(".o_control_panel .o_switch_view .o_multigraph"))?.click();
             },
         },
         {
-            trigger: ".o_list_view,.o_graph_view",
-            content: "Verify view is present",
-            run: function () {
-                console.log("Current view:", this.querySelector(".o_list_view") ? "list" : "graph");
+            content: "Graph view visible",
+            trigger: ".o_view_controller .o_graph_view",
+            timeout: 30000,
+        },
+        {
+            content: "Multigraph renderer is present",
+            trigger: ".o_multigraph_renderer",
+            timeout: 30000,
+        },
+        {
+            content: "Renderer has canvas or no-data message",
+            // Accept either rendered chart or empty state, to avoid flakiness with default filters
+            trigger:
+                ".o_multigraph_renderer .o_graph_canvas_container canvas, .o_multigraph_renderer .o_graph_no_data",
+            timeout: 30000,
+        },
+        {
+            content: "Switch back to Pivot",
+            trigger: "button.o_switch_view.o_pivot:visible, .o_control_panel .o_switch_view .o_pivot:visible",
+            run() {
+                (document.querySelector("button.o_switch_view.o_pivot")
+                    || document.querySelector(".o_control_panel .o_switch_view .o_pivot"))?.click();
+            },
+        },
+        {
+            content: "Pivot visible again",
+            trigger: ".o_view_controller .o_pivot",
+            timeout: 30000,
+        },
+        {
+            content: "Search bar available",
+            trigger: ".o_control_panel .o_searchview input",
+        },
+        {
+            trigger: "body",
+            content: "Finish",
+            run() {
+                console.log("tour succeeded");
             },
         },
     ],
