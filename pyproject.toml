@@ -41,7 +41,6 @@ packages = []
 
 [tool.uv]
 managed = false
-no-sync = true
 
 [tool.ruff]
 line-length = 133
