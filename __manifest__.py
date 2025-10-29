@@ -26,6 +26,7 @@
         "base_geolocalize",
         "external_ids",
         "hr_employee_name_extended",
+        "discuss_record_links",
     ],
     "summary": "Connect to product sources and manage motor parts inventory with Shopify integration",
     "description": """
