@@ -44,7 +44,7 @@ class TestMultigraphView(UnitTestCase):
             {
                 "name": "Test MultiGraph Action",
                 "res_model": "product.template",
-                "view_mode": "graph,tree,form",
+                "view_mode": "graph,list,form",
             }
         )
 
