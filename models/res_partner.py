@@ -2,7 +2,9 @@ from odoo import api, fields, models
 
 
 class ResPartner(models.Model):
+    _name = "res.partner"
     _inherit = "res.partner"
+    _description = "Partner"
 
     ebay_username = fields.Char(string="eBay Username", copy=False)
     shopify_customer_id = fields.Char(string="Shopify Customer ID", copy=False)
