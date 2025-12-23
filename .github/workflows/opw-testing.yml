@@ -1,9 +1,6 @@
 name: Deploy to Testing
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - testing
 
 jobs:
   deploy:

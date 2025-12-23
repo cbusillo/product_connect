@@ -21,7 +21,8 @@ class ProductTemplate(models.Model):
     ]
 
     source = fields.Selection(
-        [("import", "Import Product"), ("motor", "Motor Product"), ("shopify", "Shopify Product"), ("standard", "Standard Product")],
+        [("import", "Import Product"), ("motor", "Motor Product"), ("shopify", "Shopify Product"),
+         ("standard", "Standard Product")],
         default="standard",
         required=False,
         index=True,
@@ -30,7 +31,8 @@ class ProductTemplate(models.Model):
     SKU_PATTERN = re.compile(r"^\d{4,8}$")
 
     is_ready_for_sale = fields.Boolean(tracking=True, index=True, default=True)
-    is_ready_for_sale_last_enabled_date = fields.Datetime(index=True, help="Timestamp when this product was last enabled for sale")
+    is_ready_for_sale_last_enabled_date = fields.Datetime(index=True,
+                                                          help="Timestamp when this product was last enabled for sale")
     name_with_tags_length = fields.Integer(compute="_compute_name_with_tags_length")
 
     motor = fields.Many2one("motor", ondelete="restrict", readonly=True, index=True)
@@ -40,7 +42,7 @@ class ProductTemplate(models.Model):
         string="Cost",
         tracking=True,
         help="Cost that was paid for the product, normally calculated from the motor cost.  Must be at least $0.01 for "
-        "enabling motor products.",
+             "enabling motor products.",
     )
     initial_cost_total = fields.Float(compute="_compute_initial_cost_total", store=True)
     list_price = fields.Float(string="Price", tracking=True, default=0)
@@ -56,11 +58,7 @@ class ProductTemplate(models.Model):
     mpn = fields.Char(string="MPN", index=True)
     first_mpn = fields.Char(compute="_compute_first_mpn", store=True)
     manufacturer = fields.Many2one("product.manufacturer", index=True)
-    vendor_id = fields.Many2one(
-        "res.partner",
-        string="Vendor",
-        domain=[("supplier_rank", ">", 0)],
-    )
+    vendor = fields.Many2one("res.partner", domain=[("supplier_rank", ">", 0)], )
     part_type = fields.Many2one("product.type", index=True)
     part_type_name = fields.Char(related="part_type.name", store=True, index=True, string="Part Type Name")
 
@@ -82,7 +80,8 @@ class ProductTemplate(models.Model):
     motor_product_computed_name = fields.Char(compute="_compute_motor_product_computed_name", store=True)
     is_qty_listing = fields.Boolean(related="motor_product_template.is_quantity_listing")
 
-    reference_product = fields.Many2one("product.template", compute="_compute_reference_product", store=True, index=True)
+    reference_product = fields.Many2one("product.template", compute="_compute_reference_product", store=True,
+                                        index=True)
 
     dismantle_notes = fields.Text()
     template_name_with_dismantle_notes = fields.Char(compute="_compute_template_name_with_dismantle_notes", store=False)
@@ -122,7 +121,8 @@ class ProductTemplate(models.Model):
         store=True,
     )
     shopify_product_url = fields.Char(compute="_compute_shopify_urls", store=True, string="Shopify Product Link")
-    shopify_product_admin_url = fields.Char(compute="_compute_shopify_urls", store=True, string="Shopify Product Admin Link")
+    shopify_product_admin_url = fields.Char(compute="_compute_shopify_urls", store=True,
+                                            string="Shopify Product Admin Link")
 
     @api.model
     def default_get(self, fields_list: list[str]) -> dict[str, Any]:
@@ -137,14 +137,14 @@ class ProductTemplate(models.Model):
     # noinspection PyShadowingNames
     @api.model
     def read_group(
-        self,
-        domain: list,
-        fields: list,
-        groupby: str | list[str],
-        offset: int = 0,
-        limit: int | None = None,
-        orderby: str | None = "",
-        lazy: bool = True,
+            self,
+            domain: list,
+            fields: list,
+            groupby: str | list[str],
+            offset: int = 0,
+            limit: int | None = None,
+            orderby: str | None = "",
+            lazy: bool = True,
     ) -> list[dict[str, Any]]:
         groups = super().read_group(domain, fields, groupby, offset=offset, limit=limit, orderby=orderby, lazy=lazy)
         fields_to_sum_with_qty = {"list_price", "standard_price"}
@@ -156,7 +156,8 @@ class ProductTemplate(models.Model):
                     product["list_price"] * product["initial_quantity"] for product in self.search(group["__domain"])
                 )
                 group["standard_price"] = sum(
-                    product["standard_price"] * product["initial_quantity"] for product in self.search(group["__domain"])
+                    product["standard_price"] * product["initial_quantity"] for product in
+                    self.search(group["__domain"])
                 )
 
         return groups
@@ -191,7 +192,8 @@ class ProductTemplate(models.Model):
         if self.env.context.get("skip_shopify_sync"):
             return products
 
-        if consumable_products := products.filtered(lambda p: p.type == "consu" and p.is_ready_for_sale and p.is_published):
+        if consumable_products := products.filtered(
+                lambda p: p.type == "consu" and p.is_ready_for_sale and p.is_published):
             variant_ids = consumable_products.mapped("product_variant_ids").ids
             self.env["shopify.sync"].create_and_run_async(
                 {"mode": SyncMode.EXPORT_BATCH_PRODUCTS, "odoo_products_to_sync": [(6, 0, variant_ids)]}
@@ -280,9 +282,9 @@ class ProductTemplate(models.Model):
 
         if not self.env.context.get("skip_shopify_sync"):
             if (
-                variant_ids := self.filtered(lambda p: p.type == "consu" and p.is_ready_for_sale and p.is_published)
-                .mapped("product_variant_ids")
-                .ids
+                    variant_ids := self.filtered(lambda p: p.type == "consu" and p.is_ready_for_sale and p.is_published)
+                            .mapped("product_variant_ids")
+                            .ids
             ):
                 commands = [(4, vid) for vid in variant_ids]
                 self.env["shopify.sync"].create_and_run_async(
@@ -436,7 +438,8 @@ class ProductTemplate(models.Model):
             # sometimes sudo or with_context trigger even though they are correct.
             # noinspection PyUnresolvedReferences
             if not (
-                self.env["product.template"].sudo().with_context(active_test=False).search([("default_code", "=", new_sku)], limit=1)
+                    self.env["product.template"].sudo().with_context(active_test=False).search(
+                        [("default_code", "=", new_sku)], limit=1)
             ):
                 return new_sku
             new_sku = sequence_model.next_by_code("product.template.default_code")
@@ -519,7 +522,8 @@ class ProductTemplate(models.Model):
         for product in self:
             existing_products = product.find_new_products_with_same_mpn()
             if existing_products:
-                raise UserError(f"Product(s) with the same MPN already exist: {', '.join(existing_products.mapped('default_code'))}")
+                raise UserError(
+                    f"Product(s) with the same MPN already exist: {', '.join(existing_products.mapped('default_code'))}")
 
     @api.model
     def _check_fields_and_images(self, product: "odoo.model.product_template") -> list[str]:
@@ -572,7 +576,8 @@ class ProductTemplate(models.Model):
         for product in products:
             missing_fields = self._check_fields_and_images(product)
             if missing_fields:
-                missing_fields_display = ", ".join(self._fields[f].string if "image" not in f.lower() else f for f in missing_fields)
+                missing_fields_display = ", ".join(
+                    self._fields[f].string if "image" not in f.lower() else f for f in missing_fields)
                 product.message_post(
                     body=f"Missing data: {missing_fields_display}",
                     subject="Import Error",
@@ -602,7 +607,7 @@ class ProductTemplate(models.Model):
         )
 
     def print_product_labels(
-        self, use_available_qty: bool = False, quantity_to_print: int = 1, printer_job_type: str = "product_label"
+            self, use_available_qty: bool = False, quantity_to_print: int = 1, printer_job_type: str = "product_label"
     ) -> None:
         labels = []
         for product in self:
@@ -648,7 +653,8 @@ class ProductTemplate(models.Model):
                 {"title": "Import Warning", "message": message, "sticky": False},
             )
 
-        ready_to_enable_products.filtered(lambda p: p.condition and p.condition.name == "new").check_for_conflicting_products()
+        ready_to_enable_products.filtered(
+            lambda p: p.condition and p.condition.name == "new").check_for_conflicting_products()
 
         for product in ready_to_enable_products:
             website_description = product.replace_template_tags(product.website_description or "")
@@ -720,7 +726,8 @@ class ProductTemplate(models.Model):
             name_parts = [
                 product.motor.year if product.motor_product_template.include_year_in_name else None,
                 product.motor.manufacturer.name if product.motor.manufacturer else None,
-                (product.motor.get_horsepower_formatted() if product.motor_product_template.include_hp_in_name else None),
+                (
+                    product.motor.get_horsepower_formatted() if product.motor_product_template.include_hp_in_name else None),
                 product.motor.stroke.name,
                 "Outboard",
                 product.motor_product_template.name,
@@ -814,7 +821,8 @@ class ProductTemplate(models.Model):
         company_partner_id = self.env.company.partner_id.id
         note = f"Tech Result '{self.tech_result.name}'<br/>" if self.tech_result else ""
         for test in self.motor.tests:
-            relevant_conditions = self.motor_product_template.repair_by_tests.filtered(lambda c: c.conditional_test == test.template)
+            relevant_conditions = self.motor_product_template.repair_by_tests.filtered(
+                lambda c: c.conditional_test == test.template)
             for condition in relevant_conditions:
                 if condition.is_condition_met(test.computed_result):
                     note += f"Test '{test.name}' failed: {test.computed_result}</br>"
