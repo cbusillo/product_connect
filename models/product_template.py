@@ -56,6 +56,11 @@ class ProductTemplate(models.Model):
     mpn = fields.Char(string="MPN", index=True)
     first_mpn = fields.Char(compute="_compute_first_mpn", store=True)
     manufacturer = fields.Many2one("product.manufacturer", index=True)
+    vendor_id = fields.Many2one(
+        "res.partner",
+        string="Vendor",
+        domain=[("supplier_rank", ">", 0)],
+    )
     part_type = fields.Many2one("product.type", index=True)
     part_type_name = fields.Char(related="part_type.name", store=True, index=True, string="Part Type Name")
 

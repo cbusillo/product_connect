@@ -17,6 +17,7 @@
                 <field name="image_count" column_invisible="1"/>
                 <field name="condition" optional="show"/>
                 <field name="manufacturer" options="{'no_create': True}"/>
+                <field name="vendor_id" optional="show"/>
                 <field name="mpn" widget="search_mpn_online"/>
                 <field name="initial_quantity" sum="Total Quantity" widget="integer"/>
                 <field name="bin"/>
@@ -60,6 +61,7 @@
                                     <field name="condition"/>
                                     <field name="mpn"/>
                                     <field name="manufacturer" options="{'no_create': True}"/>
+                                    <field name="vendor_id"/>
                                     <field name="initial_quantity" widget="integer"/>
                                     <field name="bin"/>
                                     <field name="list_price"/>
@@ -105,6 +107,7 @@
                 <field name="name"/>
                 <field name="default_code"/>
                 <field name="bin"/>
+                <field name="vendor_id"/>
             </search>
 
         </field>
@@ -129,4 +132,3 @@
               parent="stock.menu_stock_inventory_control" sequence="10"
               groups="base.group_user"/>
 </odoo>
-
